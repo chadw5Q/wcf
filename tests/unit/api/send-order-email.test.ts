@@ -102,11 +102,17 @@ describe('POST /api/send-order-email', () => {
       }),
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(200);
-    expect(mockSend).toHaveBeenCalledTimes(1);
-    const call = mockSend.mock.calls[0][0];
-    expect(call.to).toContain('owner@test.com');
-    expect(call.replyTo).toBe('test@example.com');
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    const ownerCall = mockSend.mock.calls[0][0];
+    expect(ownerCall.to).toContain('owner@test.com');
+    expect(ownerCall.replyTo).toBe('test@example.com');
+    const customerCall = mockSend.mock.calls[1][0];
+    expect(customerCall.to).toContain('test@example.com');
+    expect(customerCall.replyTo).toBe('owner@test.com');
+    expect(String(customerCall.html)).toContain('cal.com/chad-williams-donsre/hedge-pickup');
+    expect(String(customerCall.html)).toContain('712-254-3999');
     const json = await res.json();
     expect(json.success).toBe(true);
+    expect(json.customerEmailId).toBeDefined();
   });
 });

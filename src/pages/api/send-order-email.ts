@@ -7,7 +7,7 @@ const PRICES = {
   premiumCorner: 40,
   premiumExtraLong: 60,
   regularLine: 10,
-  regularCorner: 25,
+  regularCorner: 20,
   bowStave: 125,
 } as const;
 
@@ -36,6 +36,45 @@ function computeOrderTotals(quantities: Record<string, unknown>) {
   const finalTotal = subtotal - discountAmount;
 
   return { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal };
+}
+
+const PICKUP_SCHEDULE_URL = 'https://cal.com/chad-williams-donsre/hedge-pickup';
+
+function escapeHtmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function buildCustomerThankYouHtml(firstName: string, isDeposit: boolean): string {
+  const nameEsc = escapeHtmlText(firstName.trim() || 'there');
+  const intro = isDeposit
+    ? `<p>Hi ${nameEsc},</p>
+      <p>Once your <strong>deposit payment</strong> succeeds, your order is confirmed! Please choose your delivery day and time at this link:</p>`
+    : `<p>Hi ${nameEsc},</p>
+      <p><strong>Your order is confirmed!</strong> Please choose your delivery day and time at this link:</p>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .content { padding: 20px; max-width: 560px; }
+    a { color: #15803d; }
+  </style>
+</head>
+<body>
+  <div class="content">
+    ${intro}
+    <p><a href="${PICKUP_SCHEDULE_URL}">${PICKUP_SCHEDULE_URL}</a></p>
+    <p>Need a different day? Text Chad at <a href="tel:+17122543999">712-254-3999</a>.</p>
+    <p style="margin-top:24px;color:#666;font-size:0.9em;">— Southwest Iowa Hedge</p>
+  </div>
+</body>
+</html>`;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -123,7 +162,7 @@ export const POST: APIRoute = async ({ request }) => {
       }
       if (q.regularCorner > 0) {
         items.push(
-          `• Regular Corner Posts: ${q.regularCorner} @ $25 each = $${(q.regularCorner * 25).toFixed(2)}`
+          `• Regular Corner Posts: ${q.regularCorner} @ $${PRICES.regularCorner} each = $${(q.regularCorner * PRICES.regularCorner).toFixed(2)}`
         );
       }
       if (q.bowStave > 0) {
@@ -244,12 +283,45 @@ export const POST: APIRoute = async ({ request }) => {
       );
     }
 
-    console.log('Order email sent:', emailData.data?.id);
-
-    return new Response(JSON.stringify({ success: true, emailId: emailData.data?.id }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
+    const customerThankYou = await resend.emails.send({
+      from: fromAddress,
+      to: [customerInfo.email],
+      replyTo: notifyTo,
+      subject: isDeposit
+        ? 'Next step: deposit & schedule your pickup — Southwest Iowa Hedge'
+        : 'Your order is confirmed — Southwest Iowa Hedge',
+      html: buildCustomerThankYouHtml(String(customerInfo.firstName || ''), isDeposit),
     });
+
+    if (customerThankYou.error) {
+      console.error('Resend customer confirmation error:', customerThankYou.error);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to send confirmation email',
+          details: customerThankYou.error.message || String(customerThankYou.error),
+        }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(
+      'Order emails sent:',
+      emailData.data?.id,
+      'customer:',
+      customerThankYou.data?.id
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        emailId: emailData.data?.id,
+        customerEmailId: customerThankYou.data?.id,
+      }),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('Error sending order email:', error);

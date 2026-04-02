@@ -51,7 +51,7 @@ export const homeProductSchemas = [
     '@type': 'Product',
     name: 'Regular Line Hedge Posts (9 ft)',
     description:
-      'Regular Osage Orange line posts, 3–6 inch diameter, curvy or smaller, 9 feet long.',
+      'Regular Osage Orange line posts, 3–6 inch diameter, curvy, smaller or cut last year, 9 feet long.',
     image: `${SITE}/images/hedge-posts.jpg`,
     brand: { '@type': 'Brand', name: 'Southwest Iowa Hedge' },
     offers: {
@@ -66,12 +66,12 @@ export const homeProductSchemas = [
     '@type': 'Product',
     name: 'Regular Corner Hedge Posts (9 ft)',
     description:
-      'Regular Osage Orange corner posts, 8–14 inch diameter, curvy, 9 feet long.',
+      'Regular Osage Orange corner posts, 8–14 inch diameter, curvy or last cut last year, 9 feet long.',
     image: `${SITE}/images/hedge-posts.jpg`,
     brand: { '@type': 'Brand', name: 'Southwest Iowa Hedge' },
     offers: {
       '@type': 'Offer',
-      price: '25',
+      price: '20',
       priceCurrency: 'USD',
       availability: 'https://schema.org/InStock',
       url: `${SITE}/order-now`,
