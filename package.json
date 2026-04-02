@@ -6,6 +6,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "deploy": "astro build && wrangler deploy",
     "astro": "astro"
   },
   "dependencies": {
@@ -19,5 +20,9 @@
     "resend": "^6.0.1",
     "stripe": "^18.4.0",
     "tailwindcss": "^4.1.11"
+  },
+  "devDependencies": {
+    "@astrojs/cloudflare": "^12.6.13",
+    "wrangler": "^4.79.0"
   }
 }
