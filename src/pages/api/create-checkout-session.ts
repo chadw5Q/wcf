@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
 import { getServerEnv } from '../../lib/server-env';
+import { publishNtfyNotification } from '../../lib/ntfy';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -36,6 +37,14 @@ export const POST: APIRoute = async ({ request }) => {
     }));
 
     const session = await createCheckoutSession(validatedItems);
+
+    const lines = validatedItems
+      .map((i) => `• ${i.name} × ${i.quantity} @ $${i.price}`)
+      .join('\n');
+    await publishNtfyNotification({
+      title: 'Hedge posts: cart checkout started',
+      message: `Stripe session: ${session.id}\n${lines}`,
+    });
 
     return new Response(JSON.stringify({ sessionId: session.id, url: session.url }), {
       status: 200,

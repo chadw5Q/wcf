@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
 import { getServerEnv } from '../../lib/server-env';
+import { publishNtfyNotification } from '../../lib/ntfy';
 
 const PRICES = {
   premiumLine: 25,
@@ -205,8 +206,6 @@ export const POST: APIRoute = async ({ request }) => {
       <p><strong>Name:</strong> ${customerInfo.firstName} ${customerInfo.lastName}</p>
       <p><strong>Email:</strong> ${customerInfo.email}</p>
       <p><strong>Phone:</strong> ${customerInfo.phone || '—'}</p>
-      <p><strong>Address:</strong> ${customerInfo.address || '—'}</p>
-      <p><strong>City / State / ZIP:</strong> ${customerInfo.city || '—'}, ${customerInfo.state || '—'} ${customerInfo.zipCode || ''}</p>
     </div>
 
     <div class="order-details">
@@ -288,7 +287,7 @@ export const POST: APIRoute = async ({ request }) => {
       to: [customerInfo.email],
       replyTo: notifyTo,
       subject: isDeposit
-        ? 'Next step: deposit & schedule your pickup — Southwest Iowa Hedge'
+        ? 'Next step: Schedule your pickup — Southwest Iowa Hedge'
         : 'Your order is confirmed — Southwest Iowa Hedge',
       html: buildCustomerThankYouHtml(String(customerInfo.firstName || ''), isDeposit),
     });
@@ -310,6 +309,18 @@ export const POST: APIRoute = async ({ request }) => {
       'customer:',
       customerThankYou.data?.id
     );
+
+    const customerName =
+      `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim() || 'Customer';
+    const ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
+    const ntfyMessage = [
+      isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
+      `Order total: $${finalTotal.toFixed(2)}`,
+      ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
+      `Email: ${customerInfo.email}`,
+      `Phone: ${customerInfo.phone || '—'}`,
+    ].join('\n');
+    await publishNtfyNotification({ title: ntfyTitle, message: ntfyMessage });
 
     return new Response(
       JSON.stringify({

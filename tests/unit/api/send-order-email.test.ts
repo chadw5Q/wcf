@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockSend = vi.fn();
 
@@ -41,12 +41,26 @@ function jsonRequest(body: unknown) {
 
 describe('POST /api/send-order-email', () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(''),
+        } as Response)
+      )
+    );
     vi.mocked(getServerEnv).mockImplementation((key: string) => {
       if (key === 'RESEND_API_KEY') return 're_test_key';
       if (key === 'ORDER_NOTIFICATION_EMAIL') return 'owner@test.com';
       return undefined;
     });
     mockSend.mockResolvedValue({ data: { id: 'email_1' }, error: null });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('returns 503 when RESEND_API_KEY is missing', async () => {
@@ -114,5 +128,10 @@ describe('POST /api/send-order-email', () => {
     const json = await res.json();
     expect(json.success).toBe(true);
     expect(json.customerEmailId).toBeDefined();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    const ntfyCall = vi.mocked(globalThis.fetch).mock.calls.find(
+      (c) => typeof c[0] === 'string' && String(c[0]).includes('ntfy.sh')
+    );
+    expect(ntfyCall).toBeDefined();
   });
 });

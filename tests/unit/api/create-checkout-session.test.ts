@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../../../src/lib/server-env', () => ({
   getServerEnv: vi.fn(),
@@ -24,6 +24,16 @@ function jsonRequest(body: unknown) {
 
 describe('POST /api/create-checkout-session', () => {
   beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(''),
+        } as Response)
+      )
+    );
     vi.mocked(getServerEnv).mockImplementation((key: string) =>
       key === 'STRIPE_SECRET_KEY' ? 'sk_test_fake' : undefined
     );
@@ -31,6 +41,10 @@ describe('POST /api/create-checkout-session', () => {
       id: 'cs_cart_1',
       url: 'https://checkout.stripe.test/c/cart',
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('returns 503 when STRIPE_SECRET_KEY is missing', async () => {
@@ -60,5 +74,10 @@ describe('POST /api/create-checkout-session', () => {
     const body = await res.json();
     expect(body.url).toBeDefined();
     expect(createCheckoutSession).toHaveBeenCalled();
+    expect(globalThis.fetch).toHaveBeenCalled();
+    const ntfyCall = vi.mocked(globalThis.fetch).mock.calls.find(
+      (c) => typeof c[0] === 'string' && String(c[0]).includes('ntfy.sh')
+    );
+    expect(ntfyCall).toBeDefined();
   });
 });
