@@ -1,8 +1,20 @@
 import type { APIRoute } from 'astro';
-import { createCheckoutSession } from '../../lib/stripe';
+import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
+import { getServerEnv } from '../../lib/server-env';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
+    if (!getServerEnv('STRIPE_SECRET_KEY')) {
+      return new Response(
+        JSON.stringify({
+          error: 'Payment is not configured',
+          details:
+            'STRIPE_SECRET_KEY is missing. Set it with wrangler secret put or in the Cloudflare dashboard.',
+        }),
+        { status: 503, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const body = await request.json();
     const { items } = body;
 
@@ -33,11 +45,15 @@ export const POST: APIRoute = async ({ request }) => {
     });
   } catch (error) {
     console.error('Error in checkout session creation:', error);
-    return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to create checkout session',
+        details: stripeErrorMessage(error),
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 }; 

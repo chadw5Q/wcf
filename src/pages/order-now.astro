@@ -632,7 +632,7 @@ import Layout from '../layouts/Layout.astro';
             }),
           });
 
-          const result = await response.json();
+          const result = await response.json().catch(() => ({}));
 
           if (response.ok && result.url) {
             const emailRes = await fetch('/api/send-order-email', {
@@ -662,16 +662,21 @@ import Layout from '../layouts/Layout.astro';
             // Redirect to Stripe Checkout
             window.location.href = result.url;
           } else {
-            throw new Error(result.error || 'Payment setup failed');
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
+            const detail = result.details || result.error || `Server returned ${response.status}.`;
+            alert(`${detail}\n\nIf this keeps happening, call 712-254-3999.`);
           }
         } catch (error) {
           console.error('Payment error:', error);
-          alert('There was an error setting up your payment. Please try again or contact us directly.');
-          
-          // Reset button state
           const submitButton = this.querySelector('button[type="submit"]');
           submitButton.textContent = originalText;
           submitButton.disabled = false;
+          alert(
+            error instanceof Error && error.message
+              ? `${error.message}\n\nIf this keeps happening, call 712-254-3999.`
+              : 'Network error while setting up payment. Check your connection and try again, or call 712-254-3999.'
+          );
         }
       } else {
         // No deposit - just submit order inquiry

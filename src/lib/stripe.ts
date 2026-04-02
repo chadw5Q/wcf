@@ -1,71 +1,76 @@
 import Stripe from 'stripe';
 import { getServerEnv } from './server-env';
 
-// Initialize Stripe with your secret key (.env locally, Wrangler secret in production)
-const stripe = new Stripe(getServerEnv('STRIPE_SECRET_KEY') || 'sk_test_your_test_key_here', {
-  apiVersion: '2024-12-18.acacia',
-});
+const API_VERSION = '2024-12-18.acacia' as const;
 
-export default stripe;
+let cached: Stripe | null = null;
 
-// Helper function to create a checkout session
-export async function createCheckoutSession(items: Array<{
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-}>) {
-  try {
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: items.map(item => ({
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: item.name,
-          },
-          unit_amount: item.price * 100, // Convert to cents
+/** Throws if STRIPE_SECRET_KEY is missing (configure .env locally or Wrangler secret in production). */
+export function getStripe(): Stripe {
+  const key = getServerEnv('STRIPE_SECRET_KEY');
+  if (!key?.trim()) {
+    throw new Error('STRIPE_SECRET_KEY is not configured');
+  }
+  if (!cached) {
+    cached = new Stripe(key, { apiVersion: API_VERSION });
+  }
+  return cached;
+}
+
+export async function createCheckoutSession(
+  items: Array<{
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+  }>
+) {
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
+    payment_method_types: ['card'],
+    line_items: items.map((item) => ({
+      price_data: {
+        currency: 'usd',
+        product_data: {
+          name: item.name,
         },
-        quantity: item.quantity,
-      })),
-      mode: 'payment',
-      success_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/order-now`,
-      metadata: {
-        items: JSON.stringify(items),
+        unit_amount: Math.round(item.price * 100),
       },
-    });
+      quantity: item.quantity,
+    })),
+    mode: 'payment',
+    success_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/order-now`,
+    metadata: {
+      items: JSON.stringify(items),
+    },
+  });
 
-    return session;
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    throw error;
-  }
+  return session;
 }
 
-// Helper function to retrieve a checkout session
 export async function getCheckoutSession(sessionId: string) {
-  try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    return session;
-  } catch (error) {
-    console.error('Error retrieving checkout session:', error);
-    throw error;
-  }
+  const stripe = getStripe();
+  return stripe.checkout.sessions.retrieve(sessionId);
 }
 
-// Helper function to create a payment intent (for custom checkout)
-export async function createPaymentIntent(amount: number, metadata: any = {}) {
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount * 100, // Convert to cents
-      currency: 'usd',
-      metadata,
-    });
+export async function createPaymentIntent(amount: number, metadata: Record<string, string> = {}) {
+  const stripe = getStripe();
+  return stripe.paymentIntents.create({
+    amount: Math.round(amount * 100),
+    currency: 'usd',
+    metadata,
+  });
+}
 
-    return paymentIntent;
-  } catch (error) {
-    console.error('Error creating payment intent:', error);
-    throw error;
+function stripeErrorMessage(error: unknown): string {
+  if (error instanceof Stripe.errors.StripeError) {
+    return error.message;
   }
-} 
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+export { stripeErrorMessage };

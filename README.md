@@ -124,13 +124,15 @@ npx wrangler secret put ORDER_NOTIFICATION_EMAIL
 # inbox for order notifications (optional; code has a default)
 ```
 
-**Deposit / Stripe checkout** additionally needs:
+**Required for “10% deposit” + Stripe Checkout** (without this, deposit payments return an error):
 
 ```bash
 npx wrangler secret put STRIPE_SECRET_KEY
 ```
 
-`SITE_URL` for Stripe redirect URLs is set in `wrangler.jsonc` → `vars` (currently `https://williamscreekfarms.com`). Change it there if your live URL differs.
+Use your **live** secret key (`sk_live_…`) for production; test keys only work in dev. Order inquiries without a deposit do not need Stripe.
+
+`SITE_URL` for Stripe success/cancel redirects is in `wrangler.jsonc` → `vars` (currently `https://williamscreekfarms.com`).
 
 You can also add secrets in the [Cloudflare dashboard](https://dash.cloudflare.com) → Workers & Pages → your worker → Settings → Variables and secrets.
 
