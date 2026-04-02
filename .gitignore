@@ -26,3 +26,7 @@ pnpm-debug.log*
 
 # Cloudflare Wrangler local state
 .wrangler/
+
+# Playwright
+playwright-report/
+test-results/

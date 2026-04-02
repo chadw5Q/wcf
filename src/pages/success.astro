@@ -3,6 +3,12 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import { getCheckoutSession } from '../lib/stripe';
 
+function formatUsd(value: string | undefined | null): string {
+  if (value == null || String(value).trim() === '') return 'N/A';
+  const n = Number.parseFloat(String(value));
+  return Number.isFinite(n) ? n.toFixed(2) : 'N/A';
+}
+
 // Get session ID from URL params
 const sessionId = Astro.url.searchParams.get('session_id');
 let session = null;
@@ -66,11 +72,11 @@ const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
                 {isDeposit && (
                   <>
                     <p class="text-gray-600 mb-4">
-                      <strong>Order Total:</strong> ${session.metadata?.order_total || 'N/A'}
+                      <strong>Order Total:</strong> ${formatUsd(session.metadata?.order_total)}
                     </p>
                     <p class="text-gray-600 mb-4">
                       <strong>Deposit Paid:</strong> 
-                      <span class="text-green-600 font-semibold">${session.metadata?.deposit_amount || 'N/A'}</span>
+                      <span class="text-green-600 font-semibold">${formatUsd(session.metadata?.deposit_amount)}</span>
                     </p>
                     <p class="text-gray-600 mb-4">
                       <strong>Remaining Balance:</strong> ${(parseFloat(session.metadata?.order_total || '0') - parseFloat(session.metadata?.deposit_amount || '0')).toFixed(2)}
