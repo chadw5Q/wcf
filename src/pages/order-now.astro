@@ -653,8 +653,8 @@ import Layout from '../layouts/Layout.astro';
               submitButton.disabled = false;
               alert(
                 emailJson.error || emailJson.details
-                  ? `We could not email your order: ${emailJson.details || emailJson.error}. Please try again or call 712-254-3999.`
-                  : 'We could not email your order. Please try again or call 712-254-3999.'
+                  ? `We could not email your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
+                  : 'We could not email your order.\n\nPlease text us at 712-254-3999.'
               );
               return;
             }
@@ -665,7 +665,7 @@ import Layout from '../layouts/Layout.astro';
             submitButton.textContent = originalText;
             submitButton.disabled = false;
             const detail = result.details || result.error || `Server returned ${response.status}.`;
-            alert(`${detail}\n\nIf this keeps happening, call 712-254-3999.`);
+            alert(`${detail}\n\nPlease text us at 712-254-3999.`);
           }
         } catch (error) {
           console.error('Payment error:', error);
@@ -674,8 +674,8 @@ import Layout from '../layouts/Layout.astro';
           submitButton.disabled = false;
           alert(
             error instanceof Error && error.message
-              ? `${error.message}\n\nIf this keeps happening, call 712-254-3999.`
-              : 'Network error while setting up payment. Check your connection and try again, or call 712-254-3999.'
+              ? `${error.message}\n\nPlease text us at 712-254-3999.`
+              : 'Network error while setting up payment. Check your connection and try again.\n\nPlease text us at 712-254-3999.'
           );
         }
       } else {
@@ -716,8 +716,8 @@ import Layout from '../layouts/Layout.astro';
         if (!emailRes.ok) {
           alert(
             emailJson.error || emailJson.details
-              ? `We could not send your order: ${emailJson.details || emailJson.error}. Please try again or call 712-254-3999.`
-              : 'We could not send your order. Please try again or call 712-254-3999.'
+              ? `We could not send your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
+              : 'We could not send your order.\n\nPlease text us at 712-254-3999.'
           );
           return;
         }

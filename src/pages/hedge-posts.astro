@@ -269,7 +269,7 @@ const categories = ["all", "evergreen", "deciduous", "flowering"];
         const data = await response.json();
         
         if (data.error) {
-          alert('Error creating checkout session: ' + data.error);
+          alert('Error creating checkout session: ' + data.error + '\n\nPlease text us at 712-254-3999.');
           return;
         }
         
@@ -277,7 +277,7 @@ const categories = ["all", "evergreen", "deciduous", "flowering"];
         window.location.href = data.url;
       } catch (error) {
         console.error('Error:', error);
-        alert('Error processing checkout. Please try again.');
+        alert('Error processing checkout. Please try again.\n\nPlease text us at 712-254-3999.');
       }
     });
   </script>
