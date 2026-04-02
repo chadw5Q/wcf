@@ -105,6 +105,35 @@ export default defineConfig({
 
 ## Deployment
 
+### Cloudflare Workers (this repo)
+
+Deploy with `npm run deploy` (build + `wrangler deploy`). **API routes do not read your local `.env`** — set production configuration in Wrangler.
+
+**Required secret for order emails** (order form → `/api/send-order-email`):
+
+```bash
+npx wrangler secret put RESEND_API_KEY
+```
+
+Paste your Resend API key when prompted. Also verify your sending domain at [resend.com/domains](https://resend.com/domains), then optionally set:
+
+```bash
+npx wrangler secret put RESEND_FROM
+# e.g. Southwest Iowa Hedge <orders@williamscreekfarms.com>
+npx wrangler secret put ORDER_NOTIFICATION_EMAIL
+# inbox for order notifications (optional; code has a default)
+```
+
+**Deposit / Stripe checkout** additionally needs:
+
+```bash
+npx wrangler secret put STRIPE_SECRET_KEY
+```
+
+`SITE_URL` for Stripe redirect URLs is set in `wrangler.jsonc` → `vars` (currently `https://williamscreekfarms.com`). Change it there if your live URL differs.
+
+You can also add secrets in the [Cloudflare dashboard](https://dash.cloudflare.com) → Workers & Pages → your worker → Settings → Variables and secrets.
+
 ### Vercel (Recommended)
 
 1. Install Vercel CLI:

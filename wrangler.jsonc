@@ -5,5 +5,9 @@
   "main": "./dist/_worker.js/index.js",
   "assets": {
     "directory": "./dist"
+  },
+  // Non-secret config (available as env in the Worker). Secrets: use `wrangler secret put NAME`.
+  "vars": {
+    "SITE_URL": "https://williamscreekfarms.com"
   }
 }
