@@ -1,4 +1,4 @@
-# Southwest Iowa Hedge - Hedge Plant Website
+# Southwest Iowa Hedge - Hedge Post Website
 
 A modern, responsive website for Southwest Iowa Hedge built with Astro, featuring ecommerce functionality with Stripe integration and a content management system.
 
