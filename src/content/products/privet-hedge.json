@@ -1,0 +1,15 @@
+{
+  "id": 2,
+  "name": "Privet Hedge",
+  "description": "Fast-growing hedge ideal for creating quick privacy barriers. Grows 6-8 feet tall with glossy green leaves that turn yellow in fall.",
+  "price": 20,
+  "image": "🌿",
+  "category": "deciduous",
+  "height": "6-8 feet",
+  "sunlight": "Full sun",
+  "water": "Low to moderate",
+  "inStock": true,
+  "featured": true,
+  "careInstructions": "Prune in late winter. Tolerates drought once established.",
+  "growthRate": "Fast"
+} 

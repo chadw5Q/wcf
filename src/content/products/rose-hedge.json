@@ -1,0 +1,15 @@
+{
+  "id": 5,
+  "name": "Rose Hedge",
+  "description": "Beautiful flowering hedge with fragrant blooms. Grows 3-5 feet tall and provides seasonal color and fragrance.",
+  "price": 22,
+  "image": "🌹",
+  "category": "flowering",
+  "height": "3-5 feet",
+  "sunlight": "Full sun",
+  "water": "Moderate",
+  "inStock": true,
+  "featured": false,
+  "careInstructions": "Deadhead spent blooms. Prune in early spring.",
+  "growthRate": "Moderate"
+} 

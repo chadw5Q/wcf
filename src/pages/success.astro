@@ -1,0 +1,165 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { getCheckoutSession } from '../lib/stripe';
+
+// Get session ID from URL params
+const sessionId = Astro.url.searchParams.get('session_id');
+let session = null;
+let isDeposit = false;
+
+if (sessionId) {
+  try {
+    session = await getCheckoutSession(sessionId);
+    isDeposit = session.metadata?.type === 'deposit';
+  } catch (error) {
+    console.error('Error retrieving session:', error);
+  }
+}
+---
+
+<Layout title={isDeposit ? "Deposit Payment Successful - Southwest Iowa Hedge" : "Order Successful - Southwest Iowa Hedge"}>
+  <section class="section-padding bg-green-50">
+    <div class="max-w-4xl mx-auto text-center">
+      <div class="mb-8">
+        <div class="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          {isDeposit ? 'Deposit Payment Successful!' : 'Thank You for Your Order!'}
+        </h1>
+        <p class="text-xl text-gray-600 mb-8">
+          {isDeposit 
+            ? 'Your deposit has been processed and your order is now secured in our production queue.'
+            : 'Your order has been successfully placed. We\'ll be in touch soon with delivery details.'
+          }
+        </p>
+      </div>
+
+      <div class="card max-w-2xl mx-auto mb-8">
+        <h2 class="text-2xl font-semibold text-gray-900 mb-6">
+          {isDeposit ? 'Deposit Receipt' : 'Order Details'}
+        </h2>
+        {sessionId && (
+          <div class="text-left">
+            <p class="text-gray-600 mb-4">
+              <strong>Payment ID:</strong> {sessionId}
+            </p>
+            {session && (
+              <>
+                <p class="text-gray-600 mb-4">
+                  <strong>Customer:</strong> {session.metadata?.customer_name || 'N/A'}
+                </p>
+                {session.metadata?.customer_email && (
+                  <p class="text-gray-600 mb-4">
+                    <strong>Email:</strong> {session.metadata.customer_email}
+                  </p>
+                )}
+                {isDeposit && (
+                  <>
+                    <p class="text-gray-600 mb-4">
+                      <strong>Order Total:</strong> ${session.metadata?.order_total || 'N/A'}
+                    </p>
+                    <p class="text-gray-600 mb-4">
+                      <strong>Deposit Paid:</strong> 
+                      <span class="text-green-600 font-semibold">${session.metadata?.deposit_amount || 'N/A'}</span>
+                    </p>
+                    <p class="text-gray-600 mb-4">
+                      <strong>Remaining Balance:</strong> ${(parseFloat(session.metadata?.order_total || '0') - parseFloat(session.metadata?.deposit_amount || '0')).toFixed(2)}
+                    </p>
+                  </>
+                )}
+              </>
+            )}
+            <p class="text-gray-600 mb-4">
+              <strong>Status:</strong> 
+              <span class="text-green-600 font-semibold">
+                {isDeposit ? 'Deposit Confirmed - Order Secured' : 'Payment Confirmed'}
+              </span>
+            </p>
+          </div>
+        )}
+        
+        <div class={isDeposit ? "bg-blue-50 rounded-lg p-4 mt-6" : "bg-green-50 rounded-lg p-4 mt-6"}>
+          <h3 class={isDeposit ? "font-semibold text-blue-800 mb-2" : "font-semibold text-green-800 mb-2"}>
+            What's Next?
+          </h3>
+          <ul class={isDeposit ? "text-sm text-blue-700 space-y-1" : "text-sm text-green-700 space-y-1"}>
+            {isDeposit ? (
+              <>
+                <li>• Your order is now secured in our production queue</li>
+                <li>• You'll receive a confirmation email with payment receipt</li>
+                <li>• We'll contact you when your hedge posts are ready for pickup</li>
+                <li>• Remaining balance will be due at time of pickup</li>
+                <li>• We'll provide you with pickup scheduling and directions</li>
+              </>
+            ) : (
+              <>
+                <li>• You'll receive an order confirmation email shortly</li>
+                <li>• Our team will contact you within 24 hours to schedule pickup</li>
+                <li>• We'll provide pickup instructions and directions</li>
+                <li>• Payment will be due at time of pickup</li>
+              </>
+            )}
+          </ul>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
+        <a href="/" class="btn-primary">
+          Back to Home
+        </a>
+        <a href="/contact" class="btn-secondary">
+          Contact Us
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Installation Tips Section -->
+  <section class="section-padding bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          Hedge Post Installation Tips
+        </h2>
+        <p class="text-xl text-gray-600">
+          Get the most out of your hedge posts with these installation recommendations
+        </p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="card text-center">
+          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="text-3xl">🔨</span>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">Fresh Cut Advantage</h3>
+          <p class="text-gray-600">
+            Our fresh-cut posts accept nails and staples easily. Install within the first year for best results.
+          </p>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="text-3xl">📏</span>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">Proper Spacing</h3>
+          <p class="text-gray-600">
+            Space line posts 12-16 feet apart for optimal fence strength. Use corner posts at direction changes.
+          </p>
+        </div>
+        
+        <div class="card text-center">
+          <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span class="text-3xl">⚡</span>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">Long-Term Durability</h3>
+          <p class="text-gray-600">
+            Hedge posts naturally resist rot and insects. No chemical treatment needed - they'll last 50+ years.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout> 

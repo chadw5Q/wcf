@@ -1,0 +1,15 @@
+{
+  "id": 1,
+  "name": "Boxwood Hedge",
+  "description": "Classic evergreen hedge perfect for formal gardens and privacy screens. Grows 3-4 feet tall with dense, dark green foliage that maintains its color year-round.",
+  "price": 25,
+  "image": "🌳",
+  "category": "evergreen",
+  "height": "3-4 feet",
+  "sunlight": "Full sun to partial shade",
+  "water": "Moderate",
+  "inStock": true,
+  "featured": true,
+  "careInstructions": "Prune in late winter or early spring. Water regularly during first growing season.",
+  "growthRate": "Slow to moderate"
+} 

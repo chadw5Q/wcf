@@ -1,0 +1,270 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Contact Us - Southwest Iowa Hedge">
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-r from-green-600 to-green-700 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div class="text-center">
+        <h1 class="text-4xl md:text-5xl font-bold mb-6">
+          Get in Touch
+        </h1>
+        <p class="text-xl text-green-100 max-w-3xl mx-auto">
+          Ready to transform your landscape? Contact us for a free consultation 
+          and quote on your hedge project.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact Form and Info -->
+  <section class="section-padding bg-gray-50">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <!-- Contact Form -->
+        <div class="card">
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">Send us a Message</h2>
+          
+          <form id="contact-form" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label for="firstName" class="block text-sm font-medium text-gray-700 mb-2">
+                  First Name *
+                </label>
+                <input 
+                  type="text" 
+                  id="firstName" 
+                  name="firstName" 
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+              </div>
+              
+              <div>
+                <label for="lastName" class="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name *
+                </label>
+                <input 
+                  type="text" 
+                  id="lastName" 
+                  name="lastName" 
+                  required
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                >
+              </div>
+            </div>
+            
+            <div>
+              <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                Email Address *
+              </label>
+              <input 
+                type="email" 
+                id="email" 
+                name="email" 
+                required
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+            </div>
+            
+            <div>
+              <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number
+              </label>
+              <input 
+                type="tel" 
+                id="phone" 
+                name="phone"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+            </div>
+            
+            <div>
+              <label for="projectType" class="block text-sm font-medium text-gray-700 mb-2">
+                Project Type
+              </label>
+              <select 
+                id="projectType" 
+                name="projectType"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              >
+                <option value="">Select a project type</option>
+                <option value="privacy-hedge">Privacy Hedge</option>
+                <option value="decorative-border">Decorative Border</option>
+                <option value="windbreak">Windbreak</option>
+                <option value="landscaping">General Landscaping</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="message" class="block text-sm font-medium text-gray-700 mb-2">
+                Message *
+              </label>
+              <textarea 
+                id="message" 
+                name="message" 
+                rows="5" 
+                required
+                placeholder="Tell us about your project, timeline, and any specific requirements..."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              ></textarea>
+            </div>
+            
+            <button 
+              type="submit" 
+              class="w-full btn-primary py-3 text-lg"
+            >
+              Send Message
+            </button>
+          </form>
+        </div>
+        
+        <!-- Contact Information -->
+        <div class="space-y-8">
+          <!-- Business Info -->
+          <div class="card">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Business Information</h3>
+            <div class="space-y-4">
+              <div class="flex items-start space-x-3">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-medium text-gray-900">Address</h4>
+                  <p class="text-gray-600">Southwest Iowa Hedge<br>1100 Apple Ave<br>Cumberland, Iowa</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start space-x-3">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-medium text-gray-900">Phone</h4>
+                  <p class="text-gray-600">(555) 123-4567</p>
+                </div>
+              </div>
+              
+              <div class="flex items-start space-x-3">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                  <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-medium text-gray-900">Email</h4>
+                  <p class="text-gray-600">cchadww@gmail.com</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hours -->
+          <div class="card">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Business Hours</h3>
+            <div class="space-y-2">
+              <div class="flex justify-between">
+                <span class="text-gray-600">Monday - Friday</span>
+                <span class="font-medium">8:00 AM - 6:00 PM</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Saturday</span>
+                <span class="font-medium">9:00 AM - 4:00 PM</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-gray-600">Sunday</span>
+                <span class="font-medium">Closed</span>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Services -->
+          <div class="card">
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">Our Services</h3>
+            <ul class="space-y-2 text-gray-600">
+              <li class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Free consultation and site assessment</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Custom hedge design and planning</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Installation and planting services</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Maintenance and care instructions</span>
+              </li>
+              <li class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Warranty on all plants</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Map Section -->
+  <section class="section-padding bg-white">
+    <div class="max-w-7xl mx-auto">
+      <div class="text-center mb-12">
+        <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+          Visit Our Farm
+        </h2>
+        <p class="text-xl text-gray-600">
+          Come see our plants in person and get expert advice
+        </p>
+      </div>
+      
+      <div class="bg-gray-200 rounded-lg h-96 flex items-center justify-center">
+        <div class="text-center">
+          <div class="text-6xl mb-4">🗺️</div>
+          <p class="text-gray-600">Interactive map would be embedded here</p>
+          <p class="text-sm text-gray-500 mt-2">Cumberland, Iowa</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // Contact form handling
+    document.getElementById('contact-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      // Get form data
+      const formData = new FormData(this);
+      const data = Object.fromEntries(formData);
+      
+      // In a real app, this would send the data to your backend
+      console.log('Form data:', data);
+      
+      // Show success message
+      alert('Thank you for your message! We\'ll get back to you within 24 hours.');
+      
+      // Reset form
+      this.reset();
+    });
+  </script>
+</Layout> 
