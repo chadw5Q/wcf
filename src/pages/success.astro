@@ -32,7 +32,7 @@ if (sessionId) {
         </h1>
         <p class="text-xl text-gray-600 mb-8">
           {isDeposit 
-            ? 'Your deposit has been processed and your order is now secured in our production queue.'
+            ? 'Your deposit has been processed and your order is now secured in our queue.'
             : 'Your order has been successfully placed. We\'ll be in touch soon with delivery details.'
           }
         </p>
@@ -89,7 +89,7 @@ if (sessionId) {
           <ul class={isDeposit ? "text-sm text-blue-700 space-y-1" : "text-sm text-green-700 space-y-1"}>
             {isDeposit ? (
               <>
-                <li>• Your order is now secured in our production queue</li>
+                <li>• Your order is now secured in our queue</li>
                 <li>• You'll receive a confirmation email with payment receipt</li>
                 <li>• We'll contact you when your hedge posts are ready for pickup</li>
                 <li>• Remaining balance will be due at time of pickup</li>
