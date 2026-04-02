@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { createCheckoutSession, getStripe, stripeErrorMessage } from '../../lib/stripe';
+import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
 import { getServerEnv } from '../../lib/server-env';
 
 // Stripe minimum charge for USD card payments (https://stripe.com/docs/currencies#minimum-and-maximum-charge-amounts)
@@ -66,12 +66,9 @@ export const POST: APIRoute = async ({ request }) => {
       notes: customerInfo.notes || '',
     };
 
-    const session = await createCheckoutSession([depositItem]);
-
-    const stripe = getStripe();
-    await stripe.checkout.sessions.update(session.id, {
+    const session = await createCheckoutSession([depositItem], {
+      customerEmail: customerInfo.email || undefined,
       metadata,
-      customer_email: customerInfo.email || undefined,
     });
 
     return new Response(

@@ -17,15 +17,28 @@ export function getStripe(): Stripe {
   return cached;
 }
 
+export type CreateCheckoutSessionOptions = {
+  /** Pre-fills email on Checkout; only valid on create, not on session.update. */
+  customerEmail?: string;
+  /** Merged with default `items` metadata (JSON of line items). */
+  metadata?: Record<string, string>;
+};
+
 export async function createCheckoutSession(
   items: Array<{
     id: string;
     name: string;
     price: number;
     quantity: number;
-  }>
+  }>,
+  options?: CreateCheckoutSessionOptions
 ) {
   const stripe = getStripe();
+  const metadata: Record<string, string> = {
+    items: JSON.stringify(items),
+    ...(options?.metadata ?? {}),
+  };
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: items.map((item) => ({
@@ -41,9 +54,10 @@ export async function createCheckoutSession(
     mode: 'payment',
     success_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/order-now`,
-    metadata: {
-      items: JSON.stringify(items),
-    },
+    metadata,
+    ...(options?.customerEmail?.trim()
+      ? { customer_email: options.customerEmail.trim() }
+      : {}),
   });
 
   return session;
