@@ -1,8 +1,8 @@
 import Stripe from 'stripe';
+import { getServerEnv } from './server-env';
 
-// Initialize Stripe with your secret key
-// In production, use environment variables
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_your_test_key_here', {
+// Initialize Stripe with your secret key (.env locally, Wrangler secret in production)
+const stripe = new Stripe(getServerEnv('STRIPE_SECRET_KEY') || 'sk_test_your_test_key_here', {
   apiVersion: '2024-12-18.acacia',
 });
 
@@ -29,8 +29,8 @@ export async function createCheckoutSession(items: Array<{
         quantity: item.quantity,
       })),
       mode: 'payment',
-      success_url: `${process.env.SITE_URL || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.SITE_URL || 'http://localhost:4321'}/order-now`,
+      success_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/order-now`,
       metadata: {
         items: JSON.stringify(items),
       },

@@ -607,7 +607,7 @@ import Layout from '../layouts/Layout.astro';
           city: data.city || '',
           state: data.state || '',
           zipCode: data.zipCode || '',
-          notes: data.notes || ''
+          notes: data.message || data.notes || ''
         };
 
         try {
@@ -635,25 +635,30 @@ import Layout from '../layouts/Layout.astro';
           const result = await response.json();
 
           if (response.ok && result.url) {
-            // Send email notification for deposit payment
-            try {
-              await fetch('/api/send-order-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  customerInfo,
-                  orderItems,
-                  quantities,
-                  orderTotal,
-                  isDeposit: true,
-                  depositAmount
-                }),
-              });
-            } catch (emailError) {
-              console.error('Email notification failed:', emailError);
-              // Don't stop the payment process if email fails
+            const emailRes = await fetch('/api/send-order-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerInfo,
+                orderItems,
+                quantities,
+                orderTotal,
+                isDeposit: true,
+                depositAmount
+              }),
+            });
+            const emailJson = await emailRes.json().catch(() => ({}));
+            if (!emailRes.ok) {
+              submitButton.textContent = originalText;
+              submitButton.disabled = false;
+              alert(
+                emailJson.error || emailJson.details
+                  ? `We could not email your order: ${emailJson.details || emailJson.error}. Please try again or call 712-254-3999.`
+                  : 'We could not email your order. Please try again or call 712-254-3999.'
+              );
+              return;
             }
-            
+
             // Redirect to Stripe Checkout
             window.location.href = result.url;
           } else {
@@ -679,34 +684,41 @@ import Layout from '../layouts/Layout.astro';
           city: data.city || '',
           state: data.state || '',
           zipCode: data.zipCode || '',
-          notes: data.notes || ''
+          notes: data.message || data.notes || ''
         };
 
-        console.log('Order inquiry data:', { quantities, orderItems, orderTotal, customerInfo });
-        
-        // Send email notification for inquiry
-        try {
-          await fetch('/api/send-order-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerInfo,
-              orderItems,
-              quantities,
-              orderTotal,
-              isDeposit: false,
-              depositAmount: 0
-            }),
-          });
-        } catch (emailError) {
-          console.error('Email notification failed:', emailError);
-          // Continue even if email fails
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const prevLabel = submitBtn.textContent;
+        submitBtn.textContent = 'Sending…';
+        submitBtn.disabled = true;
+
+        const emailRes = await fetch('/api/send-order-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerInfo,
+            orderItems,
+            quantities,
+            orderTotal,
+            isDeposit: false,
+            depositAmount: 0
+          }),
+        });
+        const emailJson = await emailRes.json().catch(() => ({}));
+        submitBtn.textContent = prevLabel;
+        submitBtn.disabled = false;
+
+        if (!emailRes.ok) {
+          alert(
+            emailJson.error || emailJson.details
+              ? `We could not send your order: ${emailJson.details || emailJson.error}. Please try again or call 712-254-3999.`
+              : 'We could not send your order. Please try again or call 712-254-3999.'
+          );
+          return;
         }
-        
-        // Show success message for inquiry
+
         alert('Thank you for your order inquiry! We\'ll contact you within 24 hours to confirm details and arrange pickup.');
-        
-        // Reset form and summary
+
         this.reset();
         updateOrderSummary();
       }

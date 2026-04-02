@@ -1,53 +1,142 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
+import { getServerEnv } from '../../lib/server-env';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const PRICES = {
+  premiumLine: 25,
+  premiumCorner: 40,
+  premiumExtraLong: 60,
+  regularLine: 10,
+  regularCorner: 25,
+  bowStave: 125,
+} as const;
+
+function computeOrderTotals(quantities: Record<string, unknown>) {
+  const q = {
+    premiumLine: Number(quantities.premiumLine) || 0,
+    premiumCorner: Number(quantities.premiumCorner) || 0,
+    premiumExtraLong: Number(quantities.premiumExtraLong) || 0,
+    regularLine: Number(quantities.regularLine) || 0,
+    regularCorner: Number(quantities.regularCorner) || 0,
+    bowStave: Number(quantities.bowStave) || 0,
+  };
+
+  let subtotal = 0;
+  subtotal += q.premiumLine * PRICES.premiumLine;
+  subtotal += q.premiumCorner * PRICES.premiumCorner;
+  subtotal += q.premiumExtraLong * PRICES.premiumExtraLong;
+  subtotal += q.regularLine * PRICES.regularLine;
+  subtotal += q.regularCorner * PRICES.regularCorner;
+  subtotal += q.bowStave * PRICES.bowStave;
+
+  const postCount =
+    q.premiumLine + q.premiumCorner + q.premiumExtraLong + q.regularLine + q.regularCorner;
+  const hasVolumeDiscount = postCount >= 100;
+  const discountAmount = hasVolumeDiscount ? subtotal * 0.1 : 0;
+  const finalTotal = subtotal - discountAmount;
+
+  return { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal };
+}
 
 export const POST: APIRoute = async ({ request }) => {
+  const apiKey = getServerEnv('RESEND_API_KEY');
+  if (!apiKey) {
+    return new Response(
+      JSON.stringify({
+        error: 'Email is not configured',
+        details:
+          'RESEND_API_KEY is missing. For local dev: copy .env.example to .env and add your key. For production: set a Wrangler secret.',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const notifyTo = getServerEnv('ORDER_NOTIFICATION_EMAIL') || 'cchadww@gmail.com';
+  // Local dev: Resend only allows unverified domains via onboarding@resend.dev (see Resend test-email docs).
+  // Production: verify your domain at resend.com/domains or set RESEND_FROM to a verified sender.
+  const fromAddress =
+    getServerEnv('RESEND_FROM') ||
+    (import.meta.env.DEV
+      ? 'Southwest Iowa Hedge <onboarding@resend.dev>'
+      : 'Southwest Iowa Hedge <orders@williamscreekfarms.com>');
+
   try {
     const body = await request.json();
-    const { customerInfo, orderItems, quantities, orderTotal, isDeposit, depositAmount } = body;
+    const { customerInfo, quantities, orderTotal, isDeposit, depositAmount } = body;
 
-    if (quantities && Number(quantities.premiumExtraLong) > 0) {
+    if (!customerInfo?.firstName || !customerInfo?.lastName || !customerInfo?.email) {
+      return new Response(JSON.stringify({ error: 'Missing customer name or email' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!quantities || typeof quantities !== 'object') {
+      return new Response(JSON.stringify({ error: 'Missing order quantities' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (Number(quantities.premiumExtraLong) > 0) {
       return new Response(
         JSON.stringify({ error: 'Premium Extra Long Posts are currently sold out.' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    const { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal } =
+      computeOrderTotals(quantities);
+
+    if (subtotal <= 0) {
+      return new Response(
+        JSON.stringify({ error: 'Order must include at least one item with quantity greater than zero.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const customerNotes =
+      (customerInfo.notes || customerInfo.message || '').toString().trim();
+
     // Format order items for email
     const formatOrderItems = () => {
-      const items = [];
-      if (quantities.premiumLine > 0) {
-        items.push(`• Premium Line Posts: ${quantities.premiumLine} @ $25 each = $${(quantities.premiumLine * 25).toFixed(2)}`);
+      const items: string[] = [];
+      if (q.premiumLine > 0) {
+        items.push(
+          `• Premium Line Posts: ${q.premiumLine} @ $25 each = $${(q.premiumLine * 25).toFixed(2)}`
+        );
       }
-      if (quantities.premiumCorner > 0) {
-        items.push(`• Premium Corner Posts: ${quantities.premiumCorner} @ $40 each = $${(quantities.premiumCorner * 40).toFixed(2)}`);
+      if (q.premiumCorner > 0) {
+        items.push(
+          `• Premium Corner Posts: ${q.premiumCorner} @ $40 each = $${(q.premiumCorner * 40).toFixed(2)}`
+        );
       }
-      if (quantities.premiumExtraLong > 0) {
-        items.push(`• Premium Extra Long Posts: ${quantities.premiumExtraLong} @ $60 each = $${(quantities.premiumExtraLong * 60).toFixed(2)}`);
+      if (q.premiumExtraLong > 0) {
+        items.push(
+          `• Premium Extra Long Posts: ${q.premiumExtraLong} @ $60 each = $${(q.premiumExtraLong * 60).toFixed(2)}`
+        );
       }
-      if (quantities.regularLine > 0) {
-        items.push(`• Regular Line Posts: ${quantities.regularLine} @ $10 each = $${(quantities.regularLine * 10).toFixed(2)}`);
+      if (q.regularLine > 0) {
+        items.push(
+          `• Regular Line Posts: ${q.regularLine} @ $10 each = $${(q.regularLine * 10).toFixed(2)}`
+        );
       }
-      if (quantities.regularCorner > 0) {
-        items.push(`• Regular Corner Posts: ${quantities.regularCorner} @ $25 each = $${(quantities.regularCorner * 25).toFixed(2)}`);
+      if (q.regularCorner > 0) {
+        items.push(
+          `• Regular Corner Posts: ${q.regularCorner} @ $25 each = $${(q.regularCorner * 25).toFixed(2)}`
+        );
       }
-      if (quantities.bowStave > 0) {
-        items.push(`• Bow Stave Logs: ${quantities.bowStave} @ $125 each = $${(quantities.bowStave * 125).toFixed(2)}`);
+      if (q.bowStave > 0) {
+        items.push(
+          `• Bow Stave Logs: ${q.bowStave} @ $125 each = $${(q.bowStave * 125).toFixed(2)}`
+        );
       }
       return items.join('\n');
     };
 
-    const totalPosts = quantities.premiumLine + quantities.premiumCorner + quantities.premiumExtraLong + quantities.regularLine + quantities.regularCorner;
-    const hasVolumeDiscount = totalPosts >= 100;
-    const discountAmount = hasVolumeDiscount ? orderTotal * 0.1 : 0;
-    const finalTotal = orderTotal - discountAmount;
-
-    // Create email content
-    const emailSubject = isDeposit 
-      ? `🎯 New Hedge Post Deposit Payment - ${customerInfo.firstName} ${customerInfo.lastName}`
-      : `📋 New Hedge Post Order Inquiry - ${customerInfo.firstName} ${customerInfo.lastName}`;
+    const emailSubject = isDeposit
+      ? `New Hedge Post deposit — ${customerInfo.firstName} ${customerInfo.lastName}`
+      : `New Hedge Post order inquiry — ${customerInfo.firstName} ${customerInfo.lastName}`;
 
     const emailContent = `
 <!DOCTYPE html>
@@ -67,58 +156,67 @@ export const POST: APIRoute = async ({ request }) => {
 </head>
 <body>
   <div class="header">
-    <h1>${isDeposit ? '💰 Deposit Payment Received!' : '📋 New Order Inquiry'}</h1>
-    <p>Southwest Iowa Hedge - Order Notification</p>
+    <h1>${isDeposit ? 'Deposit payment started' : 'New order inquiry'}</h1>
+    <p>Southwest Iowa Hedge — order notification</p>
   </div>
-  
+
   <div class="content">
     <div class="customer-info">
-      <h2>👤 Customer Information</h2>
+      <h2>Customer</h2>
       <p><strong>Name:</strong> ${customerInfo.firstName} ${customerInfo.lastName}</p>
       <p><strong>Email:</strong> ${customerInfo.email}</p>
-      <p><strong>Phone:</strong> ${customerInfo.phone}</p>
-      <p><strong>Address:</strong> ${customerInfo.address}</p>
-      <p><strong>City:</strong> ${customerInfo.city}, ${customerInfo.state} ${customerInfo.zipCode}</p>
+      <p><strong>Phone:</strong> ${customerInfo.phone || '—'}</p>
+      <p><strong>Address:</strong> ${customerInfo.address || '—'}</p>
+      <p><strong>City / State / ZIP:</strong> ${customerInfo.city || '—'}, ${customerInfo.state || '—'} ${customerInfo.zipCode || ''}</p>
     </div>
 
     <div class="order-details">
-      <h2>📦 Order Details</h2>
+      <h2>Order details</h2>
       <pre style="font-family: Arial, sans-serif; white-space: pre-line;">${formatOrderItems()}</pre>
-      
-      ${hasVolumeDiscount ? `<p><strong>Volume Discount (10%):</strong> -$${discountAmount.toFixed(2)}</p>` : ''}
-      <p class="total">Order Total: $${finalTotal.toFixed(2)}</p>
+      ${hasVolumeDiscount ? `<p><strong>Volume discount (10% on posts):</strong> −$${discountAmount.toFixed(2)}</p>` : ''}
+      <p class="total">Order total: $${finalTotal.toFixed(2)}</p>
+      ${
+        typeof orderTotal === 'number' && Math.abs(orderTotal - finalTotal) > 0.02
+          ? `<p style="font-size:0.9em;color:#666;">(Client submitted total: $${Number(orderTotal).toFixed(2)} — using recalculated total above.)</p>`
+          : ''
+      }
     </div>
 
-    ${isDeposit ? `
+    ${
+      isDeposit
+        ? `
     <div class="payment-info">
-      <h2>💳 Payment Information</h2>
-      <p><strong>Status:</strong> ✅ Deposit Paid</p>
-      <p><strong>Deposit Amount:</strong> $${depositAmount.toFixed(2)}</p>
-      <p><strong>Remaining Balance:</strong> $${(finalTotal - depositAmount).toFixed(2)}</p>
-      <p><em>Customer has secured their order in the production queue.</em></p>
+      <h2>Payment</h2>
+      <p><strong>10% deposit amount:</strong> $${Number(depositAmount).toFixed(2)}</p>
+      <p><strong>Estimated remaining at pickup:</strong> $${(finalTotal - Number(depositAmount)).toFixed(2)}</p>
+      <p><em>Customer is proceeding to Stripe checkout for the deposit.</em></p>
     </div>
-    ` : `
+    `
+        : `
     <div class="payment-info">
-      <h2>📋 Order Status</h2>
-      <p><strong>Status:</strong> 📧 Inquiry Only (No Payment)</p>
-      <p><em>Customer submitted an order inquiry without deposit.</em></p>
+      <h2>Status</h2>
+      <p><strong>Inquiry only</strong> — no deposit selected.</p>
     </div>
-    `}
+    `
+    }
 
-    ${customerInfo.notes ? `
+    ${
+      customerNotes
+        ? `
     <div class="notes">
-      <h2>📝 Customer Notes</h2>
-      <p>${customerInfo.notes}</p>
+      <h2>Additional details</h2>
+      <p>${customerNotes.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
     </div>
-    ` : ''}
+    `
+        : ''
+    }
 
     <div style="margin-top: 30px; padding: 15px; background-color: #e3f2fd; border-radius: 5px;">
-      <h3>🎯 Next Steps:</h3>
+      <h3>Next steps</h3>
       <ol>
-        <li>Contact customer within 24 hours to confirm details</li>
-        <li>Schedule pickup/visit time for post selection</li>
-        ${isDeposit ? '<li>Prepare posts for customer selection (order is secured)</li>' : '<li>Discuss deposit options if interested</li>'}
-        <li>Coordinate final payment and pickup</li>
+        <li>Contact the customer within 24 hours</li>
+        <li>Confirm quantities and schedule pickup</li>
+        ${isDeposit ? '<li>Order secured with deposit once Stripe payment completes</li>' : '<li>Discuss deposit if they want to secure a spot</li>'}
       </ol>
     </div>
   </div>
@@ -126,29 +224,44 @@ export const POST: APIRoute = async ({ request }) => {
 </html>
     `;
 
-    // Send email
+    const resend = new Resend(apiKey);
     const emailData = await resend.emails.send({
-      from: 'Southwest Iowa Hedge <orders@southwestiowhedge.com>', // You'll need to set up a domain
-      to: ['cchadww@gmail.com'],
+      from: fromAddress,
+      to: [notifyTo],
+      replyTo: customerInfo.email,
       subject: emailSubject,
       html: emailContent,
     });
 
-    console.log('Email sent successfully:', emailData);
+    if (emailData.error) {
+      console.error('Resend API error:', emailData.error);
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to send email',
+          details: emailData.error.message || String(emailData.error),
+        }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    return new Response(JSON.stringify({ success: true, emailId: emailData.id }), {
+    console.log('Order email sent:', emailData.data?.id);
+
+    return new Response(JSON.stringify({ success: true, emailId: emailData.data?.id }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-
   } catch (error) {
-    console.error('Error sending email:', error);
-    return new Response(JSON.stringify({ 
-      error: 'Failed to send email notification',
-      details: error.message 
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Error sending order email:', error);
+    return new Response(
+      JSON.stringify({
+        error: 'Failed to send email notification',
+        details: message,
+      }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
   }
 };
