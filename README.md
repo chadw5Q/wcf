@@ -65,6 +65,12 @@ A modern, responsive website for Southwest Iowa Hedge built with Astro, featurin
 5. **Open your browser**
    Navigate to `http://localhost:4321`
 
+## SEO
+
+The site sets unique **meta descriptions**, **canonical URLs**, **Open Graph / Twitter** tags (with images), and **JSON-LD** (`LocalBusiness` on every page; **Product** schema on the homepage for each post type). `/success` uses `noindex` after checkout.
+
+**Google Business Profile** is not part of this repo—create or claim your listing at [Google Business Profile](https://business.google.com) for “near me” and map visibility.
+
 ## Configuration
 
 ### Stripe Setup

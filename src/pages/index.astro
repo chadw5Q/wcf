@@ -1,9 +1,16 @@
 ---
 export const prerender = true;
 import Layout from '../layouts/Layout.astro';
+import { homeProductSchemas } from '../data/structured-data/home-products';
 ---
 
-<Layout title="Southwest Iowa Hedge - Premium Hedge Posts for Fencing & Archery">
+<Layout
+  title="Southwest Iowa Hedge - Premium Hedge Posts for Fencing & Archery"
+  ogTitle="Southwest Iowa Hedge — Osage Orange hedge posts & bow staves"
+  ogDescription="Fresh-cut Osage Orange posts from Cumberland, IA. 50+ year fencing, 9 ft line & corner posts, bow stave logs. Order for farm pickup."
+  image="/images/hedge002.jpg"
+  structuredData={homeProductSchemas}
+>
   <!-- Hero Section -->
   <section class="relative overflow-hidden" style="background-image: url('/images/hedge002.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat;">
     <div class="absolute inset-0 bg-black opacity-40"></div>
@@ -219,7 +226,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium Line Posts" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-posts.jpg" alt="Premium line Osage Orange hedge posts: 3–6 inch diameter, 9 ft, straight — Southwest Iowa farm" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="mt-6">
@@ -266,7 +273,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium Corner Posts" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-posts.jpg" alt="Premium corner Osage Orange hedge posts: 6–12 inch diameter, 9 ft — Southwest Iowa" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="mt-6">
@@ -308,7 +315,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium Extra Long Posts" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-posts.jpg" alt="Premium extra-long Osage Orange hedge posts, 12 ft plus — currently sold out" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="mt-6">
@@ -352,7 +359,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Regular Line Posts" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-posts.jpg" alt="Regular line Osage Orange hedge posts: 3–6 inch, curvy or smaller, 9 ft — Southwest Iowa" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="mt-6">
@@ -390,7 +397,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Regular Corner Posts" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-posts.jpg" alt="Regular corner Osage Orange hedge posts: 8–14 inch diameter, curvy, 9 ft" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="mt-6">
@@ -446,7 +453,7 @@ import Layout from '../layouts/Layout.astro';
                 </li>
               </ul>
               <div class="flex-shrink-0">
-                <img src="/images/hedge-bowstave007.jpg" alt="Bow Stave Logs" class="w-50 h-44 object-cover rounded-lg" />
+                <img src="/images/hedge-bowstave007.jpg" alt="Traditional Osage Orange bow stave logs for archery — hand-selected, pickup near Cumberland IA" class="w-50 h-44 object-cover rounded-lg" />
               </div>
             </div>
             <div class="bg-white bg-opacity-50 rounded-lg p-3 mb-4 mt-4">
