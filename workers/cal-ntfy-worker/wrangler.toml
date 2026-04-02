@@ -1,0 +1,11 @@
+# Standalone worker (not the Astro site). Deploy separately.
+name = "cal-ntfy-worker"
+main = "cal-ntfy-worker.js"
+compatibility_date = "2026-04-02"
+
+# Set in Cloudflare Dashboard → Workers → cal-ntfy-worker → Settings → Variables:
+#   NTFY_TOPIC = your topic name (e.g. hedge-order)
+#
+# Optional secrets (wrangler secret put <NAME>):
+#   NTFY_TOKEN           — Bearer token if ntfy topic is private
+#   CAL_WEBHOOK_SECRET   — must match Cal.com webhook secret for signature verification
