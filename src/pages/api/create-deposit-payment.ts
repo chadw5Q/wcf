@@ -21,6 +21,13 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
+    if (quantities && Number(quantities.premiumExtraLong) > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Premium Extra Long Posts are currently sold out.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Create a single line item for the deposit
     const depositItem = {
       id: 'deposit',

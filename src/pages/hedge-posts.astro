@@ -76,7 +76,7 @@ const categories = ["all", "evergreen", "deciduous", "flowering"];
               <div>
                 <span class="font-medium text-gray-700">Stock:</span>
                 <span class={`ml-1 ${product.data.inStock ? 'text-green-600' : 'text-red-600'}`}>
-                  {product.data.inStock ? 'In Stock' : 'Out of Stock'}
+                  {product.data.inStock ? 'In Stock' : 'Sold Out'}
                 </span>
               </div>
             </div>
@@ -89,7 +89,7 @@ const categories = ["all", "evergreen", "deciduous", "flowering"];
                 data-product-price={product.data.price}
                 disabled={!product.data.inStock}
               >
-                {product.data.inStock ? 'Add to Cart' : 'Out of Stock'}
+                {product.data.inStock ? 'Add to Cart' : 'Sold Out'}
               </button>
               <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors duration-200">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

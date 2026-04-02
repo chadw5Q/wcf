@@ -183,9 +183,9 @@ import Layout from '../layouts/Layout.astro';
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Premium Posts</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <!-- Premium Line Posts -->
-          <div class="rounded-xl p-6 border border-green-400 relative" style="background-color: #b8f1c5;">
-            <div class="absolute top-4 right-4">
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">PREMIUM</span>
+          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
+            <div class="flex justify-end mb-3">
+              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
             </div>
             <div class="text-center mb-4">
               <h4 class="text-xl font-bold text-gray-900 mb-2">Line Posts</h4>
@@ -230,9 +230,9 @@ import Layout from '../layouts/Layout.astro';
           </div>
           
           <!-- Premium Corner/Second Post -->
-          <div class="rounded-xl p-6 border border-green-400 relative" style="background-color: #b8f1c5;">
-            <div class="absolute top-4 right-4">
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">PREMIUM</span>
+          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
+            <div class="flex justify-end mb-3">
+              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
             </div>
             <div class="text-center mb-4">
               <h4 class="text-xl font-bold text-gray-900 mb-2">Corner/Second Post</h4>
@@ -277,9 +277,10 @@ import Layout from '../layouts/Layout.astro';
           </div>
           
           <!-- Premium Extra Long Posts -->
-          <div class="rounded-xl p-6 border border-green-400 relative" style="background-color: #b8f1c5;">
-            <div class="absolute top-4 right-4">
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full">PREMIUM</span>
+          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">SOLD OUT</span>
+              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
             </div>
             <div class="text-center mb-4">
               <h4 class="text-xl font-bold text-gray-900 mb-2">Extra Long Posts</h4>
@@ -311,9 +312,9 @@ import Layout from '../layouts/Layout.astro';
               </div>
             </div>
             <div class="mt-6">
-              <a href="/order-now" class="w-full bg-green-600 text-white text-center py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
+              <span class="w-full bg-gray-400 text-white text-center py-2 px-4 rounded-lg block font-medium cursor-not-allowed" aria-disabled="true">
+                Sold Out
+              </span>
             </div>
           </div>
         </div>
@@ -349,12 +350,6 @@ import Layout from '../layouts/Layout.astro';
                   </svg>
                   <span class="text-gray-700">All posts are 9ft long</span>
                 </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
-                </li>
               </ul>
               <div class="flex-shrink-0">
                 <img src="/images/hedge-posts.jpg" alt="Regular Line Posts" class="w-50 h-44 object-cover rounded-lg" />
@@ -368,10 +363,7 @@ import Layout from '../layouts/Layout.astro';
           </div>
           
           <!-- Corner Posts -->
-          <div class="rounded-xl p-6 border border-yellow-400 relative" style="background-color: #fff5d1;">
-            <div class="absolute top-4 right-4 z-10">
-              <span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full transform rotate-12">SOLD OUT</span>
-            </div>
+          <div class="rounded-xl p-6 border border-yellow-400" style="background-color: #fff5d1;">
             <div class="text-center mb-4">
               <h4 class="text-xl font-bold text-gray-900 mb-2">Corner Posts</h4>
               <div class="text-4xl font-bold text-green-600 mb-4">$25</div>
@@ -395,12 +387,6 @@ import Layout from '../layouts/Layout.astro';
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                   </svg>
                   <span class="text-gray-700">All posts are 9ft long</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
                 </li>
               </ul>
               <div class="flex-shrink-0">
@@ -496,7 +482,7 @@ import Layout from '../layouts/Layout.astro';
         <a href="/order-now" class="text-white hover:text-green-200 underline">How many do you need?</a>
       </h2>
       <p class="text-xl mb-8 text-green-100">
-        We sell out of our inventory every year. Order now to secure your hedge posts.
+        We typically sell out of our inventory every year. Order now to secure your hedge posts.
       </p>
       <div class="flex justify-center">
         <a href="/order-now" class="bg-white text-green-600 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors duration-200">

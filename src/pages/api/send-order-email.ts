@@ -8,6 +8,13 @@ export const POST: APIRoute = async ({ request }) => {
     const body = await request.json();
     const { customerInfo, orderItems, quantities, orderTotal, isDeposit, depositAmount } = body;
 
+    if (quantities && Number(quantities.premiumExtraLong) > 0) {
+      return new Response(
+        JSON.stringify({ error: 'Premium Extra Long Posts are currently sold out.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Format order items for email
     const formatOrderItems = () => {
       const items = [];
