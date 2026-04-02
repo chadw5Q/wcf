@@ -1,0 +1,5 @@
+# https://williamscreekfarms.com
+User-agent: *
+Allow: /
+
+Sitemap: https://williamscreekfarms.com/sitemap-index.xml
