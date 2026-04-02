@@ -16,6 +16,8 @@ if (sessionId) {
     console.error('Error retrieving session:', error);
   }
 }
+
+const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
 ---
 
 <Layout
@@ -167,4 +169,38 @@ if (sessionId) {
       </div>
     </div>
   </section>
-</Layout> 
+
+  {
+    measurementId && (
+      <script
+        is:inline
+        define:vars={{
+          gaIsDeposit: isDeposit ? 'true' : 'false',
+          gaSessionPresent: sessionId ? 'true' : 'false',
+        }}
+      >
+        (function () {
+          function tryFire() {
+            if (typeof gtag !== 'function') return false;
+            var isDep = gaIsDeposit === 'true';
+            if (isDep) {
+              gtag('event', 'deposit_payment_complete', {
+                page_path: window.location.pathname + window.location.search,
+                has_checkout_session: gaSessionPresent === 'true',
+              });
+            } else {
+              gtag('event', 'checkout_success', {
+                page_path: window.location.pathname + window.location.search,
+              });
+            }
+            return true;
+          }
+          var n = 0;
+          var t = setInterval(function () {
+            if (tryFire() || ++n > 50) clearInterval(t);
+          }, 100);
+        })();
+      </script>
+    )
+  }
+</Layout>

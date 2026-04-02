@@ -71,6 +71,8 @@ The site sets unique **meta descriptions**, **canonical URLs**, **Open Graph / T
 
 **Google Business Profile** is not part of this repo—create or claim your listing at [Google Business Profile](https://business.google.com) for “near me” and map visibility.
 
+**Google Analytics 4:** set `PUBLIC_GA_MEASUREMENT_ID=G-…` in `.env` (local) or Cloudflare Worker **Variables** (plain text, not secret). Order inquiries redirect to **`/thank-you?kind=inquiry`** (events: `order_inquiry_thank_you`, `generate_lead`). Stripe deposits land on **`/success`** (events: `deposit_payment_complete` or `checkout_success`). In GA4, mark those events or page paths as conversions.
+
 ## Configuration
 
 ### Stripe Setup
