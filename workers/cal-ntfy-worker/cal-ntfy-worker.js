@@ -1,8 +1,5 @@
 /**
  * Cal.com → ntfy.sh bridge for Cloudflare Workers.
- *
- * Env: NTFY_TOPIC, NTFY_TOPIC_URL, NTFY_TOKEN, CAL_WEBHOOK_SECRET
- * Optional: NTFY_SELF_TEST_SECRET — if set, POST /test-ntfy with header X-Test-Secret: <same> sends a test push
  */
 
 function timingSafeEqualHex(a, b) {
@@ -64,7 +61,75 @@ function jsonResponse(obj, status) {
   });
 }
 
-function buildNtfyMessage(trigger, p) {
+/**
+ * Cal.com usually sends application/json. Custom templates may send
+ * application/x-www-form-urlencoded. payload is sometimes a JSON string.
+ */
+function parseCalWebhookBody(rawBody, contentTypeHeader) {
+  const ct = (contentTypeHeader || '').toLowerCase();
+  const raw = rawBody || '';
+
+  if (ct.includes('application/x-www-form-urlencoded')) {
+    const params = new URLSearchParams(raw);
+    for (const value of params.values()) {
+      const t = value.trim();
+      if (t.startsWith('{') || t.startsWith('[')) {
+        try {
+          return JSON.parse(t);
+        } catch {
+          /* continue */
+        }
+      }
+    }
+    const combined = Object.fromEntries(params);
+    if (Object.keys(combined).length) {
+      return { triggerEvent: 'UNKNOWN_FORM', _formKeys: Object.keys(combined), _rawForm: raw.slice(0, 2000) };
+    }
+  }
+
+  try {
+    return JSON.parse(raw || '{}');
+  } catch {
+    return {
+      triggerEvent: 'NON_JSON_BODY',
+      _rawSnippet: raw.slice(0, 1500),
+    };
+  }
+}
+
+function normalizePayload(body) {
+  let trigger = String(body.triggerEvent || body._nonStandardTrigger || '').trim();
+  let p = body.payload;
+
+  if (typeof p === 'string') {
+    try {
+      p = JSON.parse(p);
+    } catch {
+      p = {};
+    }
+  }
+
+  if (!p || typeof p !== 'object' || Array.isArray(p)) {
+    p = body;
+  }
+
+  return { trigger, p };
+}
+
+function buildNtfyMessage(trigger, p, body) {
+  if (body.triggerEvent === 'NON_JSON_BODY') {
+    return {
+      title: 'Cal.com (non-JSON)',
+      text: `Cal sent a body that is not JSON. Fix: Cal.com webhook → remove custom payload template or use JSON.\n\nSnippet:\n${body._rawSnippet || ''}`,
+    };
+  }
+  if (body.triggerEvent === 'UNKNOWN_FORM') {
+    return {
+      title: 'Cal.com (form body)',
+      text: `Cal sent form-urlencoded data. Fix: use default JSON webhook payload in Cal.com.\nKeys: ${(body._formKeys || []).join(', ')}\n\n${body._rawForm || ''}`,
+    };
+  }
+
   const title = p.title || p.type || 'Cal.com event';
   const startTime = p.startTime || '';
   const endTime = p.endTime || '';
@@ -93,6 +158,7 @@ async function postToNtfy(env, ntfyUrl, titleAscii, bodyText, priorityHigh) {
   const headers = new Headers({
     Title: titleAscii,
     'Content-Type': 'text/plain; charset=utf-8',
+    Tags: 'calendar',
   });
   if (priorityHigh) {
     headers.set('Priority', 'high');
@@ -104,6 +170,13 @@ async function postToNtfy(env, ntfyUrl, titleAscii, bodyText, priorityHigh) {
   return fetch(ntfyUrl, { method: 'POST', headers, body: bodyText });
 }
 
+const BOOKING_TRIGGERS = new Set([
+  'BOOKING_CREATED',
+  'BOOKING_RESCHEDULED',
+  'BOOKING_REQUESTED',
+  'INSTANT_MEETING_CREATED',
+]);
+
 export default {
   async fetch(request, env) {
     try {
@@ -112,15 +185,21 @@ export default {
 
       if (request.method === 'GET' && (path === '/' || path === '/health')) {
         const ntfyUrl = resolveNtfyPostUrl(env);
+        const topicName = String(env.NTFY_TOPIC || '').trim() || '(from NTFY_TOPIC_URL only)';
         const body = {
           ok: true,
           service: 'cal-ntfy-worker',
           ntfyConfigured: Boolean(ntfyUrl),
+          ntfyPublishUrl: ntfyUrl || null,
+          ntfyTopicName: topicName,
+          subscribeInNtfyApp: ntfyUrl
+            ? `Open ntfy and subscribe to this exact topic URL (or topic name matching NTFY_TOPIC): ${ntfyUrl}`
+            : 'Set NTFY_TOPIC first.',
           calSignatureCheckEnabled: Boolean(String(env.CAL_WEBHOOK_SECRET || '').trim()),
           ntfyAuthTokenSet: Boolean(String(env.NTFY_TOKEN || '').trim()),
           selfTestAvailable: Boolean(String(env.NTFY_SELF_TEST_SECRET || '').trim()),
         };
-        return new Response(path === '/health' ? JSON.stringify(body, null, 2) : 'cal-ntfy-worker OK — POST Cal.com webhooks here\nGET /health for config flags (no secrets).\nPOST /test-ntfy with X-Test-Secret (see README) to verify ntfy.', {
+        return new Response(path === '/health' ? JSON.stringify(body, null, 2) : 'cal-ntfy-worker OK — POST Cal.com webhooks here\nGET /health for config flags + ntfy URL.\nPOST /test-ntfy with X-Test-Secret (see README) to verify ntfy.', {
           headers: {
             'Content-Type': path === '/health' ? 'application/json; charset=utf-8' : 'text/plain; charset=utf-8',
           },
@@ -159,7 +238,7 @@ export default {
               error: 'ntfy rejected test',
               ntfyStatus: res.status,
               detail: detail.slice(0, 300),
-              hint: 'Private topic? Set NTFY_TOKEN. Wrong topic? Check NTFY_TOPIC matches the topic you subscribed to in the ntfy app.',
+              hint: 'Private topic? Set NTFY_TOKEN. Wrong topic? Subscribe in the ntfy app to the URL shown in GET /health (ntfyPublishUrl).',
             },
             502
           );
@@ -184,6 +263,7 @@ export default {
       }
 
       const rawBody = await request.text();
+      const contentType = request.headers.get('content-type') || '';
 
       const calSecret = String(env.CAL_WEBHOOK_SECRET || '').trim();
       if (calSecret) {
@@ -201,31 +281,16 @@ export default {
         }
       }
 
-      let body;
-      try {
-        body = JSON.parse(rawBody || '{}');
-      } catch (e) {
-        console.error('[cal-ntfy] invalid JSON', e);
-        return jsonResponse(
-          {
-            error: 'Invalid JSON',
-            hint: 'Cal.com may be using a custom payload template. Reset webhook to default JSON or ensure body is valid JSON.',
-          },
-          400
-        );
-      }
+      const body = parseCalWebhookBody(rawBody, contentType);
+      const { trigger: rawTrigger, p } = normalizePayload(body);
+      const triggerUpper = rawTrigger.toUpperCase();
 
-      const trigger = body.triggerEvent || '';
-      const p =
-        body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload)
-          ? body.payload
-          : body;
+      const { title, text } = buildNtfyMessage(triggerUpper, p, body);
+      console.log('[cal-ntfy] webhook', triggerUpper || 'unknown', contentType.slice(0, 40), '→ ntfy');
 
-      const { title, text } = buildNtfyMessage(trigger, p);
-      console.log('[cal-ntfy] webhook', trigger || 'unknown', '→ ntfy');
-
+      const isBookingish = BOOKING_TRIGGERS.has(triggerUpper) || triggerUpper.includes('BOOKING');
       const ntfyTitleAscii = asciiTitle(
-        trigger === 'BOOKING_CREATED' ? `New booking: ${title}` : `Cal: ${trigger || 'webhook'}`,
+        isBookingish ? `New booking: ${title}` : `Cal: ${triggerUpper || 'webhook'}`,
         250
       );
 
@@ -242,7 +307,7 @@ export default {
             hint:
               ntfyRes.status === 401 || ntfyRes.status === 403
                 ? 'Topic may be private: set NTFY_TOKEN (Bearer) on this Worker.'
-                : 'Check NTFY_TOPIC matches the topic you opened in the ntfy app.',
+                : 'Open GET /health and subscribe your ntfy app to ntfyPublishUrl exactly.',
           },
           502
         );

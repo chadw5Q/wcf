@@ -72,7 +72,10 @@ Work through these in order:
 
 ### A. Confirm you are **subscribed** to the topic in ntfy
 
-The Worker only **publishes** to a topic. Your phone only **receives** if the [ntfy](https://ntfy.sh) app (or web client) is **subscribed to that exact topic name** (e.g. `https://ntfy.sh/hedge-order` in the app). If you never subscribed, you will not see pushes.
+The Worker only **publishes** to a topic. Your phone only **receives** if the [ntfy](https://ntfy.sh) app (or web client) is **subscribed to that exact topic**.
+
+1. Open **`GET /health`** on your worker and copy **`ntfyPublishUrl`** (e.g. `https://ntfy.sh/hedge-pickup-scheduled`).
+2. In the ntfy app, subscribe using **that exact URL** (or the topic name in **`ntfyTopicName`**). If you subscribed to `hedge-order` but the worker uses `hedge-pickup-scheduled`, you will **not** see Cal notifications.
 
 ### B. Prove Worker → ntfy (without Cal.com)
 
