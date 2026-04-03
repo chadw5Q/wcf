@@ -52,7 +52,7 @@ function buildCustomerThankYouHtml(firstName: string, scheduleUrl: string): stri
   const nameEsc = escapeHtmlText(firstName.trim() || 'there');
   const urlEsc = escapeHtmlText(scheduleUrl);
   const intro = `<p>Hi ${nameEsc},</p>
-    <p>Your order is confirmed! Please choose your <strong>pickup</strong> day and time at this link:</p>`;
+    <p>Thank you for your order--it was received. Please choose your <strong>pickup</strong> day and time at this link:</p>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -179,9 +179,19 @@ export const POST: APIRoute = async ({ request }) => {
       ? `New Hedge Post deposit — ${customerInfo.firstName} ${customerInfo.lastName}`
       : `New Hedge Post order inquiry — ${customerInfo.firstName} ${customerInfo.lastName}`;
 
+    const siteBase = (getServerEnv('SITE_URL') || 'https://williamscreekfarms.com').replace(
+      /\/+$/,
+      ''
+    );
+    const adminOrderUrl = orderIdStr
+      ? `${siteBase}/admin/orders/${encodeURIComponent(orderIdStr)}`
+      : '';
+
     const orderIdHtml = orderIdStr
       ? `<div class="order-details" style="background-color:#e8eaf6;padding:12px 15px;border-radius:5px;margin:15px 0;">
       <p style="margin:0;"><strong>Order ID (saved):</strong> <code>${escapeHtmlText(orderIdStr)}</code></p>
+      <p style="margin:12px 0 0 0;"><a href="${escapeHtmlText(adminOrderUrl)}">Open this order in admin (print / update)</a></p>
+      <p style="margin:8px 0 0 0;font-size:0.85em;color:#555;">You may need to sign in to the admin site first.</p>
     </div>`
       : '';
 
@@ -296,7 +306,7 @@ export const POST: APIRoute = async ({ request }) => {
       replyTo: notifyTo,
       subject: isDeposit
         ? 'Next step: Schedule your pickup — Southwest Iowa Hedge'
-        : 'Your order is confirmed — Southwest Iowa Hedge',
+        : 'Thank you for your order — Southwest Iowa Hedge',
       html: buildCustomerThankYouHtml(
         String(customerInfo.firstName || ''),
         pickupScheduleUrl(orderIdStr || undefined)

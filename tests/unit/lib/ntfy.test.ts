@@ -85,6 +85,47 @@ describe('publishNtfyNotification', () => {
     expect(headers.get('Authorization')).toBe('Bearer secret_token');
   });
 
+  it('uses NTFY_TOKEN when NTFY_ACCESS_TOKEN is unset (cal-ntfy-worker alias)', async () => {
+    vi.mocked(getServerEnv).mockImplementation((key: string) => {
+      if (key === 'NTFY_TOKEN') return 'from_worker_name';
+      return undefined;
+    });
+    await publishNtfyNotification({ title: 'A', message: 'B' });
+    const init = vi.mocked(globalThis.fetch).mock.calls[0][1];
+    const headers = init?.headers as Headers;
+    expect(headers.get('Authorization')).toBe('Bearer from_worker_name');
+  });
+
+  it('prefers NTFY_ACCESS_TOKEN over NTFY_TOKEN', async () => {
+    vi.mocked(getServerEnv).mockImplementation((key: string) => {
+      if (key === 'NTFY_ACCESS_TOKEN') return 'primary';
+      if (key === 'NTFY_TOKEN') return 'secondary';
+      return undefined;
+    });
+    await publishNtfyNotification({ title: 'A', message: 'B' });
+    const init = vi.mocked(globalThis.fetch).mock.calls[0][1];
+    const headers = init?.headers as Headers;
+    expect(headers.get('Authorization')).toBe('Bearer primary');
+  });
+
+  it('builds URL from NTFY_TOPIC name when NTFY_TOPIC_URL is unset', async () => {
+    vi.mocked(getServerEnv).mockImplementation((key: string) =>
+      key === 'NTFY_TOPIC' ? 'my-alerts' : undefined
+    );
+    await publishNtfyNotification({ title: 'A', message: 'B' });
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('https://ntfy.sh/my-alerts');
+  });
+
+  it('prefers NTFY_TOPIC_URL over NTFY_TOPIC when URL is set', async () => {
+    vi.mocked(getServerEnv).mockImplementation((key: string) => {
+      if (key === 'NTFY_TOPIC_URL') return 'https://ntfy.sh/url-wins';
+      if (key === 'NTFY_TOPIC') return 'ignored';
+      return undefined;
+    });
+    await publishNtfyNotification({ title: 'A', message: 'B' });
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('https://ntfy.sh/url-wins');
+  });
+
   it('truncates Title header to 250 characters', async () => {
     const long = 'x'.repeat(300);
     await publishNtfyNotification({ title: long, message: 'm' });

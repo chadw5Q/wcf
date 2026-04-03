@@ -119,6 +119,11 @@ describe('POST /api/send-order-email', () => {
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(200);
     expect(mockSend).toHaveBeenCalled();
+    const ownerCall = mockSend.mock.calls[0][0];
+    expect(String(ownerCall.html)).toContain(
+      'https://williamscreekfarms.com/admin/orders/550e8400-e29b-41d4-a716-446655440000'
+    );
+    expect(String(ownerCall.html)).toContain('Open this order in admin');
     const ntfyCall = vi.mocked(globalThis.fetch).mock.calls.find(
       (c) => typeof c[0] === 'string' && String(c[0]).includes('ntfy.sh')
     );

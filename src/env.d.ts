@@ -12,6 +12,13 @@ interface ImportMetaEnv {
   readonly ADMIN_SESSION_SECRET?: string;
   /** HMAC secret for Cal.com webhooks → /api/webhooks/cal-booking (same as Cal webhook “Secret”). */
   readonly CAL_WEBHOOK_SECRET?: string;
+  /** ntfy topic name only (e.g. hedge-order); or use NTFY_TOPIC_URL for a full URL. */
+  readonly NTFY_TOPIC?: string;
+  readonly NTFY_TOPIC_URL?: string;
+  /** Private topic: Bearer token (alias: NTFY_TOKEN, same as cal-ntfy-worker). */
+  readonly NTFY_ACCESS_TOKEN?: string;
+  readonly NTFY_TOKEN?: string;
+  readonly NTFY_DISABLE?: string;
 }
 
 interface ImportMeta {

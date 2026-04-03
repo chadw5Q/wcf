@@ -1,14 +1,17 @@
 import type { APIRoute } from 'astro';
-import { applyCalBookingToOrder } from '../../../lib/orders';
-import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
-import { getServerEnv } from '../../../lib/server-env';
 import {
+  extractCalBookingTimes,
   extractOrderIdFromCalPayload,
   formatCalPickupSlot,
   normalizeCalPayload,
+  normalizeCalTriggerEvent,
   parseCalWebhookBody,
   verifyCalWebhookSignature,
 } from '../../../lib/cal-webhook';
+import { applyCalBookingToOrder, summarizeItemsForNtfy } from '../../../lib/orders';
+import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
+import { publishNtfyNotification } from '../../../lib/ntfy';
+import { getServerEnv } from '../../../lib/server-env';
 
 export const prerender = false;
 
@@ -45,7 +48,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const contentType = request.headers.get('content-type') || '';
   const body = parseCalWebhookBody(rawBody, contentType);
   const { trigger, payload } = normalizeCalPayload(body);
-  const t = trigger.toUpperCase();
+  const t = normalizeCalTriggerEvent(trigger);
 
   const kv = getOrdersKvFromLocals(locals);
   if (!kv) {
@@ -79,8 +82,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   if (SLOT_TRIGGERS.has(t)) {
-    const start = String(payload.startTime ?? '');
-    const end = String(payload.endTime ?? '');
+    const { start, end } = extractCalBookingTimes(payload);
     if (!start || !end) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'no_start_end', orderId }), {
         status: 200,
@@ -93,6 +95,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return new Response(JSON.stringify({ ok: false, error: 'order_not_found', orderId }), {
         status: 404,
         headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (updated && slot) {
+      const siteBase = (getServerEnv('SITE_URL') || 'https://williamscreekfarms.com').replace(/\/+$/, '');
+      const adminUrl = `${siteBase}/admin/orders/${encodeURIComponent(orderId)}`;
+      const name = order.customer.name?.trim() || 'Customer';
+      const itemsLine = summarizeItemsForNtfy(order.items);
+      await publishNtfyNotification({
+        title: `Pickup scheduled: ${name}`,
+        message: [
+          `Order ID: ${orderId}`,
+          `Slot: ${slot}`,
+          itemsLine ? `Items: ${itemsLine}` : '',
+          `Email: ${order.customer.email}`,
+          `Admin: ${adminUrl}`,
+        ]
+          .filter(Boolean)
+          .join('\n'),
       });
     }
     return new Response(JSON.stringify({ ok: true, orderId, updated, slot }), {

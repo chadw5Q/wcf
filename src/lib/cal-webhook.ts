@@ -27,12 +27,20 @@ export async function hmacSha256Hex(secret: string, message: string): Promise<st
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Cal.com sends raw hex; some proxies or tools prefix the digest. */
+function normalizeSignatureHeader(header: string): string {
+  const s = header.trim();
+  if (s.toLowerCase().startsWith('sha256=')) return s.slice(7).trim();
+  if (s.toLowerCase().startsWith('v0=')) return s.slice(3).trim();
+  return s;
+}
+
 export async function verifyCalWebhookSignature(
   rawBody: string,
   signatureHeader: string | null,
   secret: string
 ): Promise<boolean> {
-  const sig = (signatureHeader || '').trim();
+  const sig = normalizeSignatureHeader(signatureHeader || '');
   if (!secret.trim() || !sig) return false;
   const expected = await hmacSha256Hex(secret.trim(), rawBody);
   return timingSafeEqualHex(sig, expected);
@@ -85,7 +93,23 @@ export function normalizeCalPayload(body: Record<string, unknown>): {
     p = body;
   }
 
+  const flat = p as Record<string, unknown>;
+  const nestedBooking = flat.booking;
+  if (nestedBooking && typeof nestedBooking === 'object' && !Array.isArray(nestedBooking)) {
+    p = { ...flat, ...(nestedBooking as Record<string, unknown>) };
+  }
+
   return { trigger, payload: p as Record<string, unknown> };
+}
+
+/** Map Cal trigger strings to BOOKING_CREATED-style enums (handles `booking.created`, etc.). */
+export function normalizeCalTriggerEvent(trigger: string): string {
+  return String(trigger || '')
+    .trim()
+    .replace(/\./g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .toUpperCase();
 }
 
 function readResponseValue(v: unknown): string | undefined {
@@ -97,14 +121,64 @@ function readResponseValue(v: unknown): string | undefined {
   return undefined;
 }
 
-/** Pull order UUID from Cal booking payload (URL param `orderId`, responses, metadata). */
-export function extractOrderIdFromCalPayload(p: Record<string, unknown>): string | undefined {
-  const tryUuid = (s: string | undefined): string | undefined => {
-    const t = s?.trim();
-    if (t && UUID_RE.test(t)) return t;
-    return undefined;
-  };
+function tryUuid(s: string | undefined): string | undefined {
+  const t = s?.trim();
+  if (t && UUID_RE.test(t)) return t;
+  return undefined;
+}
 
+/** `orderId=uuid` or `order_id=uuid` in a URL or redirect string (Cal prefill / booker links). */
+export function extractOrderIdFromUrlString(raw: string): string | undefined {
+  const s = raw.trim();
+  if (!s) return undefined;
+  try {
+    const base = s.startsWith('http://') || s.startsWith('https://') ? undefined : 'https://cal.local';
+    const u = new URL(s, base);
+    for (const key of ['orderId', 'order_id']) {
+      const id = u.searchParams.get(key);
+      const x = tryUuid(id ?? undefined);
+      if (x) return x;
+    }
+  } catch {
+    /* ignore */
+  }
+  const m = s.match(
+    /(?:^|[?&#])order[_-]?id=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
+  );
+  return m ? tryUuid(m[1]) : undefined;
+}
+
+function scanResponseLikeObject(obj: Record<string, unknown>): string | undefined {
+  const candidateKeys = [
+    'orderId',
+    'order_id',
+    'Order ID',
+    'Order id',
+    'order id',
+    'OrderID',
+  ];
+  for (const k of candidateKeys) {
+    if (k in obj) {
+      const u = tryUuid(readResponseValue(obj[k]));
+      if (u) return u;
+    }
+  }
+  for (const key of Object.keys(obj)) {
+    if (/order[_\s-]?id/i.test(key)) {
+      const u = tryUuid(readResponseValue(obj[key]));
+      if (u) return u;
+    }
+  }
+  for (const v of Object.values(obj)) {
+    const s = readResponseValue(v);
+    const u = tryUuid(s);
+    if (u) return u;
+  }
+  return undefined;
+}
+
+/** Pull order UUID from Cal booking payload (prefill URL, responses, metadata, custom fields). */
+export function extractOrderIdFromCalPayload(p: Record<string, unknown>): string | undefined {
   for (const key of ['orderId', 'order_id']) {
     const v = p[key];
     if (typeof v === 'string') {
@@ -113,10 +187,20 @@ export function extractOrderIdFromCalPayload(p: Record<string, unknown>): string
     }
   }
 
+  for (const urlKey of ['bookerUrl', 'bookingUrl', 'booker_url']) {
+    const v = p[urlKey];
+    if (typeof v === 'string') {
+      const fromQuery = extractOrderIdFromUrlString(v);
+      if (fromQuery) return fromQuery;
+    }
+  }
+
   const meta = p.metadata;
   if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-    for (const key of ['orderId', 'order_id']) {
-      const v = (meta as Record<string, unknown>)[key];
+    const mo = meta as Record<string, unknown>;
+    for (const key of Object.keys(mo)) {
+      if (!/order/i.test(key)) continue;
+      const v = mo[key];
       if (typeof v === 'string') {
         const u = tryUuid(v);
         if (u) return u;
@@ -124,33 +208,26 @@ export function extractOrderIdFromCalPayload(p: Record<string, unknown>): string
     }
   }
 
-  const responses = p.responses;
-  if (responses && typeof responses === 'object' && !Array.isArray(responses)) {
-    const r = responses as Record<string, unknown>;
-    const candidateKeys = ['orderId', 'order_id', 'Order ID', 'Order id', 'order id'];
-    for (const k of candidateKeys) {
-      if (k in r) {
-        const u = tryUuid(readResponseValue(r[k]));
-        if (u) return u;
-      }
-    }
-    for (const v of Object.values(r)) {
-      const s = readResponseValue(v);
-      const u = tryUuid(s);
-      if (u) return u;
-    }
-  }
-
-  const customInputs = p.customInputs;
-  if (customInputs && typeof customInputs === 'object' && !Array.isArray(customInputs)) {
-    for (const v of Object.values(customInputs as Record<string, unknown>)) {
-      const s = readResponseValue(v);
-      const u = tryUuid(s);
+  for (const block of ['responses', 'userFieldsResponses', 'customInputs']) {
+    const o = p[block];
+    if (o && typeof o === 'object' && !Array.isArray(o)) {
+      const u = scanResponseLikeObject(o as Record<string, unknown>);
       if (u) return u;
     }
   }
 
   return undefined;
+}
+
+/** Cal payloads use `startTime` / `endTime`; some templates or versions vary. */
+export function extractCalBookingTimes(payload: Record<string, unknown>): { start: string; end: string } {
+  const start = String(
+    payload.startTime ?? payload.start ?? payload.start_time ?? ''
+  ).trim();
+  const end = String(
+    payload.endTime ?? payload.end ?? payload.end_time ?? ''
+  ).trim();
+  return { start, end };
 }
 
 /** Human-readable pickup window in America/Chicago for KV / admin. */

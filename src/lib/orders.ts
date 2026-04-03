@@ -349,7 +349,7 @@ export async function updateOrderFields(
   return order;
 }
 
-/** Set delivery/pickup slot from a Cal.com webhook; appends revision log. */
+/** Set delivery/pickup slot from a Cal.com webhook; sets status scheduled/pending; appends revision log. */
 export async function applyCalBookingToOrder(
   kv: KVNamespace,
   orderId: string,
@@ -360,19 +360,49 @@ export async function applyCalBookingToOrder(
   if (!order) return { order: null, updated: false };
 
   const trimmed = deliverySlot?.trim() || null;
-  if (trimmed === order.deliverySlot) {
+  const nextStatus: OrderStatus = trimmed
+    ? 'scheduled'
+    : order.status === 'scheduled'
+      ? 'pending'
+      : order.status;
+
+  if (trimmed === order.deliverySlot && nextStatus === order.status) {
     return { order, updated: false };
   }
 
   const now = new Date().toISOString();
-  order.deliverySlot = trimmed;
+  const details: Record<string, unknown> = {
+    source: 'cal.com',
+    trigger: calTrigger,
+  };
+
+  if (trimmed !== order.deliverySlot) {
+    details.deliverySlot = { from: order.deliverySlot, to: trimmed };
+    order.deliverySlot = trimmed;
+  }
+  if (nextStatus !== order.status) {
+    details.status = { from: order.status, to: nextStatus };
+    order.status = nextStatus;
+  }
+
+  const parts: string[] = [];
+  if (details.deliverySlot) {
+    parts.push(
+      trimmed
+        ? `Pickup scheduled (Cal.com ${calTrigger}): ${trimmed}`
+        : `Pickup slot cleared (Cal.com ${calTrigger})`
+    );
+  }
+  if (details.status) {
+    const st = details.status as { from: string; to: string };
+    parts.push(`Status: ${st.from} → ${st.to}`);
+  }
+
   pushRevision(order, {
     at: now,
     action: 'meta',
-    summary: trimmed
-      ? `Pickup scheduled (Cal.com ${calTrigger}): ${trimmed}`
-      : `Pickup slot cleared (Cal.com ${calTrigger})`,
-    details: { source: 'cal.com', trigger: calTrigger, deliverySlot: trimmed },
+    summary: parts.join('. ') || `Cal.com ${calTrigger}`,
+    details,
   });
   await kv.put(order.id, JSON.stringify(order));
   return { order, updated: true };

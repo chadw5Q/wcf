@@ -51,7 +51,7 @@ Docs: [Cal.com webhooks](https://cal.com/docs/developing/guides/automation/webho
 
 ### Also: sync pickup time to the orders admin (main site Worker)
 
-The Astro site (`wcf`) exposes **`POST /api/webhooks/cal-booking`**, which updates **`deliverySlot`** in **ORDERS_KV** when Cal sends a signed webhook. This is **separate** from this ntfy worker—you can keep **both** webhooks in Cal.com (same or different secrets per subscriber).
+The Astro site (`wcf`) exposes **`POST /api/webhooks/cal-booking`**, which updates **`deliverySlot`**, sets order **status** to **scheduled**, and (when ntfy env vars are set on `wcf`) sends an **ntfy** push with the slot and an admin link. This worker is **optional** if you rely on that endpoint alone; if you keep **both** Cal subscribers, you may get **two** ntfy messages per booking unless you remove one path.
 
 1. In Cal.com → **Webhooks**, **Add endpoint** (do not remove the ntfy worker URL unless you want to).
 2. **Subscriber URL:** `https://williamscreekfarms.com/api/webhooks/cal-booking` (or your deployed site origin).
