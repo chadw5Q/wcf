@@ -761,7 +761,9 @@ import Layout from '../layouts/Layout.astro';
           return;
         }
 
-        window.location.replace('/thank-you?kind=inquiry');
+        const q = new URLSearchParams({ kind: 'inquiry' });
+        if (orderId) q.set('orderId', orderId);
+        window.location.replace(`/thank-you?${q.toString()}`);
       }
     });
   </script>

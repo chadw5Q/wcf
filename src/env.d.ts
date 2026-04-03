@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly STRIPE_SECRET_KEY?: string;
   readonly ADMIN_PASSWORD?: string;
   readonly ADMIN_SESSION_SECRET?: string;
+  /** HMAC secret for Cal.com webhooks → /api/webhooks/cal-booking (same as Cal webhook “Secret”). */
+  readonly CAL_WEBHOOK_SECRET?: string;
 }
 
 interface ImportMeta {

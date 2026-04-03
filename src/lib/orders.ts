@@ -246,11 +246,20 @@ export async function saveOrder(kv: KVNamespace, order: StoredOrder): Promise<vo
   await writeIndex(kv, next);
 }
 
+function normalizeStoredOrderStatus(order: StoredOrder): void {
+  // Legacy KV records used `confirmed`; admin UI now uses `scheduled`.
+  if ((order.status as string) === 'confirmed') {
+    order.status = 'scheduled';
+  }
+}
+
 export async function getOrder(kv: KVNamespace, id: string): Promise<StoredOrder | null> {
   const raw = await kv.get(id);
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as StoredOrder;
+    const order = JSON.parse(raw) as StoredOrder;
+    normalizeStoredOrderStatus(order);
+    return order;
   } catch {
     return null;
   }
@@ -291,7 +300,7 @@ export function applyOrderMetaPatch(
   let changed = false;
 
   if (patch.status !== undefined) {
-    if (!['pending', 'confirmed', 'fulfilled'].includes(patch.status)) {
+    if (!['pending', 'scheduled', 'fulfilled'].includes(patch.status)) {
       throw new Error('Invalid status');
     }
     if (patch.status !== order.status) {
@@ -338,6 +347,35 @@ export async function updateOrderFields(
   applyOrderMetaPatch(order, patch);
   await kv.put(order.id, JSON.stringify(order));
   return order;
+}
+
+/** Set delivery/pickup slot from a Cal.com webhook; appends revision log. */
+export async function applyCalBookingToOrder(
+  kv: KVNamespace,
+  orderId: string,
+  deliverySlot: string | null,
+  calTrigger: string
+): Promise<{ order: StoredOrder | null; updated: boolean }> {
+  const order = await getOrder(kv, orderId);
+  if (!order) return { order: null, updated: false };
+
+  const trimmed = deliverySlot?.trim() || null;
+  if (trimmed === order.deliverySlot) {
+    return { order, updated: false };
+  }
+
+  const now = new Date().toISOString();
+  order.deliverySlot = trimmed;
+  pushRevision(order, {
+    at: now,
+    action: 'meta',
+    summary: trimmed
+      ? `Pickup scheduled (Cal.com ${calTrigger}): ${trimmed}`
+      : `Pickup slot cleared (Cal.com ${calTrigger})`,
+    details: { source: 'cal.com', trigger: calTrigger, deliverySlot: trimmed },
+  });
+  await kv.put(order.id, JSON.stringify(order));
+  return { order, updated: true };
 }
 
 /** True when admin rebuild input matches the stored order (no recomputation needed). */

@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import Layout from '../layouts/Layout.astro';
+import { pickupScheduleUrl } from '../lib/cal-pickup';
 import { getCheckoutSession } from '../lib/stripe';
 
 function formatUsd(value: string | undefined | null): string {
@@ -24,6 +25,10 @@ if (sessionId) {
 }
 
 const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
+
+const stripeOrderId =
+  session?.metadata?.order_id?.trim() || session?.metadata?.orderId?.trim() || '';
+const pickupCalUrl = pickupScheduleUrl(stripeOrderId || undefined);
 ---
 
 <Layout
@@ -53,7 +58,7 @@ const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID ?? '';
         </p>
         <div class="rounded-xl border border-green-200 bg-white p-6 max-w-lg mx-auto mb-8 shadow-sm">
           <a
-            href="https://cal.com/chad-williams-donsre/hedge-pickup"
+            href={pickupCalUrl}
             class="inline-flex w-full justify-center btn-primary text-center mb-4"
             target="_blank"
             rel="noopener noreferrer"

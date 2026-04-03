@@ -12,7 +12,7 @@ import {
 export const prerender = false;
 
 function isOrderStatus(s: string): s is OrderStatus {
-  return s === 'pending' || s === 'confirmed' || s === 'fulfilled';
+  return s === 'pending' || s === 'scheduled' || s === 'fulfilled';
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {

@@ -1,4 +1,4 @@
-export type OrderStatus = 'pending' | 'confirmed' | 'fulfilled';
+export type OrderStatus = 'pending' | 'scheduled' | 'fulfilled';
 
 export type OrderFieldName =
   | 'premiumLine'

@@ -132,10 +132,6 @@ const revisionNewestFirst = order
                     {order.deposit.selected ? `Yes — ${formatUsd(order.depositAmount)}` : 'No'}
                   </span>
                 </li>
-                <li class="rounded border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600 no-print">
-                  This flag cannot be edited here. If quantities or totals change, the deposit amount is recalculated only
-                  when a deposit was originally selected. Stripe charges are not updated automatically.
-                </li>
                 <li class="text-xs text-slate-500">
                   Stripe capture is not shown here; check the Stripe dashboard for paid deposits.
                 </li>
@@ -177,138 +173,158 @@ const revisionNewestFirst = order
           </div>
 
           <div class="no-print mt-10 border-t border-slate-200 pt-8">
-            <h2 class="mb-2 text-lg font-semibold text-slate-900">Edit order</h2>
-            <p class="mb-6 text-sm text-slate-600">
-              Quantities and customer fields are recalculated on the server (same pricing rules as checkout). Deposit
-              at checkout is <strong>not</strong> editable.
-            </p>
-            <form id="admin-order-form" class="max-w-2xl space-y-6">
+            <h2 class="mb-2 text-lg font-semibold text-slate-900">Status & pickup</h2>
+            <p class="mb-4 text-sm text-slate-600">Update order status and delivery or pickup slot without opening the full editor.</p>
+            <form id="meta-form" class="max-w-xl space-y-4">
               <input type="hidden" name="id" value={order.id} />
-
-              <div class="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">First name</label>
-                  <input
-                    id="firstName"
-                    name="firstName"
-                    type="text"
-                    required
-                    value={order.customer.firstName}
-                    class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                  />
-                </div>
-                <div>
-                  <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">Last name</label>
-                  <input
-                    id="lastName"
-                    name="lastName"
-                    type="text"
-                    required
-                    value={order.customer.lastName}
-                    class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                  />
-                </div>
-              </div>
               <div>
-                <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  value={order.customer.email}
-                  class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                />
-              </div>
-              <div>
-                <label for="phone" class="mb-1 block text-sm font-medium text-slate-700">Phone</label>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  value={order.customer.phone}
-                  class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                />
-              </div>
-
-              <div>
-                <h3 class="mb-3 text-sm font-semibold text-slate-900">Quantities</h3>
-                <div class="grid gap-3 sm:grid-cols-2">
-                  {ORDER_QUANTITY_KEYS.map((key) => {
-                    const disabled = key === 'premiumExtraLong';
-                    const val = initialQuantities(order)[key];
-                    return (
-                      <div class={disabled ? 'opacity-60' : ''}>
-                        <label for={`qty-${key}`} class="mb-1 block text-xs font-medium text-slate-700">
-                          {qtyLabels[key] ?? key}
-                        </label>
-                        <input
-                          id={`qty-${key}`}
-                          name={`qty_${key}`}
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={disabled ? 0 : val}
-                          disabled={disabled}
-                          class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900 disabled:bg-slate-100"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <label for="notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  rows="4"
+                <label for="meta-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
+                <select
+                  id="meta-status"
+                  name="status"
                   class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
                 >
-                  {order.notes ?? ''}
-                </textarea>
+                  <option value="pending" selected={order.status === 'pending'}>Pending</option>
+                  <option value="scheduled" selected={order.status === 'scheduled'}>Scheduled</option>
+                  <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
+                </select>
               </div>
-
-              <div class="border-t border-slate-100 pt-6">
-                <h3 class="mb-3 text-sm font-semibold text-slate-900">Status & pickup</h3>
-                <div class="space-y-4">
-                  <div>
-                    <label for="status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-                    <select
-                      id="status"
-                      name="status"
-                      class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                    >
-                      <option value="pending" selected={order.status === 'pending'}>Pending</option>
-                      <option value="confirmed" selected={order.status === 'confirmed'}>Confirmed</option>
-                      <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
-                      Delivery / pickup slot
-                    </label>
-                    <input
-                      id="deliverySlot"
-                      name="deliverySlot"
-                      type="text"
-                      value={order.deliverySlot ?? ''}
-                      placeholder="e.g. Sat Apr 12, 9–11am"
-                      class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                    />
-                  </div>
-                </div>
+              <div>
+                <label for="meta-deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
+                  Delivery / pickup slot
+                </label>
+                <input
+                  id="meta-deliverySlot"
+                  name="deliverySlot"
+                  type="text"
+                  value={order.deliverySlot ?? ''}
+                  placeholder="e.g. Sat Apr 12, 9–11am"
+                  class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
+                />
               </div>
-
-              <p id="update-msg" class="hidden text-sm"></p>
+              <p id="meta-save-msg" class="hidden text-sm"></p>
               <button
                 type="submit"
                 class="rounded bg-green-700 px-4 py-2 font-medium text-white hover:bg-green-800"
               >
-                Save changes
+                Save status & pickup
               </button>
             </form>
+
+            <div class="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-8">
+              <button
+                type="button"
+                id="toggle-order-body-edit"
+                class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Edit Order
+              </button>
+              <p class="text-sm text-slate-500">Change customer info, quantities, and notes.</p>
+            </div>
+
+            <div id="order-body-editor" class="hidden mt-6 max-w-2xl space-y-6 rounded-lg border border-slate-200 bg-slate-50/50 p-6">
+              <h3 class="text-lg font-semibold text-slate-900">Edit order details</h3>
+              <p class="text-sm text-slate-600">
+                Quantities and customer fields are recalculated on the server (same pricing rules as checkout). Deposit
+                at checkout is <strong>not</strong> editable. Status and pickup above apply when you save here too.
+              </p>
+              <form id="rebuild-form" class="space-y-6">
+                <input type="hidden" name="id" value={order.id} />
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">First name</label>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      required
+                      value={order.customer.firstName}
+                      class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">Last name</label>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      required
+                      value={order.customer.lastName}
+                      class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    required
+                    value={order.customer.email}
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label for="phone" class="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    value={order.customer.phone}
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                  />
+                </div>
+
+                <div>
+                  <h4 class="mb-3 text-sm font-semibold text-slate-900">Quantities</h4>
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    {ORDER_QUANTITY_KEYS.map((key) => {
+                      const disabled = key === 'premiumExtraLong';
+                      const val = initialQuantities(order)[key];
+                      return (
+                        <div class={disabled ? 'opacity-60' : ''}>
+                          <label for={`qty-${key}`} class="mb-1 block text-xs font-medium text-slate-700">
+                            {qtyLabels[key] ?? key}
+                          </label>
+                          <input
+                            id={`qty-${key}`}
+                            name={`qty_${key}`}
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={disabled ? 0 : val}
+                            disabled={disabled}
+                            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900 disabled:bg-slate-100"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label for="notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+                  <textarea
+                    id="notes"
+                    name="notes"
+                    rows="4"
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                  >
+                    {order.notes ?? ''}
+                  </textarea>
+                </div>
+
+                <p id="rebuild-save-msg" class="hidden text-sm"></p>
+                <button
+                  type="submit"
+                  class="rounded bg-green-700 px-4 py-2 font-medium text-white hover:bg-green-800"
+                >
+                  Save order details
+                </button>
+              </form>
+            </div>
           </div>
 
           {revisionNewestFirst.length > 0 && (
@@ -341,13 +357,71 @@ const revisionNewestFirst = order
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
 
-          document.getElementById('admin-order-form')?.addEventListener('submit', async (e) => {
+          const orderBodyEditor = document.getElementById('order-body-editor');
+          const toggleEditBtn = document.getElementById('toggle-order-body-edit');
+          toggleEditBtn?.addEventListener('click', () => {
+            orderBodyEditor?.classList.toggle('hidden');
+            const open = orderBodyEditor && !orderBodyEditor.classList.contains('hidden');
+            if (toggleEditBtn) {
+              toggleEditBtn.textContent = open ? 'Hide order details' : 'Edit Order';
+            }
+          });
+
+          function showMsg(el: HTMLElement | null, ok: boolean, text: string, reload: boolean) {
+            if (!el) return;
+            el.classList.remove('hidden', 'text-red-600', 'text-green-800');
+            el.classList.add(ok ? 'text-green-800' : 'text-red-600');
+            el.textContent = text;
+            if (ok && reload) window.location.reload();
+          }
+
+          document.getElementById('meta-form')?.addEventListener('submit', async (e) => {
             e.preventDefault();
             const form = e.target;
             if (!(form instanceof HTMLFormElement)) return;
-            const msg = document.getElementById('update-msg');
+            const idEl = form.querySelector('[name="id"]');
+            const statusEl = document.getElementById('meta-status');
+            const slotEl = document.getElementById('meta-deliverySlot');
+            const msg = document.getElementById('meta-save-msg');
+            if (!(idEl instanceof HTMLInputElement) || !(statusEl instanceof HTMLSelectElement)) return;
+            const slot =
+              slotEl instanceof HTMLInputElement ? slotEl.value.trim() || null : null;
+            const body = {
+              id: idEl.value,
+              status: statusEl.value,
+              deliverySlot: slot,
+            };
+            const res = await fetch('/api/admin/update-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              showMsg(
+                msg,
+                true,
+                data.unchanged ? 'No changes to save.' : 'Saved.',
+                !data.unchanged
+              );
+            } else {
+              showMsg(msg, false, data.error || data.details || 'Save failed.', false);
+            }
+          });
+
+          document.getElementById('rebuild-form')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            if (!(form instanceof HTMLFormElement)) return;
+            const msg = document.getElementById('rebuild-save-msg');
             const idEl = form.querySelector('[name="id"]');
             if (!(idEl instanceof HTMLInputElement)) return;
+
+            const statusEl = document.getElementById('meta-status');
+            const slotEl = document.getElementById('meta-deliverySlot');
+            const status = statusEl instanceof HTMLSelectElement ? statusEl.value : '';
+            const deliverySlot =
+              slotEl instanceof HTMLInputElement ? slotEl.value.trim() || null : null;
 
             const quantities: Record<string, number> = {};
             for (const key of ORDER_QUANTITY_KEYS) {
@@ -362,13 +436,11 @@ const revisionNewestFirst = order
             const email = (form.querySelector('[name="email"]') as HTMLInputElement)?.value ?? '';
             const phone = (form.querySelector('[name="phone"]') as HTMLInputElement)?.value ?? '';
             const notes = (form.querySelector('[name="notes"]') as HTMLTextAreaElement)?.value ?? '';
-            const status = (form.querySelector('[name="status"]') as HTMLSelectElement)?.value ?? '';
-            const deliverySlot = (form.querySelector('[name="deliverySlot"]') as HTMLInputElement)?.value ?? '';
 
             const body = {
               id: idEl.value,
               status,
-              deliverySlot: deliverySlot.trim() || null,
+              deliverySlot,
               rebuild: {
                 firstName,
                 lastName,
@@ -385,16 +457,15 @@ const revisionNewestFirst = order
               body: JSON.stringify(body),
             });
             const data = await res.json().catch(() => ({}));
-            if (msg) {
-              msg.classList.remove('hidden', 'text-red-600', 'text-green-800');
-              if (res.ok) {
-                msg.classList.add('text-green-800');
-                msg.textContent = data.unchanged ? 'No changes to save.' : 'Saved.';
-                if (!data.unchanged) window.location.reload();
-              } else {
-                msg.classList.add('text-red-600');
-                msg.textContent = data.error || data.details || 'Save failed.';
-              }
+            if (res.ok) {
+              showMsg(
+                msg,
+                true,
+                data.unchanged ? 'No changes to save.' : 'Saved.',
+                !data.unchanged
+              );
+            } else {
+              showMsg(msg, false, data.error || data.details || 'Save failed.', false);
             }
           });
         </script>

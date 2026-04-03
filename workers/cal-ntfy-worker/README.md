@@ -49,6 +49,17 @@ Add `NTFY_TOPIC` in the dashboard (Variables → **Add variable** → type **Tex
 
 Docs: [Cal.com webhooks](https://cal.com/docs/developing/guides/automation/webhooks)
 
+### Also: sync pickup time to the orders admin (main site Worker)
+
+The Astro site (`wcf`) exposes **`POST /api/webhooks/cal-booking`**, which updates **`deliverySlot`** in **ORDERS_KV** when Cal sends a signed webhook. This is **separate** from this ntfy worker—you can keep **both** webhooks in Cal.com (same or different secrets per subscriber).
+
+1. In Cal.com → **Webhooks**, **Add endpoint** (do not remove the ntfy worker URL unless you want to).
+2. **Subscriber URL:** `https://williamscreekfarms.com/api/webhooks/cal-booking` (or your deployed site origin).
+3. **Triggers:** at least `BOOKING_CREATED`, `BOOKING_RESCHEDULED`; add `BOOKING_CANCELLED` if you want the slot cleared when a booking is canceled.
+4. **Secret:** set a secret and add the same value as **`CAL_WEBHOOK_SECRET`** on the **main** Worker (`wcf`): `npx wrangler secret put CAL_WEBHOOK_SECRET`.
+
+**Event type:** add a **short text** (or hidden) booking field with identifier **`orderId`** so the value from the scheduling link (`?orderId=<uuid>`) is stored and included in the webhook payload. Without it, the handler cannot match the booking to an order.
+
 ## 4. Smoke test
 
 - Open the worker root in a browser — you should see: `cal-ntfy-worker OK — POST Cal.com webhooks here`.

@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
+import { pickupScheduleUrl } from '../../lib/cal-pickup';
 import { getServerEnv } from '../../lib/server-env';
 import { publishNtfyNotification } from '../../lib/ntfy';
 
@@ -39,8 +40,6 @@ function computeOrderTotals(quantities: Record<string, unknown>) {
   return { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal };
 }
 
-const PICKUP_SCHEDULE_URL = 'https://cal.com/chad-williams-donsre/hedge-pickup';
-
 function escapeHtmlText(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -49,13 +48,11 @@ function escapeHtmlText(value: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function buildCustomerThankYouHtml(firstName: string, isDeposit: boolean): string {
+function buildCustomerThankYouHtml(firstName: string, scheduleUrl: string): string {
   const nameEsc = escapeHtmlText(firstName.trim() || 'there');
-  const intro = isDeposit
-    ? `<p>Hi ${nameEsc},</p>
-      <p>Once your <strong>deposit payment</strong> succeeds, your order is confirmed! Please choose your delivery day and time at this link:</p>`
-    : `<p>Hi ${nameEsc},</p>
-      <p><strong>Your order is confirmed!</strong> Please choose your delivery day and time at this link:</p>`;
+  const urlEsc = escapeHtmlText(scheduleUrl);
+  const intro = `<p>Hi ${nameEsc},</p>
+    <p>Your order is confirmed! Please choose your <strong>pickup</strong> day and time at this link:</p>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -70,7 +67,7 @@ function buildCustomerThankYouHtml(firstName: string, isDeposit: boolean): strin
 <body>
   <div class="content">
     ${intro}
-    <p><a href="${PICKUP_SCHEDULE_URL}">${PICKUP_SCHEDULE_URL}</a></p>
+    <p><a href="${urlEsc}">${urlEsc}</a></p>
     <p>Need a different day? Text Chad at <a href="tel:+17122543999">712-254-3999</a>.</p>
     <p style="margin-top:24px;color:#666;font-size:0.9em;">— Southwest Iowa Hedge</p>
   </div>
@@ -300,7 +297,10 @@ export const POST: APIRoute = async ({ request }) => {
       subject: isDeposit
         ? 'Next step: Schedule your pickup — Southwest Iowa Hedge'
         : 'Your order is confirmed — Southwest Iowa Hedge',
-      html: buildCustomerThankYouHtml(String(customerInfo.firstName || ''), isDeposit),
+      html: buildCustomerThankYouHtml(
+        String(customerInfo.firstName || ''),
+        pickupScheduleUrl(orderIdStr || undefined)
+      ),
     });
 
     if (customerThankYou.error) {
