@@ -19,7 +19,11 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { depositAmount, orderTotal, customerInfo, orderItems, quantities } = body;
+    const { depositAmount, orderTotal, customerInfo, orderItems, quantities, orderId } = body;
+    const orderIdMeta =
+      orderId !== undefined && orderId !== null && String(orderId).trim() !== ''
+        ? String(orderId).trim()
+        : '';
 
     if (!depositAmount || !orderTotal || !customerInfo) {
       return new Response(JSON.stringify({ error: 'Missing required payment data' }), {
@@ -54,7 +58,7 @@ export const POST: APIRoute = async ({ request }) => {
       quantity: 1,
     };
 
-    const metadata = {
+    const metadata: Record<string, string> = {
       type: 'deposit',
       customer_name: `${customerInfo.firstName} ${customerInfo.lastName}`,
       customer_email: customerInfo.email || '',
@@ -65,6 +69,9 @@ export const POST: APIRoute = async ({ request }) => {
       order_items: JSON.stringify(orderItems),
       notes: customerInfo.notes || '',
     };
+    if (orderIdMeta) {
+      metadata.order_id = orderIdMeta;
+    }
 
     const session = await createCheckoutSession([depositItem], {
       customerEmail: customerInfo.email || undefined,

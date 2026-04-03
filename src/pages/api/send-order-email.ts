@@ -30,8 +30,8 @@ function computeOrderTotals(quantities: Record<string, unknown>) {
   subtotal += q.regularCorner * PRICES.regularCorner;
   subtotal += q.bowStave * PRICES.bowStave;
 
-  const postCount =
-    q.premiumLine + q.premiumCorner + q.premiumExtraLong + q.regularLine + q.regularCorner;
+  // Volume discount: post count only (exclude bow stave; extra-long not counted when eligible)
+  const postCount = q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner;
   const hasVolumeDiscount = postCount >= 100;
   const discountAmount = hasVolumeDiscount ? subtotal * 0.1 : 0;
   const finalTotal = subtotal - discountAmount;
@@ -102,7 +102,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const body = await request.json();
-    const { customerInfo, quantities, orderTotal, isDeposit, depositAmount } = body;
+    const { customerInfo, quantities, orderTotal, isDeposit, depositAmount, orderId } = body;
+    const orderIdStr =
+      orderId !== undefined && orderId !== null && String(orderId).trim() !== ''
+        ? String(orderId).trim()
+        : '';
 
     if (!customerInfo?.firstName || !customerInfo?.lastName || !customerInfo?.email) {
       return new Response(JSON.stringify({ error: 'Missing customer name or email' }), {
@@ -178,6 +182,12 @@ export const POST: APIRoute = async ({ request }) => {
       ? `New Hedge Post deposit — ${customerInfo.firstName} ${customerInfo.lastName}`
       : `New Hedge Post order inquiry — ${customerInfo.firstName} ${customerInfo.lastName}`;
 
+    const orderIdHtml = orderIdStr
+      ? `<div class="order-details" style="background-color:#e8eaf6;padding:12px 15px;border-radius:5px;margin:15px 0;">
+      <p style="margin:0;"><strong>Order ID (saved):</strong> <code>${escapeHtmlText(orderIdStr)}</code></p>
+    </div>`
+      : '';
+
     const emailContent = `
 <!DOCTYPE html>
 <html>
@@ -201,6 +211,7 @@ export const POST: APIRoute = async ({ request }) => {
   </div>
 
   <div class="content">
+    ${orderIdHtml}
     <div class="customer-info">
       <h2>Customer</h2>
       <p><strong>Name:</strong> ${customerInfo.firstName} ${customerInfo.lastName}</p>
@@ -310,17 +321,19 @@ export const POST: APIRoute = async ({ request }) => {
       customerThankYou.data?.id
     );
 
-    const customerName =
-      `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim() || 'Customer';
-    const ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
-    const ntfyMessage = [
-      isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
-      `Order total: $${finalTotal.toFixed(2)}`,
-      ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
-      `Email: ${customerInfo.email}`,
-      `Phone: ${customerInfo.phone || '—'}`,
-    ].join('\n');
-    await publishNtfyNotification({ title: ntfyTitle, message: ntfyMessage });
+    if (!orderIdStr) {
+      const customerName =
+        `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim() || 'Customer';
+      const ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
+      const ntfyMessage = [
+        isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
+        `Order total: $${finalTotal.toFixed(2)}`,
+        ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
+        `Email: ${customerInfo.email}`,
+        `Phone: ${customerInfo.phone || '—'}`,
+      ].join('\n');
+      await publishNtfyNotification({ title: ntfyTitle, message: ntfyMessage });
+    }
 
     return new Response(
       JSON.stringify({

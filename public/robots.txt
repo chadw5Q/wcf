@@ -1,5 +1,6 @@
 # https://williamscreekfarms.com
 User-agent: *
 Allow: /
+Disallow: /admin
 
 Sitemap: https://williamscreekfarms.com/sitemap-index.xml

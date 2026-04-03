@@ -24,6 +24,7 @@ function jsonRequest(body: unknown) {
 
 describe('POST /api/create-deposit-payment', () => {
   beforeEach(() => {
+    createCheckoutSession.mockClear();
     vi.mocked(getServerEnv).mockImplementation((key: string) =>
       key === 'STRIPE_SECRET_KEY' ? 'sk_test_fake' : undefined
     );
@@ -80,5 +81,29 @@ describe('POST /api/create-deposit-payment', () => {
     const body = await res.json();
     expect(body.url).toContain('stripe');
     expect(createCheckoutSession).toHaveBeenCalled();
+  });
+
+  it('includes order_id in Stripe metadata when orderId is provided', async () => {
+    const oid = '550e8400-e29b-41d4-a716-446655440000';
+    await POST({
+      request: jsonRequest({
+        depositAmount: 10,
+        orderTotal: 100,
+        orderId: oid,
+        customerInfo: {
+          firstName: 'A',
+          lastName: 'B',
+          email: 'buyer@example.com',
+          phone: '7125550100',
+          notes: '',
+        },
+        orderItems: [{ type: 'Premium Line Posts', quantity: 4, price: 25, total: 100 }],
+        quantities: { premiumLine: 4, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+      }),
+    } as Parameters<typeof POST>[0]);
+    expect(createCheckoutSession).toHaveBeenCalled();
+    const call = createCheckoutSession.mock.calls[createCheckoutSession.mock.calls.length - 1];
+    const opts = call[1] as { metadata?: Record<string, string> };
+    expect(opts?.metadata?.order_id).toBe(oid);
   });
 });

@@ -589,7 +589,7 @@ import Layout from '../layouts/Layout.astro';
         }
       });
 
-      // Apply volume discount if applicable
+      // Apply volume discount if applicable (posts only; bow stave excluded)
       const postCount = totalPosts - quantities.bowStave;
       let orderTotal = subtotal;
       if (postCount >= 100) {
@@ -600,72 +600,109 @@ import Layout from '../layouts/Layout.astro';
       const depositCheckbox = document.getElementById('deposit-option');
       const isDepositSelected = depositCheckbox && depositCheckbox.checked;
 
+      const customerInfo = {
+        firstName: data.firstName || '',
+        lastName: data.lastName || '',
+        email: data.email || '',
+        phone: data.phone || '',
+        address: data.address || '',
+        city: data.city || '',
+        state: data.state || '',
+        zipCode: data.zipCode || '',
+        notes: data.message || data.notes || ''
+      };
+
+      const submitButton = this.querySelector('button[type="submit"]');
+      const originalText = submitButton.textContent;
+
+      async function saveOrderToKv() {
+        const orderRes = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerInfo,
+            quantities,
+            depositSelected: Boolean(isDepositSelected),
+          }),
+        });
+        const orderJson = await orderRes.json().catch(() => ({}));
+        if (!orderRes.ok) {
+          return {
+            ok: false,
+            message:
+              orderJson.details || orderJson.error || `Could not save order (${orderRes.status}).`,
+          };
+        }
+        const orderId = orderJson.orderId;
+        if (orderId) {
+          try {
+            sessionStorage.setItem('lastOrderId', orderId);
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        return { ok: true, orderId };
+      }
+
       if (isDepositSelected && orderTotal > 0) {
-        // Process deposit payment through Stripe
-        const depositAmount = orderTotal * 0.1; // 10% deposit
-        
-        const customerInfo = {
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zipCode: data.zipCode || '',
-          notes: data.message || data.notes || ''
-        };
+        const depositAmount = orderTotal * 0.1;
 
         try {
-          // Show loading state
-          const submitButton = this.querySelector('button[type="submit"]');
-          const originalText = submitButton.textContent;
-          submitButton.textContent = 'Processing Payment...';
+          submitButton.textContent = 'Saving order…';
           submitButton.disabled = true;
 
-          // Create deposit payment session
+          const saved = await saveOrderToKv();
+          if (!saved.ok) {
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
+            alert(`${saved.message}\n\nPlease text us at 712-254-3999.`);
+            return;
+          }
+          const orderId = saved.orderId;
+
+          submitButton.textContent = 'Sending confirmation…';
+          const emailRes = await fetch('/api/send-order-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerInfo,
+              orderItems,
+              quantities,
+              orderTotal,
+              isDeposit: true,
+              depositAmount,
+              orderId,
+            }),
+          });
+          const emailJson = await emailRes.json().catch(() => ({}));
+          if (!emailRes.ok) {
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
+            alert(
+              emailJson.error || emailJson.details
+                ? `We could not email your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
+                : 'We could not email your order.\n\nPlease text us at 712-254-3999.'
+            );
+            return;
+          }
+
+          submitButton.textContent = 'Processing Payment...';
           const response = await fetch('/api/create-deposit-payment', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               depositAmount,
               orderTotal,
               customerInfo,
               orderItems,
-              quantities
+              quantities,
+              orderId,
             }),
           });
 
           const result = await response.json().catch(() => ({}));
 
           if (response.ok && result.url) {
-            const emailRes = await fetch('/api/send-order-email', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                customerInfo,
-                orderItems,
-                quantities,
-                orderTotal,
-                isDeposit: true,
-                depositAmount
-              }),
-            });
-            const emailJson = await emailRes.json().catch(() => ({}));
-            if (!emailRes.ok) {
-              submitButton.textContent = originalText;
-              submitButton.disabled = false;
-              alert(
-                emailJson.error || emailJson.details
-                  ? `We could not email your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
-                  : 'We could not email your order.\n\nPlease text us at 712-254-3999.'
-              );
-              return;
-            }
-
-            // Redirect to Stripe Checkout
             window.location.href = result.url;
           } else {
             submitButton.textContent = originalText;
@@ -675,7 +712,6 @@ import Layout from '../layouts/Layout.astro';
           }
         } catch (error) {
           console.error('Payment error:', error);
-          const submitButton = this.querySelector('button[type="submit"]');
           submitButton.textContent = originalText;
           submitButton.disabled = false;
           alert(
@@ -685,23 +721,19 @@ import Layout from '../layouts/Layout.astro';
           );
         }
       } else {
-        // No deposit - just submit order inquiry
-        const customerInfo = {
-          firstName: data.firstName || '',
-          lastName: data.lastName || '',
-          email: data.email || '',
-          phone: data.phone || '',
-          address: data.address || '',
-          city: data.city || '',
-          state: data.state || '',
-          zipCode: data.zipCode || '',
-          notes: data.message || data.notes || ''
-        };
-
-        const submitBtn = this.querySelector('button[type="submit"]');
+        const submitBtn = submitButton;
         const prevLabel = submitBtn.textContent;
         submitBtn.textContent = 'Sending…';
         submitBtn.disabled = true;
+
+        const saved = await saveOrderToKv();
+        if (!saved.ok) {
+          submitBtn.textContent = prevLabel;
+          submitBtn.disabled = false;
+          alert(`${saved.message}\n\nPlease text us at 712-254-3999.`);
+          return;
+        }
+        const orderId = saved.orderId;
 
         const emailRes = await fetch('/api/send-order-email', {
           method: 'POST',
@@ -712,7 +744,8 @@ import Layout from '../layouts/Layout.astro';
             quantities,
             orderTotal,
             isDeposit: false,
-            depositAmount: 0
+            depositAmount: 0,
+            orderId,
           }),
         });
         const emailJson = await emailRes.json().catch(() => ({}));

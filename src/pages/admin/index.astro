@@ -1,0 +1,108 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllOrders } from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { formatCentralDateTime, formatUsd } from '../../lib/format-order';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const orders = kv ? await getAllOrders(kv) : [];
+
+const statusFilter = Astro.url.searchParams.get('status') || '';
+const filtered =
+  statusFilter && ['pending', 'confirmed', 'fulfilled'].includes(statusFilter)
+    ? orders.filter((o) => o.status === statusFilter)
+    : orders;
+---
+
+<AdminLayout title="Orders — Admin">
+  {
+    kvMissing && (
+      <div
+        class="no-print mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900"
+        role="alert"
+      >
+        <strong>ORDERS_KV is not bound.</strong> Orders cannot be loaded until you add the KV namespace to
+        wrangler.jsonc and deploy.
+      </div>
+    )
+  }
+
+  <div class="no-print mb-6 flex flex-wrap items-end gap-4">
+    <div>
+      <label for="status-filter" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
+      <select
+        id="status-filter"
+        class="rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+      >
+        <option value="" selected={statusFilter === ''}>All</option>
+        <option value="pending" selected={statusFilter === 'pending'}>Pending</option>
+        <option value="confirmed" selected={statusFilter === 'confirmed'}>Confirmed</option>
+        <option value="fulfilled" selected={statusFilter === 'fulfilled'}>Fulfilled</option>
+      </select>
+    </div>
+    <p class="text-sm text-slate-600">
+      {filtered.length} order{filtered.length === 1 ? '' : 's'}
+      {statusFilter ? ` (${statusFilter})` : ''}
+    </p>
+  </div>
+
+  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm print:border-0 print:shadow-none">
+    <table class="min-w-full text-left text-sm">
+      <thead class="no-print border-b border-slate-200 bg-slate-50 text-slate-600">
+        <tr>
+          <th class="px-4 py-3 font-medium">Placed (Central)</th>
+          <th class="px-4 py-3 font-medium">Customer</th>
+          <th class="px-4 py-3 font-medium">Total</th>
+          <th class="px-4 py-3 font-medium">Deposit at checkout</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+          <th class="no-print px-4 py-3 font-medium"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {
+          filtered.map((o) => (
+            <tr class="hover:bg-slate-50/80 print-break">
+              <td class="px-4 py-3 whitespace-nowrap text-slate-800">{formatCentralDateTime(o.createdAt)}</td>
+              <td class="px-4 py-3">
+                <div class="font-medium text-slate-900">{o.customer.name}</div>
+                <div class="text-slate-600">{o.customer.email}</div>
+              </td>
+              <td class="px-4 py-3 font-medium tabular-nums">{formatUsd(o.discountedSubtotal)}</td>
+              <td class="px-4 py-3 text-slate-700">
+                {o.deposit.selected ? (
+                  <span class="text-green-800">Yes — {formatUsd(o.depositAmount)}</span>
+                ) : (
+                  <span class="text-slate-500">No</span>
+                )}
+                <div class="text-xs text-slate-500">(Stripe payment not tracked here)</div>
+              </td>
+              <td class="px-4 py-3 capitalize">{o.status}</td>
+              <td class="no-print px-4 py-3">
+                <a
+                  href={`/admin/orders/${o.id}`}
+                  class="font-medium text-green-700 hover:text-green-900"
+                >
+                  View
+                </a>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+    {filtered.length === 0 && !kvMissing && (
+      <p class="px-4 py-8 text-center text-slate-500">No orders yet.</p>
+    )}
+  </div>
+
+  <script>
+    document.getElementById('status-filter')?.addEventListener('change', (e) => {
+      const el = e.target;
+      if (!(el instanceof HTMLSelectElement)) return;
+      const v = el.value;
+      window.location.search = v ? '?status=' + encodeURIComponent(v) : '';
+    });
+  </script>
+</AdminLayout>

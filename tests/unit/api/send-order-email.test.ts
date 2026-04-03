@@ -41,6 +41,7 @@ function jsonRequest(body: unknown) {
 
 describe('POST /api/send-order-email', () => {
   beforeEach(() => {
+    mockSend.mockClear();
     vi.stubGlobal(
       'fetch',
       vi.fn(() =>
@@ -103,6 +104,25 @@ describe('POST /api/send-order-email', () => {
       }),
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(400);
+  });
+
+  it('does not call ntfy when orderId is present (notification already sent from /api/orders)', async () => {
+    const res = await POST({
+      request: jsonRequest({
+        customerInfo: baseCustomer,
+        quantities: baseQuantities,
+        orderTotal: 25,
+        isDeposit: false,
+        depositAmount: 0,
+        orderId: '550e8400-e29b-41d4-a716-446655440000',
+      }),
+    } as Parameters<typeof POST>[0]);
+    expect(res.status).toBe(200);
+    expect(mockSend).toHaveBeenCalled();
+    const ntfyCall = vi.mocked(globalThis.fetch).mock.calls.find(
+      (c) => typeof c[0] === 'string' && String(c[0]).includes('ntfy.sh')
+    );
+    expect(ntfyCall).toBeUndefined();
   });
 
   it('returns 200 and calls Resend when payload is valid', async () => {
