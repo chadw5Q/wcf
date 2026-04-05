@@ -1,19 +1,22 @@
 import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
 import { pickupScheduleUrl } from '../../lib/cal-pickup';
+import {
+  buildStoredOrder,
+  summarizeItemsForNtfy,
+  type BuildOrderInput,
+  type OrderSkuMap,
+} from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import {
+  ORDER_CHECKOUT_KEYS,
+  getProductsConfig,
+  orderSkusToMap,
+} from '../../lib/products-config';
 import { getServerEnv } from '../../lib/server-env';
 import { publishNtfyNotification } from '../../lib/ntfy';
 
-const PRICES = {
-  premiumLine: 25,
-  premiumCorner: 40,
-  premiumExtraLong: 60,
-  regularLine: 10,
-  regularCorner: 20,
-  bowStave: 125,
-} as const;
-
-function computeOrderTotals(quantities: Record<string, unknown>) {
+function computeOrderTotals(quantities: Record<string, unknown>, skuMap: OrderSkuMap) {
   const q = {
     premiumLine: Number(quantities.premiumLine) || 0,
     premiumCorner: Number(quantities.premiumCorner) || 0,
@@ -24,14 +27,10 @@ function computeOrderTotals(quantities: Record<string, unknown>) {
   };
 
   let subtotal = 0;
-  subtotal += q.premiumLine * PRICES.premiumLine;
-  subtotal += q.premiumCorner * PRICES.premiumCorner;
-  subtotal += q.premiumExtraLong * PRICES.premiumExtraLong;
-  subtotal += q.regularLine * PRICES.regularLine;
-  subtotal += q.regularCorner * PRICES.regularCorner;
-  subtotal += q.bowStave * PRICES.bowStave;
+  for (const k of ORDER_CHECKOUT_KEYS) {
+    subtotal += q[k] * skuMap[k].unitPrice;
+  }
 
-  // Volume discount: post count only (exclude bow stave; extra-long not counted when eligible)
   const postCount = q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner;
   const hasVolumeDiscount = postCount >= 100;
   const discountAmount = hasVolumeDiscount ? subtotal * 0.1 : 0;
@@ -75,7 +74,11 @@ function buildCustomerThankYouHtml(firstName: string, scheduleUrl: string): stri
 </html>`;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+  const kv = getOrdersKvFromLocals(locals);
+  const productsConfig = await getProductsConfig(kv);
+  const skuMap = orderSkusToMap(productsConfig.orderSkus);
+
   const apiKey = getServerEnv('RESEND_API_KEY');
   if (!apiKey) {
     return new Response(
@@ -127,7 +130,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal } =
-      computeOrderTotals(quantities);
+      computeOrderTotals(quantities, skuMap);
 
     if (subtotal <= 0) {
       return new Response(
@@ -139,38 +142,14 @@ export const POST: APIRoute = async ({ request }) => {
     const customerNotes =
       (customerInfo.notes || customerInfo.message || '').toString().trim();
 
-    // Format order items for email
     const formatOrderItems = () => {
       const items: string[] = [];
-      if (q.premiumLine > 0) {
-        items.push(
-          `• Premium Line Posts: ${q.premiumLine} @ $25 each = $${(q.premiumLine * 25).toFixed(2)}`
-        );
-      }
-      if (q.premiumCorner > 0) {
-        items.push(
-          `• Premium Corner Posts: ${q.premiumCorner} @ $40 each = $${(q.premiumCorner * 40).toFixed(2)}`
-        );
-      }
-      if (q.premiumExtraLong > 0) {
-        items.push(
-          `• Premium Extra Long Posts: ${q.premiumExtraLong} @ $60 each = $${(q.premiumExtraLong * 60).toFixed(2)}`
-        );
-      }
-      if (q.regularLine > 0) {
-        items.push(
-          `• Regular Line Posts: ${q.regularLine} @ $10 each = $${(q.regularLine * 10).toFixed(2)}`
-        );
-      }
-      if (q.regularCorner > 0) {
-        items.push(
-          `• Regular Corner Posts: ${q.regularCorner} @ $${PRICES.regularCorner} each = $${(q.regularCorner * PRICES.regularCorner).toFixed(2)}`
-        );
-      }
-      if (q.bowStave > 0) {
-        items.push(
-          `• Bow Stave Logs: ${q.bowStave} @ $125 each = $${(q.bowStave * 125).toFixed(2)}`
-        );
+      for (const k of ORDER_CHECKOUT_KEYS) {
+        const n = q[k];
+        if (n <= 0) continue;
+        const sku = skuMap[k];
+        const line = n * sku.unitPrice;
+        items.push(`• ${sku.label}: ${n} @ $${sku.unitPrice} each = $${line.toFixed(2)}`);
       }
       return items.join('\n');
     };
@@ -331,19 +310,74 @@ export const POST: APIRoute = async ({ request }) => {
       customerThankYou.data?.id
     );
 
-    if (!orderIdStr) {
-      const customerName =
-        `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim() || 'Customer';
-      const ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
-      const ntfyMessage = [
+    const customerName =
+      `${customerInfo.firstName || ''} ${customerInfo.lastName || ''}`.trim() || 'Customer';
+
+    let ntfyTitle: string;
+    let ntfyMessage: string;
+
+    if (orderIdStr) {
+      const buildInput: BuildOrderInput = {
+        firstName: String(customerInfo.firstName ?? ''),
+        lastName: String(customerInfo.lastName ?? ''),
+        email: String(customerInfo.email ?? ''),
+        phone: String(customerInfo.phone ?? ''),
+        notes:
+          customerInfo.notes != null
+            ? String(customerInfo.notes)
+            : customerInfo.message != null
+              ? String(customerInfo.message)
+              : null,
+        depositSelected: Boolean(isDeposit),
+        quantities,
+      };
+      try {
+        const o = buildStoredOrder(buildInput, orderIdStr, new Date().toISOString(), skuMap);
+        const itemsLine = summarizeItemsForNtfy(o.items);
+        ntfyTitle = `New order: ${o.customer.name}`;
+        ntfyMessage = [
+          `Order ID: ${orderIdStr}`,
+          itemsLine ? `Items: ${itemsLine}` : '',
+          `Order total: $${finalTotal.toFixed(2)}`,
+          isDeposit
+            ? `Deposit (10% at checkout): $${Number(depositAmount).toFixed(2)}`
+            : 'Deposit: not selected at checkout',
+          `Email: ${customerInfo.email}`,
+          `Phone: ${customerInfo.phone || '—'}`,
+          adminOrderUrl ? `Admin: ${adminOrderUrl}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      } catch {
+        ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
+        ntfyMessage = [
+          isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
+          `Order ID: ${orderIdStr}`,
+          `Order total: $${finalTotal.toFixed(2)}`,
+          ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
+          `Email: ${customerInfo.email}`,
+          `Phone: ${customerInfo.phone || '—'}`,
+          adminOrderUrl ? `Admin: ${adminOrderUrl}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
+      }
+    } else {
+      ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
+      ntfyMessage = [
         isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
         `Order total: $${finalTotal.toFixed(2)}`,
         ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
         `Email: ${customerInfo.email}`,
         `Phone: ${customerInfo.phone || '—'}`,
       ].join('\n');
-      await publishNtfyNotification({ title: ntfyTitle, message: ntfyMessage });
     }
+
+    await publishNtfyNotification({
+      title: ntfyTitle,
+      message: ntfyMessage,
+      workerEnv: locals?.runtime?.env as Record<string, unknown> | undefined,
+    });
 
     return new Response(
       JSON.stringify({

@@ -8,15 +8,8 @@ import { getEnv } from 'astro/env/runtime';
  * 3. `process.env` — Node, CI, some runtimes.
  */
 export function getServerEnv(key: string): string | undefined {
-  try {
-    const fromMeta = (import.meta.env as Record<string, string | undefined>)[key];
-    if (typeof fromMeta === 'string' && fromMeta.trim() !== '') {
-      return fromMeta.trim();
-    }
-  } catch {
-    // import.meta.env unavailable in some contexts
-  }
-
+  // 1. Cloudflare / Astro runtime bindings (Wrangler vars & secrets) — must win over import.meta so
+  //    local `.env` values baked at `astro build` time cannot override production or disable ntfy.
   try {
     const fromRuntime = getEnv(key);
     if (typeof fromRuntime === 'string' && fromRuntime.trim() !== '') {
@@ -29,6 +22,15 @@ export function getServerEnv(key: string): string | undefined {
   const fromProcess = typeof process !== 'undefined' ? process.env[key] : undefined;
   if (typeof fromProcess === 'string' && fromProcess.trim() !== '') {
     return fromProcess.trim();
+  }
+
+  try {
+    const fromMeta = (import.meta.env as Record<string, string | undefined>)[key];
+    if (typeof fromMeta === 'string' && fromMeta.trim() !== '') {
+      return fromMeta.trim();
+    }
+  } catch {
+    // import.meta.env unavailable in some contexts
   }
   return undefined;
 }

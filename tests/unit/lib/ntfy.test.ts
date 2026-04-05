@@ -45,6 +45,16 @@ describe('publishNtfyNotification', () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
+  it('uses workerEnv NTFY_TOPIC when getServerEnv returns nothing (Cloudflare bindings)', async () => {
+    vi.mocked(getServerEnv).mockReturnValue(undefined);
+    await publishNtfyNotification({
+      title: 'T',
+      message: 'M',
+      workerEnv: { NTFY_TOPIC: 'from-worker' },
+    });
+    expect(vi.mocked(globalThis.fetch).mock.calls[0][0]).toBe('https://ntfy.sh/from-worker');
+  });
+
   it('POSTs to default topic URL with Title header and plain body', async () => {
     await publishNtfyNotification({ title: 'New order', message: 'Line1\nLine2' });
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1);

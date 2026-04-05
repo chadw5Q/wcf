@@ -3,7 +3,7 @@ import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
 import { getServerEnv } from '../../lib/server-env';
 import { publishNtfyNotification } from '../../lib/ntfy';
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
     if (!getServerEnv('STRIPE_SECRET_KEY')) {
       return new Response(
@@ -44,6 +44,7 @@ export const POST: APIRoute = async ({ request }) => {
     await publishNtfyNotification({
       title: 'Hedge posts: cart checkout started',
       message: `Stripe session: ${session.id}\n${lines}`,
+      workerEnv: locals?.runtime?.env as Record<string, unknown> | undefined,
     });
 
     return new Response(JSON.stringify({ sessionId: session.id, url: session.url }), {

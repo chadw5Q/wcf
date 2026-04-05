@@ -32,10 +32,12 @@ const { title } = Astro.props;
   <body class="min-h-screen bg-slate-50 text-slate-900">
     <header class="no-print border-b border-slate-200 bg-white">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-3">
-        <a href="/admin" class="text-lg font-semibold text-green-800">Orders admin</a>
+        <a href="/admin" class="text-lg font-semibold text-green-800">Admin</a>
         <nav class="flex flex-wrap items-center gap-4 text-sm">
           <a href="/" class="text-slate-600 hover:text-green-700">Home</a>
-          <a href="/admin" class="text-slate-600 hover:text-green-700">All orders</a>
+          <a href="/admin" class="text-slate-600 hover:text-green-700">Dashboard</a>
+          <a href="/admin/products" class="text-slate-600 hover:text-green-700">Products</a>
+          <a href="/admin/all-orders" class="text-slate-600 hover:text-green-700">All orders</a>
           <a href="/admin/reports" class="text-slate-600 hover:text-green-700">Reports</a>
           <form method="post" action="/api/admin/logout" class="inline">
             <button

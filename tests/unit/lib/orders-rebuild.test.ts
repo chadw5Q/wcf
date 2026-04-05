@@ -5,6 +5,9 @@ import {
   rebuildStoredOrder,
 } from '../../../src/lib/orders';
 import type { StoredOrder } from '../../../src/lib/order-types';
+import { getDefaultOrderSkuMap } from '../../../src/lib/products-config';
+
+const skuMap = getDefaultOrderSkuMap();
 
 const baseQuantities = {
   premiumLine: 2,
@@ -27,7 +30,8 @@ function makeOrder(over?: Partial<StoredOrder>): StoredOrder {
       quantities: baseQuantities,
     },
     'id-1',
-    '2026-01-01T00:00:00.000Z'
+    '2026-01-01T00:00:00.000Z',
+    skuMap
   );
   return { ...o, ...over };
 }
@@ -35,14 +39,18 @@ function makeOrder(over?: Partial<StoredOrder>): StoredOrder {
 describe('admin order rebuild', () => {
   it('preserves deposit.selected and recalculates deposit amount when totals change', () => {
     const existing = makeOrder({ deposit: { selected: true, rate: 0.1, amount: 5 } });
-    const next = rebuildStoredOrder(existing, {
-      firstName: 'A',
-      lastName: 'B',
-      email: 'a@b.com',
-      phone: '555',
-      notes: 'n1',
-      quantities: { ...baseQuantities, premiumLine: 10 },
-    });
+    const next = rebuildStoredOrder(
+      existing,
+      {
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@b.com',
+        phone: '555',
+        notes: 'n1',
+        quantities: { ...baseQuantities, premiumLine: 10 },
+      },
+      skuMap
+    );
     expect(next.deposit.selected).toBe(true);
     expect(next.deposit.amount).toBeGreaterThan(existing.deposit.amount);
     expect(next.revisionLog?.length).toBe(1);
@@ -61,16 +69,21 @@ describe('admin order rebuild', () => {
         quantities: baseQuantities,
       },
       'id-2',
-      '2026-01-01T00:00:00.000Z'
+      '2026-01-01T00:00:00.000Z',
+      skuMap
     );
-    const next = rebuildStoredOrder(e, {
-      firstName: 'A',
-      lastName: 'B',
-      email: 'a@b.com',
-      phone: '555',
-      notes: null,
-      quantities: { ...baseQuantities, premiumLine: 5 },
-    });
+    const next = rebuildStoredOrder(
+      e,
+      {
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@b.com',
+        phone: '555',
+        notes: null,
+        quantities: { ...baseQuantities, premiumLine: 5 },
+      },
+      skuMap
+    );
     expect(next.deposit.selected).toBe(false);
     expect(next.depositAmount).toBe(0);
   });

@@ -6,11 +6,14 @@ import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 import { formatCentralDateTime, formatUsd } from '../../../lib/format-order';
 import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
 import type { StoredOrder } from '../../../lib/order-types';
+import { getProductsConfig, orderSkusToMap } from '../../../lib/products-config';
 
 const id = Astro.params.id ?? '';
 const kv = getOrdersKvFromLocals(Astro.locals);
 const kvMissing = !kv;
 const order = kv && id ? await getOrder(kv, id) : null;
+const productsConfig = await getProductsConfig(kv);
+const skuMap = orderSkusToMap(productsConfig.orderSkus);
 
 function initialQuantities(o: StoredOrder): Record<string, number> {
   const m: Record<string, number> = {};
@@ -22,14 +25,13 @@ function initialQuantities(o: StoredOrder): Record<string, number> {
   return m;
 }
 
-const qtyLabels: Record<string, string> = {
-  premiumLine: 'Premium line',
-  premiumCorner: 'Premium corner / second',
-  premiumExtraLong: 'Premium extra long (sold out)',
-  regularLine: 'Regular line',
-  regularCorner: 'Regular corner',
-  bowStave: 'Bow stave',
-};
+const qtyLabels: Record<string, string> = Object.fromEntries(
+  ORDER_QUANTITY_KEYS.map((k) => {
+    const row = skuMap[k];
+    const label = row?.label ?? k;
+    return [k, k === 'premiumExtraLong' && row?.soldOut ? `${label} (sold out)` : label];
+  })
+);
 
 const revisionNewestFirst = order
   ? [...(order.revisionLog ?? [])].reverse()
@@ -48,7 +50,8 @@ const revisionNewestFirst = order
   {
     !kvMissing && !order && (
       <p class="text-slate-600">
-        Order not found. <a href="/admin" class="text-green-700 hover:underline">Back to list</a>
+        Order not found.{' '}
+        <a href="/admin/all-orders" class="text-green-700 hover:underline">Back to list</a>
       </p>
     )
   }
@@ -57,7 +60,7 @@ const revisionNewestFirst = order
     order && (
       <>
         <div class="no-print mb-6 flex flex-wrap items-center gap-4">
-          <a href="/admin" class="text-sm font-medium text-green-700 hover:text-green-900">
+          <a href="/admin/all-orders" class="text-sm font-medium text-green-700 hover:text-green-900">
             ← All orders
           </a>
           <button
@@ -66,6 +69,15 @@ const revisionNewestFirst = order
             class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
           >
             Print
+          </button>
+          <button
+            type="button"
+            id="delete-order"
+            class="rounded border border-red-200 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+            data-order-id={order.id}
+            data-customer-name={order.customer.name}
+          >
+            Delete order
           </button>
         </div>
 
@@ -356,6 +368,31 @@ const revisionNewestFirst = order
           import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
+
+          document.getElementById('delete-order')?.addEventListener('click', async () => {
+            const btn = document.getElementById('delete-order');
+            if (!(btn instanceof HTMLButtonElement)) return;
+            const id = btn.dataset.orderId?.trim();
+            const name = (btn.dataset.customerName || 'this customer').trim() || 'this customer';
+            if (!id) return;
+            const ok = window.confirm(
+              `Delete order for ${name}?\n\nThis permanently removes the order from your dashboard. This cannot be undone.`
+            );
+            if (!ok) return;
+            btn.disabled = true;
+            const res = await fetch('/api/admin/delete-order', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              window.location.href = '/admin';
+            } else {
+              window.alert(data.error || data.details || 'Delete failed.');
+              btn.disabled = false;
+            }
+          });
 
           const orderBodyEditor = document.getElementById('order-body-editor');
           const toggleEditBtn = document.getElementById('toggle-order-body-edit');

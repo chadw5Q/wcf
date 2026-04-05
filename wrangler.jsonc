@@ -14,8 +14,24 @@
 			"id": "ce4de178c6a242ea8d19ab8387530d96"
 		}
 	],
-	// Non-secret config (available as env in the Worker). Secrets: use `wrangler secret put NAME`.
+	// Create in dashboard: npx wrangler r2 bucket create wcf-product-images
+	"r2_buckets": [
+		{
+			"binding": "PRODUCT_IMAGES",
+			"bucket_name": "wcf-product-images"
+		}
+	],
+	// Non-secret config (available as env in the Worker).
+	// Secrets: `npx wrangler secret put NTFY_ACCESS_TOKEN` (or NTFY_TOKEN) if your ntfy topic is private.
+	// Subscribe the ntfy app to this topic: https://ntfy.sh/<NTFY_TOPIC>
 	"vars": {
-		"SITE_URL": "https://williamscreekfarms.com"
+		"SITE_URL": "https://williamscreekfarms.com",
+		"NTFY_TOPIC": "hedge-order"
+	},
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true
+		}
 	}
 }

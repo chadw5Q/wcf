@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { applyCalBookingToOrder, buildStoredOrder } from '../../../src/lib/orders';
+import { getDefaultOrderSkuMap } from '../../../src/lib/products-config';
+
+const skuMap = getDefaultOrderSkuMap();
 
 const baseInput = {
   firstName: 'A',
@@ -28,7 +31,7 @@ describe('applyCalBookingToOrder', () => {
 
   it('sets delivery slot and status to scheduled', async () => {
     const id = 'a0a84e55-7879-4b3a-980f-6fafe4bff099';
-    const order = buildStoredOrder(baseInput, id, new Date().toISOString());
+    const order = buildStoredOrder(baseInput, id, new Date().toISOString(), skuMap);
     await kv.put(id, JSON.stringify(order));
 
     const slot = 'Mon, Apr 6, 2026, 9:00 AM – 9:30 AM CDT';
@@ -42,7 +45,7 @@ describe('applyCalBookingToOrder', () => {
 
   it('clears slot and moves scheduled back to pending', async () => {
     const id = 'b1b95e66-898a-5c4b-991a-7a0a5cff1aa0';
-    const order = buildStoredOrder(baseInput, id, new Date().toISOString());
+    const order = buildStoredOrder(baseInput, id, new Date().toISOString(), skuMap);
     order.deliverySlot = 'Old slot';
     order.status = 'scheduled';
     await kv.put(id, JSON.stringify(order));

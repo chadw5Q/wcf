@@ -5,28 +5,13 @@ import type {
   OrderStatus,
   StoredOrder,
 } from './order-types';
+import type { OrderCheckoutKey, OrderSkuRow } from './products-config';
 
 export type { StoredOrder, OrderStatus, OrderFieldName, OrderRevisionEntry } from './order-types';
 
 const INDEX_KEY = 'order_index';
 const MAX_INDEX_IDS = 5000;
 const MAX_REVISION_LOG = 100;
-
-const PRICES: Record<OrderFieldName, number> = {
-  premiumLine: 25,
-  premiumCorner: 40,
-  regularLine: 10,
-  regularCorner: 20,
-  bowStave: 125,
-};
-
-const PRODUCT_LABELS: Record<OrderFieldName, string> = {
-  premiumLine: 'Premium Line Posts',
-  premiumCorner: 'Premium Corner/Second Posts',
-  regularLine: 'Regular Line Posts',
-  regularCorner: 'Regular Corner Posts',
-  bowStave: 'Traditional Bow Stave Logs',
-};
 
 const LINE_KEYS: OrderFieldName[] = [
   'premiumLine',
@@ -70,8 +55,10 @@ type OrderComputedBody = Pick<
   | 'notes'
 >;
 
+export type OrderSkuMap = Record<OrderCheckoutKey, OrderSkuRow>;
+
 /** Shared pricing / line items for new orders and admin rebuilds. */
-export function computeOrderBody(input: BuildOrderInput): OrderComputedBody {
+export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): OrderComputedBody {
   const q = {
     premiumLine: Math.max(0, Math.floor(Number(input.quantities.premiumLine) || 0)),
     premiumCorner: Math.max(0, Math.floor(Number(input.quantities.premiumCorner) || 0)),
@@ -85,17 +72,26 @@ export function computeOrderBody(input: BuildOrderInput): OrderComputedBody {
     throw new Error('Premium Extra Long Posts are sold out.');
   }
 
+  for (const key of LINE_KEYS) {
+    const sku = skuMap[key];
+    if (!sku) throw new Error(`Missing product config for ${key}`);
+    if (sku.soldOut && q[key] > 0) {
+      throw new Error(`${sku.label} are currently sold out.`);
+    }
+  }
+
   const items: OrderLineItem[] = [];
   let subtotal = 0;
 
   for (const key of LINE_KEYS) {
     const qty = q[key];
     if (qty <= 0) continue;
-    const unitPrice = PRICES[key];
+    const sku = skuMap[key];
+    const unitPrice = sku.unitPrice;
     const lineTotal = qty * unitPrice;
     subtotal += lineTotal;
     items.push({
-      product: PRODUCT_LABELS[key],
+      product: sku.label,
       fieldName: key,
       quantity: qty,
       unitPrice,
@@ -149,8 +145,13 @@ export function computeOrderBody(input: BuildOrderInput): OrderComputedBody {
 }
 
 /** Server-side totals: >= 100 posts (excluding bow stave) → 10% off subtotal. */
-export function buildStoredOrder(input: BuildOrderInput, id: string, createdAt: string): StoredOrder {
-  const body = computeOrderBody(input);
+export function buildStoredOrder(
+  input: BuildOrderInput,
+  id: string,
+  createdAt: string,
+  skuMap: OrderSkuMap
+): StoredOrder {
+  const body = computeOrderBody(input, skuMap);
   return {
     id,
     createdAt,
@@ -171,7 +172,11 @@ function pushRevision(order: StoredOrder, entry: OrderRevisionEntry): void {
  * Recompute line items and totals from admin input. Preserves id, createdAt, status, deliverySlot,
  * and deposit.selected (recalculates deposit amount only if deposit was selected at checkout).
  */
-export function rebuildStoredOrder(existing: StoredOrder, input: AdminOrderRebuildInput): StoredOrder {
+export function rebuildStoredOrder(
+  existing: StoredOrder,
+  input: AdminOrderRebuildInput,
+  skuMap: OrderSkuMap
+): StoredOrder {
   const buildInput: BuildOrderInput = {
     firstName: input.firstName,
     lastName: input.lastName,
@@ -182,7 +187,7 @@ export function rebuildStoredOrder(existing: StoredOrder, input: AdminOrderRebui
     quantities: input.quantities,
   };
 
-  const body = computeOrderBody(buildInput);
+  const body = computeOrderBody(buildInput, skuMap);
   const now = new Date().toISOString();
 
   const entry: OrderRevisionEntry = {
@@ -274,6 +279,19 @@ export async function getAllOrders(kv: KVNamespace): Promise<StoredOrder[]> {
   }
   orders.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   return orders;
+}
+
+/** Remove order record and drop its id from the index. Returns false if the id was not an order. */
+export async function deleteOrder(kv: KVNamespace, id: string): Promise<boolean> {
+  const trimmed = id.trim();
+  if (!trimmed || trimmed === INDEX_KEY) return false;
+  const existing = await getOrder(kv, trimmed);
+  if (!existing) return false;
+  await kv.delete(trimmed);
+  const ids = await readIndex(kv);
+  const next = ids.filter((x) => x !== trimmed);
+  await writeIndex(kv, next);
+  return true;
 }
 
 export async function getOrdersByDateRange(

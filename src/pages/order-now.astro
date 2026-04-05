@@ -1,6 +1,17 @@
 ---
-export const prerender = true;
+export const prerender = false;
 import Layout from '../layouts/Layout.astro';
+import { getOrdersKvFromLocals } from '../lib/orders-kv';
+import {
+  ORDER_CHECKOUT_KEYS,
+  getOrderSkuImageSrc,
+  getProductsConfig,
+  orderSkusToMap,
+} from '../lib/products-config';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const productsConfig = await getProductsConfig(kv);
+const skuByField = orderSkusToMap(productsConfig.orderSkus);
 ---
 
 <Layout
@@ -83,81 +94,65 @@ import Layout from '../layouts/Layout.astro';
               <h3 class="text-lg font-semibold text-gray-900 mb-2">What would you like to order?</h3>
               <p class="text-sm text-gray-700 mb-4">Don't worry, you can come to our farm and pick out your posts before paying the full amount.  <strong>Payment NOT required now.</strong></p>
               
-              <!-- Premium Line Posts -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-white rounded-lg border">
-                <div>
-                  <h4 class="font-medium text-gray-900">Premium Line Posts - $25</h4>
-                  <p class="text-sm text-gray-600">3-6" diameter, relatively straight, 9ft long</p>
-                </div>
-                <div>
-                  <label for="premiumLine" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" id="premiumLine" name="premiumLine" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
-              
-              <!-- Premium Corner Posts -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-white rounded-lg border">
-                <div>
-                  <h4 class="font-medium text-gray-900">Premium Corner/Second Posts - $40</h4>
-                  <p class="text-sm text-gray-600">6-12" diameter, relatively straight, 9ft long</p>
-                </div>
-                <div>
-                  <label for="premiumCorner" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" id="premiumCorner" name="premiumCorner" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
-              
-              <!-- Premium Extra Long Posts (sold out) -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-lg border border-red-200 relative">
-                <div class="absolute top-3 right-3">
-                  <span class="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full">SOLD OUT</span>
-                </div>
-                <div>
-                  <h4 class="font-medium text-gray-900">Premium Extra Long Posts - $60</h4>
-                  <p class="text-sm text-gray-600">At least 12' long, relatively straight</p>
-                  <p class="text-sm text-red-600 font-medium mt-2">Currently unavailable — check back later.</p>
-                </div>
-                <div>
-                  <label for="premiumExtraLong" class="block text-sm font-medium text-gray-500 mb-1">Quantity</label>
-                  <input type="number" id="premiumExtraLong" name="premiumExtraLong" min="0" value="0" disabled class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" aria-disabled="true" title="Sold Out">
-                </div>
-              </div>
-              
-              <!-- Regular Line Posts -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-white rounded-lg border">
-                <div>
-                  <h4 class="font-medium text-gray-900">Regular Line Posts - $10</h4>
-                  <p class="text-sm text-gray-600">3-6" diameter, curvy, smaller or cut last year, 9ft long</p>
-                </div>
-                <div>
-                  <label for="regularLine" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" id="regularLine" name="regularLine" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
-              
-              <!-- Regular Corner Posts -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-white rounded-lg border">
-                <div>
-                  <h4 class="font-medium text-gray-900">Regular Corner Posts - $20</h4>
-                  <p class="text-sm text-gray-600">8-14" diameter, curvy or cut last year, 9ft long</p>
-                </div>
-                <div>
-                  <label for="regularCorner" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" id="regularCorner" name="regularCorner" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
-              
-              <!-- Bow Stave Logs -->
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 p-4 bg-white rounded-lg border">
-                <div>
-                  <h4 class="font-medium text-gray-900">Traditional Bow Stave Logs - $125</h4>
-                  <p class="text-sm text-gray-600">6" diameter, 6ft+ long, no knots (pickup only)</p>
-                </div>
-                <div>
-                  <label for="bowStave" class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
-                  <input type="number" id="bowStave" name="bowStave" min="0" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
+              {
+                ORDER_CHECKOUT_KEYS.map((key) => {
+                  const sku = skuByField[key];
+                  const soldOut = sku.soldOut;
+                  return (
+                    <div
+                      class={`grid grid-cols-1 md:grid-cols-[7rem_1fr_auto] gap-4 mb-4 p-4 rounded-lg border relative items-start ${soldOut ? 'bg-gray-50 border-red-200' : 'bg-white border-gray-200'}`}
+                    >
+                      {soldOut ? (
+                        <div class="absolute top-3 right-3">
+                          <span class="rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                            SOLD OUT
+                          </span>
+                        </div>
+                      ) : null}
+                      <div class="hidden md:block">
+                        <img
+                          src={getOrderSkuImageSrc(sku, key)}
+                          alt=""
+                          class="h-20 w-28 rounded-lg border border-gray-200 object-cover"
+                          width="112"
+                          height="80"
+                          loading="lazy"
+                        />
+                      </div>
+                      <div>
+                        <h4 class="font-medium text-gray-900">
+                          {sku.label} — ${sku.unitPrice}
+                        </h4>
+                        <p class="text-sm text-gray-600">{sku.shortDescription}</p>
+                        {soldOut ? (
+                          <p class="mt-2 text-sm font-medium text-red-600">
+                            Currently unavailable — check back later.
+                          </p>
+                        ) : null}
+                      </div>
+                      <div class="md:min-w-[8rem]">
+                        <label
+                          for={key}
+                          class={`mb-1 block text-sm font-medium ${soldOut ? 'text-gray-500' : 'text-gray-700'}`}
+                        >
+                          Quantity
+                        </label>
+                        <input
+                          type="number"
+                          id={key}
+                          name={key}
+                          min="0"
+                          value="0"
+                          disabled={soldOut}
+                          class={`w-full rounded-lg border border-gray-300 px-3 py-2 ${soldOut ? 'cursor-not-allowed bg-gray-100 text-gray-500' : 'focus:border-transparent focus:outline-none focus:ring-2 focus:ring-green-500'}`}
+                          aria-disabled={soldOut ? 'true' : undefined}
+                          title={soldOut ? 'Sold out' : undefined}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              }
             </div>
             
             <!-- Order Summary -->
@@ -394,28 +389,29 @@ import Layout from '../layouts/Layout.astro';
     </div>
   </section>
 
-  <script>
-    // Price calculations
-    const prices = {
-      premiumLine: 25,
-      premiumCorner: 40,
-      premiumExtraLong: 60,
-      regularLine: 10,
-      regularCorner: 20,
-      bowStave: 125
-    };
-
-    const IS_PREMIUM_EXTRA_LONG_OUT_OF_STOCK = true;
+  <script define:vars={{ orderSkuRows: productsConfig.orderSkus }}>
+    const prices = {};
+    const typeNames = {};
+    /** @param {string} id */
+    function isSoldOutField(id) {
+      const row = orderSkuRows.find((r) => r.fieldName === id);
+      return row?.soldOut === true;
+    }
+    for (const s of orderSkuRows) {
+      prices[s.fieldName] = s.unitPrice;
+      typeNames[s.fieldName] = s.label;
+    }
 
     function readQuantitiesFromForm() {
       const ids = ['premiumLine', 'premiumCorner', 'premiumExtraLong', 'regularLine', 'regularCorner', 'bowStave'];
       /** @type {Record<string, number>} */
       const quantities = {};
       ids.forEach((id) => {
-        if (IS_PREMIUM_EXTRA_LONG_OUT_OF_STOCK && id === 'premiumExtraLong') {
+        if (isSoldOutField(id)) {
           quantities[id] = 0;
         } else {
-          quantities[id] = parseInt(document.getElementById(id).value, 10) || 0;
+          const el = document.getElementById(id);
+          quantities[id] = el ? parseInt(el.value, 10) || 0 : 0;
         }
       });
       return quantities;
@@ -433,25 +429,16 @@ import Layout from '../layouts/Layout.astro';
       let summaryHTML = '';
 
       // Calculate each line item
-      Object.keys(quantities).forEach(type => {
+      Object.keys(quantities).forEach((type) => {
         const qty = quantities[type];
         if (qty > 0) {
           const lineTotal = qty * prices[type];
           subtotal += lineTotal;
           totalPosts += qty;
-
-          const typeNames = {
-            premiumLine: 'Premium Line Posts',
-            premiumCorner: 'Premium Corner Posts',
-            premiumExtraLong: 'Premium Extra Long Posts',
-            regularLine: 'Regular Line Posts',
-            regularCorner: 'Regular Corner Posts',
-            bowStave: 'Bow Stave Logs'
-          };
-
+          const label = typeNames[type] || type;
           summaryHTML += `
             <div class="flex justify-between">
-              <span>${qty} × ${typeNames[type]} ($${prices[type]})</span>
+              <span>${qty} × ${label} ($${prices[type]})</span>
               <span>$${lineTotal.toFixed(2)}</span>
             </div>
           `;
@@ -507,9 +494,9 @@ import Layout from '../layouts/Layout.astro';
     document.addEventListener('DOMContentLoaded', function() {
       const quantityInputs = ['premiumLine', 'premiumCorner', 'premiumExtraLong', 'regularLine', 'regularCorner', 'bowStave'];
       
-      quantityInputs.forEach(id => {
-        if (IS_PREMIUM_EXTRA_LONG_OUT_OF_STOCK && id === 'premiumExtraLong') return;
-        document.getElementById(id).addEventListener('input', updateOrderSummary);
+      quantityInputs.forEach((id) => {
+        if (isSoldOutField(id)) return;
+        document.getElementById(id)?.addEventListener('input', updateOrderSummary);
       });
 
       // Initial calculation
@@ -564,27 +551,17 @@ import Layout from '../layouts/Layout.astro';
       let totalPosts = 0;
       const orderItems = [];
 
-      Object.keys(quantities).forEach(type => {
+      Object.keys(quantities).forEach((type) => {
         const qty = quantities[type];
         if (qty > 0) {
           const lineTotal = qty * prices[type];
           subtotal += lineTotal;
           totalPosts += qty;
-
-          const typeNames = {
-            premiumLine: 'Premium Line Posts',
-            premiumCorner: 'Premium Corner Posts',
-            premiumExtraLong: 'Premium Extra Long Posts',
-            regularLine: 'Regular Line Posts',
-            regularCorner: 'Regular Corner Posts',
-            bowStave: 'Bow Stave Logs'
-          };
-
           orderItems.push({
-            type: typeNames[type],
+            type: typeNames[type] || type,
             quantity: qty,
             price: prices[type],
-            total: lineTotal
+            total: lineTotal,
           });
         }
       });

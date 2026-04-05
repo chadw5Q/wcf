@@ -30,6 +30,7 @@ declare namespace App {
     runtime?: {
       env: {
         ORDERS_KV?: KVNamespace;
+        PRODUCT_IMAGES?: R2Bucket;
         ASSETS?: Fetcher;
       } & Record<string, unknown>;
       cf?: IncomingRequestCfProperties;

@@ -1,12 +1,7 @@
 import type { APIRoute } from 'astro';
-import { publishNtfyNotification } from '../../lib/ntfy';
-import {
-  buildStoredOrder,
-  saveOrder,
-  summarizeItemsForNtfy,
-  type BuildOrderInput,
-} from '../../lib/orders';
+import { buildStoredOrder, saveOrder, type BuildOrderInput } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { getProductsConfig, orderSkusToMap } from '../../lib/products-config';
 
 export const prerender = false;
 
@@ -75,9 +70,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
+  const productsConfig = await getProductsConfig(kv);
+  const skuMap = orderSkusToMap(productsConfig.orderSkus);
+
   let order;
   try {
-    order = buildStoredOrder(input, id, createdAt);
+    order = buildStoredOrder(input, id, createdAt, skuMap);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     return new Response(JSON.stringify({ error: msg }), {
@@ -88,23 +86,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   await saveOrder(kv, order);
 
-  const customerName = order.customer.name || 'Customer';
-  const itemsLine = summarizeItemsForNtfy(order.items);
-  const ntfyTitle = `New order: ${customerName}`;
-  const ntfyMessage = [
-    `Order ID: ${order.id}`,
-    itemsLine ? `Items: ${itemsLine}` : '',
-    `Order total: $${order.discountedSubtotal.toFixed(2)}`,
-    order.deposit.selected
-      ? `Deposit (10% at checkout): $${order.depositAmount.toFixed(2)}`
-      : 'Deposit: not selected at checkout',
-    `Email: ${order.customer.email}`,
-    `Phone: ${order.customer.phone || '—'}`,
-  ]
-    .filter(Boolean)
-    .join('\n');
-
-  await publishNtfyNotification({ title: ntfyTitle, message: ntfyMessage });
+  // ntfy is sent from POST /api/send-order-email after admin + customer emails succeed,
+  // so one reliable push (same request as Resend) and inquiry + deposit flows behave the same.
 
   return new Response(JSON.stringify({ success: true, orderId: order.id }), {
     status: 200,

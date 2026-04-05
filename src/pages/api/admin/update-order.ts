@@ -8,6 +8,7 @@ import {
   parseAdminRebuildPayload,
   rebuildStoredOrder,
 } from '../../../lib/orders';
+import { getProductsConfig, orderSkusToMap } from '../../../lib/products-config';
 
 export const prerender = false;
 
@@ -52,6 +53,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
+  const productsConfig = await getProductsConfig(kv);
+  const skuMap = orderSkusToMap(productsConfig.orderSkus);
+
   const order = await getOrder(kv, id);
   if (!order) {
     return new Response(JSON.stringify({ error: 'Order not found' }), {
@@ -89,7 +93,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
     if (!adminRebuildMatchesExisting(working, parsed)) {
-      working = rebuildStoredOrder(working, parsed);
+      working = rebuildStoredOrder(working, parsed, skuMap);
       rebuildMutated = true;
     }
   }

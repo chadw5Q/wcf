@@ -1,7 +1,16 @@
 ---
-export const prerender = true;
+export const prerender = false;
 import Layout from '../layouts/Layout.astro';
-import { homeProductSchemas } from '../data/structured-data/home-products';
+import { getOrdersKvFromLocals } from '../lib/orders-kv';
+import HomeOrderSkuCard from '../components/HomeOrderSkuCard.astro';
+import { buildHomeProductJsonLd, getProductsConfig, orderSkusToMap } from '../lib/products-config';
+import { getServerEnv } from '../lib/server-env';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const productsConfig = await getProductsConfig(kv);
+const skuMap = orderSkusToMap(productsConfig.orderSkus);
+const siteBase = (getServerEnv('SITE_URL') || 'https://williamscreekfarms.com').replace(/\/+$/, '');
+const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.orderSkus);
 ---
 
 <Layout
@@ -22,7 +31,13 @@ import { homeProductSchemas } from '../data/structured-data/home-products';
             <span class="text-green-400">Permanent Fencing</span>
           </h1>
           <p class="text-xl text-gray-200 mb-8 leading-relaxed">
-            Hedge is the perfect post for permanent fencing and archery bow staves. Scroll to the bottom to read about the bow staves.
+            Hedge is the perfect post for permanent fencing and{' '}
+            <a
+              href="/osage-bow-staves/"
+              class="font-medium text-green-400 underline decoration-green-400/60 underline-offset-2 hover:text-green-300 hover:decoration-green-300"
+            >
+              archery bow staves
+            </a>.
           </p>
 
 
@@ -185,299 +200,36 @@ import { homeProductSchemas } from '../data/structured-data/home-products';
         </p>
       </div>
       
-      <!-- Premium Posts -->
+      <!-- Premium / regular / bow pricing: same `orderSkus` as /order-now (KV products_config_v1) -->
       <div class="mb-16">
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Premium Posts</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          <!-- Premium Line Posts -->
-          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
-            <div class="flex justify-end mb-3">
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
-            </div>
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Line Posts</h4>
-              <div class="text-4xl font-bold text-green-700 mb-4">$25</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">3-6" diameter</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Relatively straight</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">All posts are 9ft long</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium line Osage Orange hedge posts: 3–6 inch diameter, 9 ft, straight — Southwest Iowa farm" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-6">
-              <a href="/order-now" class="w-full bg-green-600 text-white text-center py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
-            </div>
-          </div>
-          
-          <!-- Premium Corner/Second Post -->
-          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
-            <div class="flex justify-end mb-3">
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
-            </div>
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Corner/Second Post</h4>
-              <div class="text-4xl font-bold text-green-700 mb-4">$40</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">6-12" diameter</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Relatively straight</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">All posts are 9ft long</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium corner Osage Orange hedge posts: 6–12 inch diameter, 9 ft — Southwest Iowa" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-6">
-              <a href="/order-now" class="w-full bg-green-600 text-white text-center py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
-            </div>
-          </div>
-          
-          <!-- Premium Extra Long Posts -->
-          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
-            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-              <span class="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">SOLD OUT</span>
-              <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
-            </div>
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Extra Long Posts</h4>
-              <div class="text-4xl font-bold text-green-700 mb-4">$60</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">At least 12' long</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Relatively straight</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Premium extra-long Osage Orange hedge posts, 12 ft plus — currently sold out" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-6">
-              <span class="w-full bg-gray-400 text-white text-center py-2 px-4 rounded-lg block font-medium cursor-not-allowed" aria-disabled="true">
-                Sold Out
-              </span>
-            </div>
-          </div>
+          <HomeOrderSkuCard sku={skuMap.premiumLine} variant="premium" />
+          <HomeOrderSkuCard sku={skuMap.premiumCorner} variant="premium" />
+          <HomeOrderSkuCard sku={skuMap.premiumExtraLong} variant="premium" />
         </div>
       </div>
-      
-      <!-- Regular Posts -->
+
       <div class="mb-16">
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Regular Posts</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <!-- Line Posts -->
-          <div class="rounded-xl p-6 border border-yellow-400" style="background-color: #fff5d1;">
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Line Posts</h4>
-              <div class="text-4xl font-bold text-green-600 mb-4">$10</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Approx 3-6" diameter</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Curvy, smaller or cut last year</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">All posts are 9ft long</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Regular line Osage Orange hedge posts: 3–6 inch, curvy, smaller or cut last year, 9 ft — Southwest Iowa" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-6">
-              <a href="/order-now" class="w-full bg-yellow-600 text-white text-center py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
-            </div>
-          </div>
-          
-          <!-- Corner Posts -->
-          <div class="rounded-xl p-6 border border-yellow-400" style="background-color: #fff5d1;">
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Corner Posts</h4>
-              <div class="text-4xl font-bold text-green-600 mb-4">$20</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Approx 8-14" diameter</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Curvy or cut last year</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">All posts are 9ft long</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-posts.jpg" alt="Regular corner Osage Orange hedge posts: 8–14 inch diameter, curvy or cut last year, 9 ft" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="mt-6">
-              <a href="/order-now" class="w-full bg-yellow-600 text-white text-center py-2 px-4 rounded-lg hover:bg-yellow-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
-            </div>
-          </div>
+          <HomeOrderSkuCard sku={skuMap.regularLine} variant="regular" />
+          <HomeOrderSkuCard sku={skuMap.regularCorner} variant="regular" />
         </div>
       </div>
-      
-      <!-- Bow Stave Logs -->
+
       <div class="mb-16">
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Traditional Bow Stave Logs</h3>
         <div class="grid grid-cols-1 max-w-md mx-auto">
-          <div class="rounded-xl p-6 border border-green-400" style="background-color: #b8f1c5;">
-            <div class="text-center mb-4">
-              <h4 class="text-xl font-bold text-gray-900 mb-2">Bow Stave Logs</h4>
-              <div class="text-4xl font-bold text-green-700 mb-4">$125</div>
-              <div class="text-gray-600">per log</div>
-            </div>
-            <div class="flex gap-4">
-              <ul class="space-y-3 flex-grow">
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Usually around 6" diameter</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">At least 6 ft long</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">No knots</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Cut in 2026</span>
-                </li>
-                <li class="flex items-center">
-                  <svg class="w-5 h-5 text-green-600 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                  </svg>
-                  <span class="text-gray-700">Usually 3-4+ staves per log</span>
-                </li>
-              </ul>
-              <div class="flex-shrink-0">
-                <img src="/images/hedge-bowstave007.jpg" alt="Traditional Osage Orange bow stave logs for archery — hand-selected, pickup near Cumberland IA" class="w-50 h-44 object-cover rounded-lg" />
-              </div>
-            </div>
-            <div class="bg-white bg-opacity-50 rounded-lg p-3 mb-4 mt-4">
-              <div class="flex items-center text-sm">
-                <svg class="w-4 h-4 text-red-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                </svg>
-                <span class="text-gray-700">We cannot ship bow stave logs</span>
-              </div>
-            </div>
-            <div class="mt-6">
-              <a href="/order-now" class="w-full bg-green-600 text-white text-center py-2 px-4 rounded-lg hover:bg-green-700 transition-colors duration-200 block font-medium">
-                Order Now
-              </a>
-            </div>
-          </div>
+          <HomeOrderSkuCard sku={skuMap.bowStave} variant="bow" />
         </div>
       </div>
       
-      <!-- Volume Discount -->
-      <div class="bg-red-600 rounded-xl p-8 text-center text-white">
-        <h3 class="text-2xl font-bold mb-4">Volume Discount</h3>
-        <div class="text-6xl font-bold mb-2">10%</div>
-        <p class="text-xl">discount on orders of more than 100 posts</p>
+      <!-- Volume Discount — amber/gold reads as a promotion without danger cues -->
+      <div class="rounded-xl bg-amber-600 p-8 text-center text-white shadow-lg ring-1 ring-amber-800/50">
+        <h3 class="mb-4 text-2xl font-bold text-amber-50">Volume Discount</h3>
+        <div class="mb-2 text-6xl font-bold text-amber-100">10%</div>
+        <p class="text-xl text-amber-100/95">discount on orders of more than 100 posts</p>
       </div>
     </div>
   </section>

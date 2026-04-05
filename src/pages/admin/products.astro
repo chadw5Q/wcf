@@ -1,0 +1,450 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import {
+  ORDER_CHECKOUT_KEYS,
+  getOrderSkuImageSrc,
+  getProductsConfig,
+  orderSkusToMap,
+} from '../../lib/products-config';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const config = await getProductsConfig(kv);
+const skuByField = orderSkusToMap(config.orderSkus);
+---
+
+<AdminLayout title="Manage products — Admin">
+  <p class="no-print mb-4 text-sm text-slate-600">
+    <a href="/admin" class="font-medium text-green-700 hover:text-green-900">← Admin home</a>
+  </p>
+
+  <h1 class="mb-2 text-2xl font-bold text-slate-900">Manage products</h1>
+  <p class="mb-6 max-w-3xl text-sm text-slate-600">
+    One KV key (<code class="text-xs">products_config_v1</code>) powers <strong>/order-now</strong>, the home page pricing
+    section, JSON-LD, and order line thumbnails. Save writes to <code class="text-xs">ORDERS_KV</code>. Each line item
+    keeps a fixed <code class="text-xs">fieldName</code> (used in orders and APIs). Use a path under{' '}
+    <code class="text-xs">public/</code>, a full URL, <strong>Choose from library</strong> (defaults + prior uploads), or{' '}
+    <strong>Upload</strong> when <code class="text-xs">PRODUCT_IMAGES</code> R2 is bound in{' '}
+    <code class="text-xs">wrangler.jsonc</code>. Leave the field blank to use the built-in default for that line item.
+  </p>
+
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>ORDERS_KV is not bound.</strong> You can still edit the form locally; saving is disabled until KV is
+        available (e.g. <code>wrangler dev</code>).
+      </div>
+    )
+  }
+
+  <div class="no-print mb-6 flex flex-wrap items-center gap-3">
+    <button
+      type="button"
+      id="save-products-config"
+      disabled={kvMissing}
+      class="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      Save to KV
+    </button>
+    <span id="products-save-msg" class="text-sm text-slate-600"></span>
+  </div>
+
+  <div id="products-form" class="space-y-12">
+    <section class="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900">Order page — line items</h2>
+      <p class="mb-4 text-sm text-slate-600">
+        Shown on <strong>/order-now</strong> and the home page. <code class="text-xs">fieldName</code> must stay fixed.
+      </p>
+      <div class="space-y-6">
+        {
+          ORDER_CHECKOUT_KEYS.map((key) => {
+            const sku = skuByField[key];
+            const previewSrc = getOrderSkuImageSrc(sku, key);
+            return (
+              <div
+                class="rounded border border-slate-100 bg-slate-50/80 p-4"
+                data-sku-row
+                data-sku-field={key}
+              >
+                <p class="mb-3 font-mono text-xs font-semibold text-slate-500">{key}</p>
+                <div class="grid gap-4 md:grid-cols-2">
+                  <div class="md:col-span-2">
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Image</label>
+                    <p class="mb-2 text-xs text-slate-500">
+                      Preview shows the effective URL (custom or default). Pick/upload sets the field; <strong>Save to KV</strong>{' '}
+                      persists.
+                    </p>
+                    <div class="flex flex-wrap items-start gap-4">
+                      <img
+                        src={previewSrc}
+                        alt=""
+                        class="h-24 w-32 max-w-full rounded border border-slate-200 object-cover"
+                        width="128"
+                        height="96"
+                        data-sku-preview-img
+                      />
+                      <div class="min-w-[12rem] flex-1 space-y-2">
+                        <input
+                          type="text"
+                          data-sku-input="image"
+                          value={sku.image ?? ''}
+                          placeholder="/images/hedge-posts.jpg"
+                          class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-xs text-slate-900"
+                        />
+                        <div class="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            class="rounded bg-slate-800 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-900"
+                            data-sku-image-choose
+                          >
+                            Choose from library
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50"
+                            data-sku-image-upload
+                          >
+                            Upload image
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="md:col-span-2">
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Label</label>
+                    <input
+                      type="text"
+                      data-sku-input="label"
+                      value={sku.label}
+                      class="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    />
+                  </div>
+                  <div class="md:col-span-2">
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Short description</label>
+                    <textarea
+                      data-sku-input="shortDescription"
+                      rows="2"
+                      class="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    >{sku.shortDescription.trim()}</textarea>
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-sm font-medium text-slate-700">Unit price (USD)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      data-sku-input="unitPrice"
+                      value={sku.unitPrice}
+                      class="w-full rounded border border-slate-300 px-3 py-2 text-sm text-slate-900"
+                    />
+                  </div>
+                  <div class="flex items-end pb-2">
+                    <label class="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
+                      <input type="checkbox" data-sku-input="soldOut" checked={sku.soldOut} class="rounded border-slate-300" />
+                      Sold out (shows badge; disables quantity on order form)
+                    </label>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        }
+      </div>
+    </section>
+  </div>
+
+  <input
+    type="file"
+    id="sku-image-file-input"
+    accept="image/jpeg,image/png,image/webp,image/gif,image/svg+xml"
+    class="hidden"
+  />
+
+  <div
+    id="sku-image-modal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="sku-image-modal-title"
+  >
+    <div class="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl">
+      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+        <h3 id="sku-image-modal-title" class="text-lg font-semibold text-slate-900">Choose image</h3>
+        <button
+          type="button"
+          id="sku-image-modal-close"
+          class="rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100"
+        >
+          Close
+        </button>
+      </div>
+      <div id="sku-image-modal-body" class="max-h-[70vh] overflow-y-auto p-4">
+        <p id="sku-image-modal-loading" class="text-sm text-slate-600">Loading…</p>
+        <p id="sku-image-modal-error" class="hidden text-sm text-red-600"></p>
+        <div id="sku-image-modal-grid" class="hidden grid grid-cols-2 gap-3 sm:grid-cols-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ORDER_KEYS = [
+      'premiumLine',
+      'premiumCorner',
+      'premiumExtraLong',
+      'regularLine',
+      'regularCorner',
+      'bowStave',
+    ];
+
+    function collectOrderSkus() {
+      return ORDER_KEYS.map((key) => {
+        const row = document.querySelector(`[data-sku-row][data-sku-field="${key}"]`);
+        if (!row) throw new Error(`Missing row for ${key}`);
+        const label = row.querySelector('[data-sku-input="label"]');
+        const desc = row.querySelector('[data-sku-input="shortDescription"]');
+        const price = row.querySelector('[data-sku-input="unitPrice"]');
+        const sold = row.querySelector('[data-sku-input="soldOut"]');
+        const image = row.querySelector('[data-sku-input="image"]');
+        const imageVal = image instanceof HTMLInputElement ? image.value.trim() : '';
+        const out = {
+          fieldName: key,
+          label: label instanceof HTMLInputElement ? label.value.trim() : '',
+          shortDescription: desc instanceof HTMLTextAreaElement ? desc.value.trim() : '',
+          unitPrice: Math.max(0, Number(price instanceof HTMLInputElement ? price.value : 0) || 0),
+          soldOut: sold instanceof HTMLInputElement && sold.checked,
+        };
+        if (imageVal) {
+          out.image = imageVal;
+        }
+        return out;
+      });
+    }
+
+    const DEFAULT_IMAGES = {
+      premiumLine: '/images/hedge-posts.jpg',
+      premiumCorner: '/images/hedge-posts.jpg',
+      premiumExtraLong: '/images/hedge-posts.jpg',
+      regularLine: '/images/hedge-posts.jpg',
+      regularCorner: '/images/hedge-posts.jpg',
+      bowStave: '/images/hedge-bowstave007.jpg',
+    };
+
+    function updateSkuImagePreview(row) {
+      if (!(row instanceof HTMLElement)) return;
+      const input = row.querySelector('[data-sku-input="image"]');
+      const img = row.querySelector('[data-sku-preview-img]');
+      if (!(input instanceof HTMLInputElement) || !(img instanceof HTMLImageElement)) return;
+      const key = row.getAttribute('data-sku-field');
+      const custom = input.value.trim();
+      img.src = custom || (key && DEFAULT_IMAGES[key]) || '/images/hedge-posts.jpg';
+    }
+
+    document.getElementById('products-form')?.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t instanceof HTMLInputElement && t.matches('[data-sku-input="image"]')) {
+        updateSkuImagePreview(t.closest('[data-sku-row]'));
+      }
+    });
+
+    let imagePickerRow = null;
+
+    function isVisualImage(val) {
+      const t = String(val).trim();
+      return t.startsWith('http://') || t.startsWith('https://') || t.startsWith('/');
+    }
+
+    function openSkuImageModal() {
+      const modal = document.getElementById('sku-image-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeSkuImageModal() {
+      const modal = document.getElementById('sku-image-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      imagePickerRow = null;
+    }
+
+    async function loadSkuImageLibraryIntoModal() {
+      const loading = document.getElementById('sku-image-modal-loading');
+      const errEl = document.getElementById('sku-image-modal-error');
+      const grid = document.getElementById('sku-image-modal-grid');
+      if (!loading || !errEl || !grid) return;
+
+      loading.classList.remove('hidden');
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+      grid.classList.add('hidden');
+      grid.innerHTML = '';
+
+      try {
+        const res = await fetch('/api/admin/product-images');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Could not load library');
+        if (data.uploadAvailable === false) {
+          errEl.textContent =
+            'Upload needs the PRODUCT_IMAGES R2 bucket. You can still pick defaults, paths from this config, or type a URL.';
+          errEl.classList.remove('hidden');
+        }
+        const paths = Array.isArray(data.paths) ? data.paths : [];
+        for (const path of paths) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className =
+            'flex flex-col gap-1 rounded border border-slate-200 p-2 text-left hover:border-green-600';
+          btn.dataset.imagePath = path;
+          if (isVisualImage(path)) {
+            const im = document.createElement('img');
+            im.src = path;
+            im.alt = '';
+            im.className = 'h-24 w-full object-cover';
+            im.loading = 'lazy';
+            btn.appendChild(im);
+          }
+          const cap = document.createElement('span');
+          cap.className = 'break-all font-mono text-[10px] text-slate-600';
+          cap.textContent = path;
+          btn.appendChild(cap);
+          grid.appendChild(btn);
+        }
+        loading.classList.add('hidden');
+        grid.classList.remove('hidden');
+      } catch (e) {
+        loading.classList.add('hidden');
+        errEl.textContent = e instanceof Error ? e.message : 'Load failed';
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    document.getElementById('products-form')?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const choose = t.closest('[data-sku-image-choose]');
+      if (choose) {
+        const row = choose.closest('[data-sku-row]');
+        if (row instanceof HTMLElement) {
+          imagePickerRow = row;
+          openSkuImageModal();
+          void loadSkuImageLibraryIntoModal();
+        }
+        return;
+      }
+      const uploadBtn = t.closest('[data-sku-image-upload]');
+      if (uploadBtn) {
+        const row = uploadBtn.closest('[data-sku-row]');
+        if (row instanceof HTMLElement) {
+          imagePickerRow = row;
+          document.getElementById('sku-image-file-input')?.click();
+        }
+      }
+    });
+
+    document.getElementById('sku-image-modal-close')?.addEventListener('click', closeSkuImageModal);
+    document.getElementById('sku-image-modal')?.addEventListener('click', (e) => {
+      if (e.target instanceof HTMLElement && e.target.id === 'sku-image-modal') {
+        closeSkuImageModal();
+      }
+    });
+
+    document.getElementById('sku-image-modal-grid')?.addEventListener('click', (e) => {
+      const btn = e.target instanceof Element ? e.target.closest('button[data-image-path]') : null;
+      if (!(btn instanceof HTMLButtonElement) || !imagePickerRow) return;
+      const path = btn.dataset.imagePath;
+      if (!path) return;
+      const input = imagePickerRow.querySelector('[data-sku-input="image"]');
+      if (input instanceof HTMLInputElement) {
+        input.value = path;
+        updateSkuImagePreview(imagePickerRow);
+      }
+      closeSkuImageModal();
+    });
+
+    document.getElementById('sku-image-file-input')?.addEventListener('change', async () => {
+      const fi = document.getElementById('sku-image-file-input');
+      const row = imagePickerRow;
+      if (!(fi instanceof HTMLInputElement)) return;
+      if (!row) {
+        fi.value = '';
+        return;
+      }
+      const file = fi.files?.[0];
+      fi.value = '';
+      if (!file) {
+        imagePickerRow = null;
+        return;
+      }
+      const msg = document.getElementById('products-save-msg');
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/admin/upload-product-image', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      imagePickerRow = null;
+      if (!res.ok) {
+        if (msg) {
+          msg.textContent = data.error || 'Upload failed';
+          msg.className = 'text-sm text-red-600';
+        }
+        return;
+      }
+      if (typeof data.url === 'string') {
+        const input = row.querySelector('[data-sku-input="image"]');
+        if (input instanceof HTMLInputElement) {
+          input.value = data.url;
+          updateSkuImagePreview(row);
+        }
+        if (msg) {
+          msg.textContent = 'Image uploaded. Save to KV to persist.';
+          msg.className = 'text-sm text-green-800';
+        }
+      }
+    });
+
+    document.getElementById('save-products-config')?.addEventListener('click', async () => {
+      const msg = document.getElementById('products-save-msg');
+      const btn = document.getElementById('save-products-config');
+      if (!(btn instanceof HTMLButtonElement)) return;
+
+      let payload;
+      try {
+        payload = { version: 1, orderSkus: collectOrderSkus() };
+      } catch (e) {
+        if (msg) {
+          msg.textContent = e instanceof Error ? e.message : 'Could not read form.';
+          msg.className = 'text-sm text-red-600';
+        }
+        return;
+      }
+
+      btn.disabled = true;
+      if (msg) {
+        msg.textContent = 'Saving…';
+        msg.className = 'text-sm text-slate-600';
+      }
+
+      const res = await fetch('/api/admin/products-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      btn.disabled = false;
+
+      if (res.ok) {
+        if (msg) {
+          msg.textContent = 'Saved.';
+          msg.className = 'text-sm text-green-800';
+        }
+      } else {
+        if (msg) {
+          msg.textContent = data.details || data.error || 'Save failed';
+          msg.className = 'text-sm text-red-600';
+        }
+      }
+    });
+  </script>
+</AdminLayout>
