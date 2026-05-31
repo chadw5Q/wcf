@@ -71,6 +71,7 @@ export const POST: APIRoute = async ({ request }) => {
     };
     if (orderIdMeta) {
       metadata.order_id = orderIdMeta;
+      metadata.orderId = orderIdMeta;
     }
 
     const session = await createCheckoutSession([depositItem], {

@@ -2,5 +2,9 @@
 User-agent: *
 Allow: /
 Disallow: /admin
+Disallow: /hunt/
+Disallow: /hunt
+Disallow: /parenting/
+Disallow: /parenting
 
 Sitemap: https://williamscreekfarms.com/sitemap-index.xml

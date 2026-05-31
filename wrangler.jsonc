@@ -12,6 +12,13 @@
 		{
 			"binding": "ORDERS_KV",
 			"id": "ce4de178c6a242ea8d19ab8387530d96"
+		},
+		// Williams Creek Whitetails `/hunt` reservations (Phase 4+). Create a namespace, then replace id:
+		//   npx wrangler kv namespace create WCW_HUNT_RESERVATIONS
+		// See README → Cloudflare Workers → Hunt reservations KV (HUNT_KV).
+		{
+			"binding": "HUNT_KV",
+			"id": "deadbeefdeadbeefdeadbeefdeadbeef"
 		}
 	],
 	// Create in dashboard: npx wrangler r2 bucket create wcf-product-images

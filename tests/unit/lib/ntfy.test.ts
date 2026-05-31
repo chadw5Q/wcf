@@ -5,7 +5,7 @@ vi.mock('../../../src/lib/server-env', () => ({
 }));
 
 import { getServerEnv } from '../../../src/lib/server-env';
-import { publishNtfyNotification } from '../../../src/lib/ntfy';
+import { describeNtfyEndpoint, publishNtfyNotification } from '../../../src/lib/ntfy';
 
 const DEFAULT_NTFY_URL = 'https://ntfy.sh/hedge-order';
 
@@ -30,19 +30,25 @@ describe('publishNtfyNotification', () => {
   });
 
   it('does not call fetch when NTFY_DISABLE is 1', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(getServerEnv).mockImplementation((key: string) =>
       key === 'NTFY_DISABLE' ? '1' : undefined
     );
     await publishNtfyNotification({ title: 'T', message: 'M' });
     expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[ntfy]'));
+    warnSpy.mockRestore();
   });
 
   it('does not call fetch when NTFY_DISABLE is true (case insensitive)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.mocked(getServerEnv).mockImplementation((key: string) =>
       key === 'NTFY_DISABLE' ? 'TRUE' : undefined
     );
     await publishNtfyNotification({ title: 'T', message: 'M' });
     expect(globalThis.fetch).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it('uses workerEnv NTFY_TOPIC when getServerEnv returns nothing (Cloudflare bindings)', async () => {
@@ -158,6 +164,8 @@ describe('publishNtfyNotification', () => {
     ).resolves.toBeUndefined();
 
     expect(errSpy).toHaveBeenCalled();
+    expect(errSpy.mock.calls.some((c) => String(c.join(' ')).includes('401'))).toBe(true);
+    expect(errSpy.mock.calls.some((c) => String(c.join(' ')).includes('[ntfy] hint'))).toBe(true);
     errSpy.mockRestore();
   });
 
@@ -171,5 +179,38 @@ describe('publishNtfyNotification', () => {
 
     expect(errSpy).toHaveBeenCalled();
     errSpy.mockRestore();
+  });
+});
+
+describe('describeNtfyEndpoint', () => {
+  beforeEach(() => {
+    vi.mocked(getServerEnv).mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.mocked(getServerEnv).mockReset();
+  });
+
+  it('reports disabled when NTFY_DISABLE is set', () => {
+    expect(describeNtfyEndpoint({ NTFY_DISABLE: '1' })).toMatchObject({
+      disabled: true,
+      destinationLabel: 'disabled (NTFY_DISABLE)',
+    });
+  });
+
+  it('reports host/path for resolved default URL', () => {
+    expect(describeNtfyEndpoint({})).toMatchObject({
+      disabled: false,
+      destinationLabel: 'ntfy.sh/hedge-order',
+    });
+  });
+
+  it('reports tokenConfigured when NTFY_ACCESS_TOKEN is on workerEnv', () => {
+    expect(
+      describeNtfyEndpoint({ NTFY_ACCESS_TOKEN: 'x', NTFY_TOPIC: 't' })
+    ).toMatchObject({
+      tokenConfigured: true,
+      destinationLabel: 'ntfy.sh/t',
+    });
   });
 });

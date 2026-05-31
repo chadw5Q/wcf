@@ -1,0 +1,258 @@
+---
+import HuntLayout from '../../layouts/HuntLayout.astro';
+import HuntHero from '../../components/hunt/HuntHero.astro';
+import HuntGallery from '../../components/hunt/HuntGallery.astro';
+import HuntVideo from '../../components/hunt/HuntVideo.astro';
+import {
+  HUNT_PODCAST_LABEL,
+  HUNT_PODCAST_URL,
+  IOWA_DNR_DEER_URL,
+  bookingSteps,
+  huntDetailCards,
+  huntPullQuote,
+  pricingFootnote,
+  pricingRows,
+  propertyStats,
+} from '../../lib/hunt-landing-content';
+---
+
+<HuntLayout title="Williams Creek Whitetails — Private Hunt">
+  <HuntHero />
+
+  <section
+    id="about-the-operation"
+    class="scroll-mt-24 border-t border-hunt-border bg-hunt-bg py-16 md:py-24"
+    aria-labelledby="hunt-about-heading"
+  >
+    <div class="mx-auto grid max-w-[900px] gap-10 px-4 md:grid-cols-2 md:items-start md:gap-12 md:px-6">
+      <div>
+        <h2 id="hunt-about-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">About the Operation</h2>
+        <div class="mt-6 space-y-4 text-hunt-cream/95">
+          <p>
+            We are a small operation run by a father and son, Lee and Chad Williams. We&apos;re passionate about hunting
+            and love serving people.
+          </p>
+          <p>We host no more than 4 non-resident hunters per year.</p>
+          <p>
+            We own and manage roughly 725 acres in Zone 4 (Adams and Montgomery County, Iowa). As archery hunters
+            ourselves, we know the property well.
+          </p>
+          <p>
+            Featured on{' '}
+            <a
+              href={HUNT_PODCAST_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-hunt-gold underline decoration-hunt-gold/50 underline-offset-2 transition-colors hover:text-hunt-gold-light"
+            >
+              {HUNT_PODCAST_LABEL}
+            </a>
+            .
+          </p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded border border-hunt-border bg-hunt-surface shadow-lg shadow-black/30">
+        <img
+          data-hunt-cabin-img
+          src="/hunt/images/cabin.jpg"
+          alt="Williams Creek lodge and cabin"
+          class="h-full min-h-[220px] w-full object-cover sm:min-h-[280px]"
+          width="900"
+          height="1100"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="scroll-mt-24 border-t border-hunt-border bg-hunt-surface/30 py-16 md:py-24" aria-labelledby="hunt-property-heading">
+    <div class="mx-auto max-w-[900px] px-4 md:px-6">
+      <h2 id="hunt-property-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">The Property</h2>
+      <div class="mt-10 grid gap-6 sm:grid-cols-2">
+        {
+          propertyStats.map(({ value, description }) => (
+            <div class="rounded border border-hunt-border bg-hunt-surface px-5 py-6">
+              <p class="font-hunt-heading text-2xl text-hunt-gold-light">{value}</p>
+              <p class="mt-2 text-sm text-hunt-muted">{description}</p>
+            </div>
+          ))
+        }
+      </div>
+      <blockquote class="mt-12 border-l-4 border-hunt-gold pl-6">
+        <p class="hunt-quote leading-relaxed">&ldquo;{huntPullQuote.text}&rdquo;</p>
+        <cite class="mt-3 block text-sm not-italic text-hunt-muted">— {huntPullQuote.attribution}</cite>
+      </blockquote>
+    </div>
+  </section>
+
+  <section class="relative border-t border-hunt-border" aria-labelledby="hunt-cabin-heading">
+    <div
+      class="relative min-h-[420px] bg-cover bg-center md:min-h-[520px]"
+      style={{ backgroundImage: 'url(/hunt/images/cabin-wide.jpg)' }}
+    >
+      <div
+        class="absolute inset-0 bg-gradient-to-t from-hunt-bg via-hunt-bg/85 to-hunt-bg/40"
+        aria-hidden="true"
+      >
+      </div>
+      <div class="relative z-10 mx-auto flex min-h-[420px] max-w-[900px] flex-col justify-end px-4 py-14 md:min-h-[520px] md:px-6 md:py-20">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-hunt-gold-light">Accommodations</p>
+        <h2 id="hunt-cabin-heading" class="mt-2 font-hunt-heading text-3xl text-hunt-cream md:text-4xl">
+          A Lodge Worth Coming Back To
+        </h2>
+        <p class="mt-4 max-w-prose text-hunt-cream/95">
+          4+ bedrooms, loft, full basement, full kitchen, high speed internet, YouTubeTV, fireplace, firepit, grill and
+          more. Sleeps your entire party comfortably.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <HuntGallery />
+  <HuntVideo />
+
+  <section class="border-t border-hunt-border bg-hunt-bg py-16 md:py-24" aria-labelledby="hunt-details-heading">
+    <div class="mx-auto max-w-[900px] px-4 md:px-6">
+      <h2 id="hunt-details-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Hunt Details</h2>
+      <div class="mt-10 grid gap-6 sm:grid-cols-2">
+        {
+          huntDetailCards.map((card, index) => (
+            <article class="rounded border border-hunt-border bg-hunt-surface p-6">
+              <div
+                class="flex h-12 w-12 items-center justify-center rounded border border-hunt-gold/40 text-hunt-gold"
+                aria-hidden="true"
+              >
+                {index === 0 && (
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 3v18M8 8l4-3 4 3M8 16l4 3 4-3" />
+                  </svg>
+                )}
+                {index === 1 && (
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3M5 11h14M5 21h14V11H5v10z" />
+                  </svg>
+                )}
+                {index === 2 && (
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                {index === 3 && (
+                  <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4c2 2 4 5 4 8a4 4 0 11-8 0c0-3 2-6 4-8z" />
+                  </svg>
+                )}
+              </div>
+              <h3 class="mt-4 font-hunt-heading text-xl text-hunt-cream">{card.title}</h3>
+              <p class="mt-2 text-sm text-hunt-muted">{card.body}</p>
+            </article>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="border-t border-hunt-border bg-hunt-surface/30 py-16 md:py-24" aria-labelledby="hunt-tag-heading">
+    <div class="mx-auto max-w-[900px] px-4 md:px-6">
+      <h2 id="hunt-tag-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Iowa Tag Info</h2>
+      <div class="mt-8 rounded border border-hunt-border bg-hunt-surface p-6 md:p-8">
+        <p class="text-hunt-cream/95">
+          You need at least 4 preference points to draw a non-resident Zone 4 Iowa archery tag. Tags are applied through
+          the Iowa DNR.
+        </p>
+        <p class="mt-6">
+          <a
+            href={IOWA_DNR_DEER_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="hunt-btn inline-block text-xs"
+          >
+            Iowa DNR deer tag information →
+          </a>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="scroll-mt-24 border-t border-hunt-border bg-hunt-bg py-16 md:py-24" aria-labelledby="hunt-pricing-heading">
+    <div class="mx-auto max-w-[900px] px-4 md:px-6">
+      <h2 id="hunt-pricing-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Pricing</h2>
+      <div class="-mx-4 mt-8 overflow-x-auto rounded-none border-y border-hunt-border bg-hunt-surface sm:mx-0 sm:rounded-md sm:border">
+        <table class="w-full min-w-[520px] border-collapse text-left text-xs sm:text-sm">
+          <thead>
+            <tr class="border-b border-hunt-border bg-hunt-surface-2/80">
+              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4"></th>
+              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4">Self-Catered</th>
+              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4">All-Inclusive</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              pricingRows.map((row) => (
+                <tr class="border-b border-hunt-border last:border-0">
+                  <th scope="row" class="px-3 py-3 align-top font-medium text-hunt-cream sm:px-4">
+                    {row.label}
+                  </th>
+                  <td class="px-3 py-3 align-top text-hunt-muted sm:px-4">{row.self}</td>
+                  <td class="px-3 py-3 align-top text-hunt-muted sm:px-4">{row.inclusive}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-4 text-sm text-hunt-muted">{pricingFootnote}</p>
+    </div>
+  </section>
+
+  <section class="border-t border-hunt-border bg-hunt-surface/20 py-16 md:py-24" aria-labelledby="hunt-booking-heading">
+    <div class="mx-auto max-w-[900px] px-4 md:px-6">
+      <h2 id="hunt-booking-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Booking &amp; Availability</h2>
+      <p class="mt-4 text-lg font-medium text-hunt-cream">
+        <strong class="text-hunt-gold-light">2026 is fully booked.</strong> Now taking 2027 reservations.
+      </p>
+      <ol class="mt-10 space-y-4">
+        {
+          bookingSteps.map((step, i) => (
+            <li class="flex gap-4">
+              <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-hunt-gold font-hunt-heading text-sm text-hunt-gold">
+                {i + 1}
+              </span>
+              <span class="pt-1 text-hunt-cream/95">{step}</span>
+            </li>
+          ))
+        }
+      </ol>
+      <p class="mt-10">
+        <a href="/hunt/reserve" class="hunt-btn inline-block px-8 py-3 text-sm md:text-xs">Reserve Your 2027 Hunt →</a>
+      </p>
+    </div>
+  </section>
+
+  <script>
+    function setupCabinFallback() {
+      const img = document.querySelector('[data-hunt-cabin-img]');
+      if (!(img instanceof HTMLImageElement)) return;
+      img.addEventListener(
+        'error',
+        () => {
+          const wrap = document.createElement('div');
+          wrap.className =
+            'flex min-h-[220px] w-full flex-col items-center justify-center gap-2 bg-hunt-surface-2 px-4 py-10 text-center sm:min-h-[280px]';
+          const t = document.createElement('p');
+          t.className = 'text-xs font-semibold uppercase tracking-wider text-hunt-muted';
+          t.textContent = 'Cabin photo';
+          const s = document.createElement('p');
+          s.className = 'max-w-xs text-sm text-hunt-muted/85';
+          s.textContent = 'Final lodge photography coming soon.';
+          wrap.appendChild(t);
+          wrap.appendChild(s);
+          img.replaceWith(wrap);
+        },
+        { once: true }
+      );
+    }
+    setupCabinFallback();
+  </script>
+</HuntLayout>

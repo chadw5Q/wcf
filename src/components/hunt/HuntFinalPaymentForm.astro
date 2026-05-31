@@ -1,0 +1,205 @@
+---
+interface Props {
+  years: number[];
+}
+
+const { years } = Astro.props;
+---
+
+<div class="mx-auto max-w-[560px] px-4 pb-20 md:px-6">
+  <p id="hunt-balance-error" class="mb-6 hidden rounded border border-hunt-red/60 bg-hunt-surface px-4 py-3 text-sm text-hunt-cream" role="alert"></p>
+
+  <form id="hunt-balance-form" class="space-y-8">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">First name</label>
+        <input id="hb-first" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+      </div>
+      <div>
+        <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Last name</label>
+        <input id="hb-last" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+      </div>
+      <div class="sm:col-span-2">
+        <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Email</label>
+        <input id="hb-email" type="email" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+      </div>
+    </div>
+
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Hunt year</label>
+      <select id="hb-year" class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" required>
+        {years.map((y) => <option value={y}>{y}</option>)}
+      </select>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Number of hunters</p>
+      <div class="mt-3 grid grid-cols-4 gap-2">
+        {
+          [1, 2, 3, 4].map((n) => (
+            <button
+              type="button"
+              class:list={[
+                'hb-count-btn rounded border px-3 py-3 text-lg font-semibold text-hunt-cream transition-colors hover:border-hunt-gold',
+                n === 1 ? 'border-hunt-gold bg-hunt-surface-2' : 'border-hunt-border bg-hunt-surface',
+              ]}
+              data-count={n}
+            >
+              {n}
+            </button>
+          ))
+        }
+      </div>
+      <input type="hidden" id="hb-count" value="1" />
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Meal package included?</p>
+      <div class="mt-3 flex flex-wrap gap-6">
+        <label class="flex cursor-pointer items-center gap-2">
+          <input type="radio" name="meal" value="no" class="h-4 w-4 border-hunt-border text-hunt-gold" checked />
+          <span class="text-sm text-hunt-cream">No</span>
+        </label>
+        <label class="flex cursor-pointer items-center gap-2">
+          <input type="radio" name="meal" value="yes" class="h-4 w-4 border-hunt-border text-hunt-gold" />
+          <span class="text-sm text-hunt-cream">Yes</span>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Payment amount (USD)</label>
+      <input
+        id="hb-amount"
+        type="number"
+        min="0.5"
+        step="0.01"
+        required
+        class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream"
+      />
+      <p class="mt-2 text-sm text-hunt-muted">
+        Default uses your hunt deposit math from your invoice. Adjust if Chad gave you a different balance.
+      </p>
+    </div>
+
+    <div>
+      <button type="submit" id="hb-submit" class="hunt-btn w-full py-3 text-sm">Pay Balance via Stripe</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const HUNT_LODGING = 3000;
+  const HUNT_DEPOSIT = 500;
+  /** Matches `computePrdDefaultFinalBalanceUsd` (PRD Phase 6 flat meal add-on). */
+  function defaultBalanceUsd(hunterCount, mealIncluded) {
+    return hunterCount * HUNT_LODGING + (mealIncluded ? 1000 : 0) - hunterCount * HUNT_DEPOSIT;
+  }
+
+  const form = document.getElementById('hunt-balance-form');
+  const errEl = document.getElementById('hunt-balance-error');
+  const submitBtn = document.getElementById('hb-submit');
+  const amountEl = /** @type {HTMLInputElement | null} */ (document.getElementById('hb-amount'));
+  const countHidden = /** @type {HTMLInputElement | null} */ (document.getElementById('hb-count'));
+  const countBtns = document.querySelectorAll('.hb-count-btn');
+
+  let hunterCount = 1;
+
+  function mealYes() {
+    const yes = document.querySelector('input[name="meal"][value="yes"]');
+    return yes instanceof HTMLInputElement && yes.checked;
+  }
+
+  function syncDefaultAmount() {
+    if (!amountEl) return;
+    const def = defaultBalanceUsd(hunterCount, mealYes());
+    amountEl.value = String(def);
+  }
+
+  function setCount(n) {
+    hunterCount = n;
+    if (countHidden) countHidden.value = String(n);
+    countBtns.forEach((b) => {
+      const bn = Number(/** @type {HTMLElement} */ (b).dataset.count);
+      b.classList.toggle('border-hunt-gold', bn === n);
+      b.classList.toggle('bg-hunt-surface-2', bn === n);
+      b.classList.toggle('border-hunt-border', bn !== n);
+      b.classList.toggle('bg-hunt-surface', bn !== n);
+    });
+    syncDefaultAmount();
+  }
+
+  countBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      const n = Number(/** @type {HTMLElement} */ (b).dataset.count);
+      if (n >= 1 && n <= 4) setCount(n);
+    });
+  });
+
+  document.querySelectorAll('input[name="meal"]').forEach((el) => {
+    el.addEventListener('change', syncDefaultAmount);
+  });
+
+  function showError(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+  }
+  function clearError() {
+    errEl?.classList.add('hidden');
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    const firstName = /** @type {HTMLInputElement} */ (document.getElementById('hb-first')).value.trim();
+    const lastName = /** @type {HTMLInputElement} */ (document.getElementById('hb-last')).value.trim();
+    const email = /** @type {HTMLInputElement} */ (document.getElementById('hb-email')).value.trim().toLowerCase();
+    const huntYear = Number(/** @type {HTMLSelectElement} */ (document.getElementById('hb-year')).value);
+    const mealPackage = mealYes();
+    const rawAmt = amountEl?.value ?? '';
+    const paymentAmount = Number.parseFloat(rawAmt);
+    if (!Number.isFinite(paymentAmount)) {
+      showError('Enter a valid payment amount.');
+      return;
+    }
+
+    submitBtn && (submitBtn.disabled = true);
+    try {
+      const res = await fetch('/api/hunt-balance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          email,
+          huntYear,
+          hunterCount,
+          mealPackage,
+          paymentAmount,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        let msg = data.error || data.details || 'Could not start checkout.';
+        if (typeof data.balanceDue === 'number') {
+          msg += ` Balance due: $${data.balanceDue.toLocaleString('en-US')}.`;
+          if (amountEl) amountEl.value = String(data.balanceDue);
+        }
+        showError(msg);
+        return;
+      }
+      if (data.stripeUrl) {
+        window.location.href = data.stripeUrl;
+        return;
+      }
+      showError('Unexpected response from server.');
+    } catch {
+      showError('Network error. Check your connection and try again.');
+    } finally {
+      submitBtn && (submitBtn.disabled = false);
+    }
+  });
+
+  setCount(1);
+</script>

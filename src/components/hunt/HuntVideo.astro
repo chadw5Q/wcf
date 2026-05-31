@@ -1,0 +1,33 @@
+---
+/**
+ * "See the Property" — PRD: controls, poster, muted, no autoplay, gold border, fallback.
+ */
+const poster = '/hunt/images/hero.jpg';
+const src = '/hunt/videos/aerial-01.mp4';
+---
+
+<section class="border-t border-hunt-border bg-hunt-surface/40 py-16 md:py-24" aria-labelledby="hunt-video-heading">
+  <div class="mx-auto max-w-[900px] px-4 md:px-6">
+    <h2 id="hunt-video-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">See the Property</h2>
+    <p class="mt-2 text-sm text-hunt-muted">
+      Drone footage when available: <code class="text-hunt-gold/90">public/hunt/videos/aerial-01.mp4</code>
+    </p>
+    <div class="mt-8 rounded border-2 border-hunt-gold/60 bg-hunt-bg p-2 shadow-lg shadow-black/40">
+      <video
+        class="w-full rounded bg-black"
+        controls
+        muted
+        playsinline
+        preload="metadata"
+        poster={poster}
+        data-hunt-drone-video
+      >
+        <source src={src} type="video/mp4" />
+        <p class="px-4 py-6 text-center text-sm text-hunt-muted">
+          Your browser does not support embedded video. Add <span class="text-hunt-cream">aerial-01.mp4</span> under{' '}
+          <code class="text-hunt-gold/90">/hunt/videos/</code> to enable playback.
+        </p>
+      </video>
+    </div>
+  </div>
+</section>

@@ -37,6 +37,51 @@ function resolveNtfyPostUrl(workerEnv?: Record<string, unknown>): string {
   return DEFAULT_NTFY_URL;
 }
 
+const NTFY_BODY_LOG_MAX = 512;
+
+/** Host + path only (no query/credentials) for logs and admin diagnostics. */
+function safeNtfyUrlLabel(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname.replace(/\/+$/, '');
+    return path ? `${u.hostname}${path}` : u.hostname;
+  } catch {
+    return '(invalid URL)';
+  }
+}
+
+export type NtfyEndpointSummary = {
+  disabled: boolean;
+  tokenConfigured: boolean;
+  /** Where POSTs go (host/path or human-readable default). */
+  destinationLabel: string;
+};
+
+/**
+ * Describe ntfy configuration without secrets (for admin diagnostics).
+ * Uses the same resolution rules as {@link publishNtfyNotification}.
+ */
+export function describeNtfyEndpoint(workerEnv?: Record<string, unknown>): NtfyEndpointSummary {
+  const disabledRaw = pick(workerEnv, 'NTFY_DISABLE');
+  const disabled = disabledRaw === '1' || disabledRaw?.toLowerCase() === 'true';
+  const token =
+    pick(workerEnv, 'NTFY_ACCESS_TOKEN')?.trim() || pick(workerEnv, 'NTFY_TOKEN')?.trim();
+  const tokenConfigured = Boolean(token);
+  if (disabled) {
+    return {
+      disabled: true,
+      tokenConfigured,
+      destinationLabel: 'disabled (NTFY_DISABLE)',
+    };
+  }
+  const url = resolveNtfyPostUrl(workerEnv);
+  return {
+    disabled: false,
+    tokenConfigured,
+    destinationLabel: safeNtfyUrlLabel(url),
+  };
+}
+
 export type PublishNtfyOptions = {
   title: string;
   message: string;
@@ -55,6 +100,7 @@ export async function publishNtfyNotification(options: PublishNtfyOptions): Prom
   const { workerEnv } = options;
   const disabled = pick(workerEnv, 'NTFY_DISABLE');
   if (disabled === '1' || disabled?.toLowerCase() === 'true') {
+    console.warn('[ntfy] publish skipped: NTFY_DISABLE is set');
     return;
   }
 
@@ -79,9 +125,16 @@ export async function publishNtfyNotification(options: PublishNtfyOptions): Prom
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error('[ntfy] publish failed:', res.status, text);
+      const preview =
+        text.length > NTFY_BODY_LOG_MAX ? `${text.slice(0, NTFY_BODY_LOG_MAX)}…` : text;
+      console.error('[ntfy] publish failed:', res.status, safeNtfyUrlLabel(url), preview);
+      if (res.status === 401) {
+        console.error(
+          '[ntfy] hint: private topics need NTFY_ACCESS_TOKEN (or NTFY_TOKEN) as a Worker secret'
+        );
+      }
     } else {
-      console.log('[ntfy] published ok:', res.status, url.replace(/^https?:\/\/[^/]+/i, ''));
+      console.log('[ntfy] published ok:', res.status, safeNtfyUrlLabel(url));
     }
   } catch (e) {
     console.error('[ntfy] publish error:', e);

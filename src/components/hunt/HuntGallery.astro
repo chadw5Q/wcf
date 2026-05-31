@@ -1,0 +1,74 @@
+---
+import { galleryCaption, galleryImagePaths } from '../../lib/hunt-landing-content';
+
+const images = galleryImagePaths();
+/** Alternate aspect ratios for a masonry-like rhythm (CSS columns). */
+const aspects = ['aspect-[4/5]', 'aspect-square', 'aspect-[3/4]', 'aspect-[5/4]', 'aspect-[4/5]', 'aspect-square', 'aspect-[3/4]', 'aspect-[4/5]', 'aspect-square', 'aspect-[5/4]', 'aspect-[4/5]', 'aspect-[3/4]'] as const;
+
+const shortLabels = ['Buck 01', 'Buck 02', 'Buck 03', 'Buck 04', 'Buck 05', 'Buck 06', 'Buck 07', 'Buck 08', 'Buck 09', 'Buck 10', 'Buck 11', 'Buck 12'];
+---
+
+<section class="border-t border-hunt-border bg-hunt-bg py-16 md:py-24" aria-labelledby="hunt-gallery-heading">
+  <div class="mx-auto max-w-[900px] px-4 sm:px-5 md:px-6">
+    <h2 id="hunt-gallery-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">
+      The Bucks We&apos;re Managing
+    </h2>
+    <p class="mt-2 text-sm text-hunt-muted">Trail camera &amp; harvest gallery — placeholder photos until final assets ship.</p>
+  </div>
+
+  <div class="mx-auto mt-10 max-w-6xl px-4 sm:px-5 md:px-6">
+    <div class="columns-2 gap-4 sm:columns-3 sm:gap-5">
+      {
+        images.map((src, i) => (
+          <figure class="mb-4 break-inside-avoid sm:mb-5">
+            <div class:list={['overflow-hidden rounded border border-hunt-border bg-hunt-surface', aspects[i % aspects.length]]}>
+              <img
+                data-hunt-gallery-img
+                src={src}
+                alt={`Trail camera or harvest photo ${i + 1} of 12`}
+                loading="lazy"
+                decoding="async"
+                class="h-full w-full object-cover"
+                width="800"
+                height="1000"
+              />
+            </div>
+            <figcaption class="mt-2 text-center text-xs text-hunt-muted/90">{shortLabels[i]}</figcaption>
+          </figure>
+        ))
+      }
+    </div>
+    <p class="mt-10 text-center text-sm text-hunt-muted md:text-base">{galleryCaption}</p>
+  </div>
+</section>
+
+<script>
+  function setupGalleryFallbacks() {
+    document.querySelectorAll('[data-hunt-gallery-img]').forEach((node) => {
+      if (!(node instanceof HTMLImageElement)) return;
+      node.addEventListener(
+        'error',
+        () => {
+          const wrap = node.parentElement;
+          if (!wrap) return;
+          wrap.innerHTML = '';
+          const placeholder = document.createElement('div');
+          placeholder.className =
+            'flex h-full min-h-[140px] w-full flex-col items-center justify-center gap-2 bg-hunt-surface-2 px-3 py-6 text-center';
+          const t = document.createElement('p');
+          t.className = 'text-xs font-medium uppercase tracking-wider text-hunt-muted';
+          t.textContent = 'Photo soon';
+          const s = document.createElement('p');
+          s.className = 'text-[11px] text-hunt-muted/80';
+          s.textContent = node.alt || 'Image unavailable';
+          placeholder.appendChild(t);
+          placeholder.appendChild(s);
+          wrap.appendChild(placeholder);
+        },
+        { once: true }
+      );
+    });
+  }
+
+  setupGalleryFallbacks();
+</script>

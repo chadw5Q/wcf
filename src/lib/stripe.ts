@@ -22,6 +22,10 @@ export type CreateCheckoutSessionOptions = {
   customerEmail?: string;
   /** Merged with default `items` metadata (JSON of line items). */
   metadata?: Record<string, string>;
+  /** Override success redirect (must include `{CHECKOUT_SESSION_ID}` for Checkout). */
+  successUrl?: string;
+  /** Override cancel redirect. */
+  cancelUrl?: string;
 };
 
 export async function createCheckoutSession(
@@ -39,6 +43,11 @@ export async function createCheckoutSession(
     ...(options?.metadata ?? {}),
   };
 
+  const base = getServerEnv('SITE_URL') || 'http://localhost:4321';
+  const successUrl =
+    options?.successUrl ?? `${base}/success?session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = options?.cancelUrl ?? `${base}/order-now`;
+
   const session = await stripe.checkout.sessions.create({
     payment_method_types: ['card'],
     line_items: items.map((item) => ({
@@ -52,8 +61,8 @@ export async function createCheckoutSession(
       quantity: item.quantity,
     })),
     mode: 'payment',
-    success_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${getServerEnv('SITE_URL') || 'http://localhost:4321'}/order-now`,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
     metadata,
     ...(options?.customerEmail?.trim()
       ? { customer_email: options.customerEmail.trim() }

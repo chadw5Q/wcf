@@ -8,6 +8,10 @@ interface ImportMetaEnv {
   readonly RESEND_FROM?: string;
   readonly SITE_URL?: string;
   readonly STRIPE_SECRET_KEY?: string;
+  /** Stripe webhook signing secret for POST /api/webhooks/stripe-hunt (deposit checkout). */
+  readonly STRIPE_WEBHOOK_SECRET_HUNT?: string;
+  /** Optional: internal email when a new hunt deposit is paid (Chad). */
+  readonly HUNT_NOTIFY_EMAIL?: string;
   readonly ADMIN_PASSWORD?: string;
   readonly ADMIN_SESSION_SECRET?: string;
   /** HMAC secret for Cal.com webhooks → /api/webhooks/cal-booking (same as Cal webhook “Secret”). */
@@ -30,6 +34,7 @@ declare namespace App {
     runtime?: {
       env: {
         ORDERS_KV?: KVNamespace;
+        HUNT_KV?: KVNamespace;
         PRODUCT_IMAGES?: R2Bucket;
         ASSETS?: Fetcher;
       } & Record<string, unknown>;

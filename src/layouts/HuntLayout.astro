@@ -1,0 +1,40 @@
+---
+import '../styles/hunt.css';
+import HuntNav from '../components/hunt/HuntNav.astro';
+import HuntFooter from '../components/hunt/HuntFooter.astro';
+
+export interface Props {
+  title: string;
+  /** Login screen: no hunt nav/footer (PRD full-screen gate). */
+  minimal?: boolean;
+}
+
+const { title, minimal = false } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{title}</title>
+  </head>
+  <body class="hunt-theme flex min-h-screen flex-col bg-hunt-bg font-hunt-body text-hunt-cream antialiased">
+    {!minimal && <HuntNav />}
+    <main class:list={['flex-1', minimal && 'flex flex-col']}>
+      <slot />
+    </main>
+    {!minimal && <HuntFooter />}
+  </body>
+</html>

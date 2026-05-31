@@ -1,0 +1,47 @@
+---
+import HuntLayout from '../../../layouts/HuntLayout.astro';
+import { IOWA_DNR_DEER_URL } from '../../../lib/hunt-landing-content';
+import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
+import { reconcileHuntCheckoutFromSessionId } from '../../../lib/hunt-reconcile-checkout';
+
+const sessionId = Astro.url.searchParams.get('session_id');
+await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.locals));
+---
+
+<HuntLayout title="Payment received — Williams Creek Whitetails">
+  <section class="mx-auto max-w-[640px] px-4 py-16 md:px-6 md:py-24">
+    <div class="flex justify-center">
+      <div
+        class="flex h-16 w-16 items-center justify-center rounded-full border-2 border-hunt-gold text-hunt-gold"
+        aria-hidden="true"
+      >
+        <svg class="h-9 w-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+    </div>
+
+    <h1 class="mt-8 text-center font-hunt-heading text-3xl text-hunt-cream md:text-4xl">Thank you — your balance is received</h1>
+
+    <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
+      You&apos;re paid in full for your hunt. Chad will follow up with any last details before you arrive. Questions?
+      <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
+    </p>
+
+    <div class="mt-10 rounded border border-hunt-border bg-hunt-surface p-6 text-sm leading-relaxed text-hunt-cream/95">
+      <p><span class="text-hunt-gold">Cabin:</span> 1100 Apple Ave, Cumberland, Iowa</p>
+      <p class="mt-3"><span class="text-hunt-gold">Arrival:</span> Sunday after 2pm of your hunt week. Depart Saturday by noon.</p>
+      <p class="mt-3">
+        <span class="text-hunt-gold">Tags:</span> Non-resident Iowa archery tags — plan ahead via the
+        <a class="text-hunt-gold underline decoration-hunt-gold/40" href={IOWA_DNR_DEER_URL}>Iowa DNR</a>.
+      </p>
+    </div>
+
+    <p class="mt-8 text-center text-sm text-hunt-muted">
+      Need to adjust something?
+      <a class="text-hunt-gold underline decoration-hunt-gold/40" href="/hunt/final-payment">Return to the payment form</a>
+      ·
+      <a class="text-hunt-gold underline decoration-hunt-gold/40" href="/hunt">Back to hunt home</a>
+    </p>
+  </section>
+</HuntLayout>

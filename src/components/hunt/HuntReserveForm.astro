@@ -1,0 +1,372 @@
+---
+import { US_STATES } from '../../lib/us-states';
+
+interface Props {
+  years: number[];
+  weeksByYear: Record<number, { id: string; label: string; available: boolean }[]>;
+}
+
+const { years, weeksByYear } = Astro.props;
+const defaultYear = years[0] ?? new Date().getFullYear();
+const initialWeeks = weeksByYear[defaultYear] ?? [];
+---
+
+<div class="mx-auto max-w-[700px] px-4 pb-20 md:px-6">
+  <p id="hunt-reserve-error" class="mb-6 hidden rounded border border-hunt-red/60 bg-hunt-surface px-4 py-3 text-sm text-hunt-cream" role="alert"></p>
+
+  <form id="hunt-reserve-form" class="space-y-10" novalidate>
+    <input type="hidden" name="hunterCount" id="hunt-hunter-count" value="1" />
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 1</p>
+      <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">How many hunters in your party?</h2>
+      <div class="mt-4 grid grid-cols-4 gap-2 sm:max-w-md">
+        {
+          [1, 2, 3, 4].map((n) => (
+            <button
+              type="button"
+              class:list={[
+                'hunt-party-btn rounded border px-3 py-3 text-lg font-semibold text-hunt-cream transition-colors hover:border-hunt-gold',
+                n === 1 ? 'border-hunt-gold bg-hunt-surface-2' : 'border-hunt-border bg-hunt-surface',
+              ]}
+              data-party-size={n}
+            >
+              {n}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <div id="hunt-hunter-blocks" class="space-y-8">
+      {
+        [0, 1, 2, 3].map((i) => (
+          <div class="hunt-hunter-block rounded border border-hunt-border bg-hunt-surface p-5" data-hunter-index={i} style={i > 0 ? 'display:none' : undefined}>
+            <h3 class="font-hunt-heading text-lg text-hunt-gold">{i === 0 ? 'Your Information' : `Hunter ${i + 1} Information`}</h3>
+            <div class="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">First name</label>
+                <input required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" data-field="firstName" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Last name</label>
+                <input required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" data-field="lastName" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Email</label>
+                <input type="email" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" data-field="email" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Cell phone</label>
+                <input required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" data-field="phone" />
+              </div>
+              <div>
+                <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Home state</label>
+                <select required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" data-field="state">
+                  <option value="">Select state</option>
+                  {US_STATES.map((s) => (
+                    <option value={s.code}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 2</p>
+      <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Choose Your Hunt Year</h2>
+      <select id="hunt-year" class="mt-4 w-full max-w-md rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" required>
+        {years.map((y) => <option value={y}>{y}</option>)}
+      </select>
+      <p class="mt-2 text-sm text-hunt-muted">2026 is fully booked. 2027 is next available.</p>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 3</p>
+      <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Choose Your Preferred Week</h2>
+      <div id="hunt-weeks-root" class="mt-4 grid gap-3 sm:grid-cols-2">
+        {
+          initialWeeks.map((w) =>
+            w.available ? (
+              <label class="flex cursor-pointer flex-col rounded border border-hunt-border bg-hunt-surface-2 p-4 transition-colors hover:border-hunt-gold has-[:checked]:border-hunt-gold has-[:checked]:ring-1 has-[:checked]:ring-hunt-gold">
+                <input type="radio" name="preferredWeek" value={w.id} class="sr-only" />
+                <span class="text-sm text-hunt-cream">{w.label}</span>
+              </label>
+            ) : (
+              <div class="relative rounded border border-hunt-border/60 bg-hunt-bg/80 p-4 opacity-60">
+                <span class="text-sm text-hunt-muted">{w.label}</span>
+                <span class="absolute right-3 top-3 rounded bg-hunt-surface px-2 py-0.5 text-xs uppercase tracking-wider text-hunt-muted">Booked</span>
+              </div>
+            )
+          )
+        }
+      </div>
+      <p class="mt-3 text-sm text-hunt-muted">The first week of November is historically our best rut hunting.</p>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 4</p>
+      <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Meal Package (Optional)</h2>
+      <label class="mt-4 flex cursor-pointer items-start gap-3">
+        <input id="hunt-meal" type="checkbox" class="mt-1 h-4 w-4 rounded border-hunt-border text-hunt-gold" />
+        <span class="text-sm text-hunt-cream/95">
+          Add All-Inclusive Food & Cooking Package — +$1,000 for 1 hunter. $250 for each additional hunter
+        </span>
+      </label>
+      <p class="mt-2 text-sm text-hunt-muted">We handle all meals and cooking for your entire stay. You just hunt.</p>
+    </div>
+
+    <div class="rounded border border-hunt-border bg-hunt-surface p-5">
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-gold">Order summary</p>
+      <div id="hunt-summary-lines" class="mt-3 space-y-2 text-sm text-hunt-cream/95"></div>
+      <hr class="hunt-rule my-4" />
+      <p class="text-sm font-semibold text-hunt-gold-light" id="hunt-summary-total"></p>
+      <p class="mt-2 text-sm text-hunt-muted" id="hunt-summary-deposit"></p>
+      <p class="text-sm text-hunt-muted" id="hunt-summary-balance"></p>
+    </div>
+
+    <div>
+      <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Any questions or special requests?</label>
+      <textarea id="hunt-notes" rows="3" class="mt-2 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" placeholder="Optional"></textarea>
+    </div>
+
+    <div>
+      <button type="submit" id="hunt-submit" class="hunt-btn w-full py-3 text-sm"> Reserve My Spot — Pay $500 Deposit </button>
+      <p class="mt-4 text-xs leading-relaxed text-hunt-muted">
+        The $500/person deposit is non-refundable but transferable to any future hunt year.
+        <br />
+        Full balance is due July 1 of your hunt year and is fully refundable if you need to cancel.
+      </p>
+    </div>
+  </form>
+</div>
+
+<script define:vars={{ weeksByYear }}>
+  const HUNT_LODGING = 3000;
+  const HUNT_DEPOSIT = 500;
+  const MEAL_BASE = 1000;
+  const MEAL_ADD = 250;
+
+  function mealTotal(n) {
+    if (n < 1) return 0;
+    return MEAL_BASE + MEAL_ADD * Math.max(0, n - 1);
+  }
+
+  function compute(n, meal) {
+    const hunt = n * HUNT_LODGING;
+    const meals = meal ? mealTotal(n) : 0;
+    const total = hunt + meals;
+    const dep = n * HUNT_DEPOSIT;
+    const bal = total - dep;
+    return { hunt, meals, total, dep, bal };
+  }
+
+  const countInput = document.getElementById('hunt-hunter-count');
+  const partyBtns = document.querySelectorAll('.hunt-party-btn');
+  const blocks = document.querySelectorAll('.hunt-hunter-block');
+  const yearEl = document.getElementById('hunt-year');
+  const weeksRoot = document.getElementById('hunt-weeks-root');
+  const mealEl = document.getElementById('hunt-meal');
+  const summaryLines = document.getElementById('hunt-summary-lines');
+  const summaryTotal = document.getElementById('hunt-summary-total');
+  const summaryDeposit = document.getElementById('hunt-summary-deposit');
+  const summaryBalance = document.getElementById('hunt-summary-balance');
+  const form = document.getElementById('hunt-reserve-form');
+  const errEl = document.getElementById('hunt-reserve-error');
+  const submitBtn = document.getElementById('hunt-submit');
+  const notesEl = document.getElementById('hunt-notes');
+
+  let partySize = 1;
+
+  function setPartySize(n) {
+    partySize = n;
+    if (countInput) countInput.value = String(n);
+    partyBtns.forEach((b) => {
+      const bn = Number(/** @type {HTMLElement} */ (b).dataset.partySize);
+      b.classList.toggle('border-hunt-gold', bn === n);
+      b.classList.toggle('bg-hunt-surface-2', bn === n);
+    });
+    blocks.forEach((block, i) => {
+      const el = /** @type {HTMLElement} */ (block);
+      const visible = i < n;
+      el.style.display = visible ? 'block' : 'none';
+      el.querySelectorAll('input[data-field], select[data-field]').forEach((field) => {
+        /** @type {HTMLInputElement | HTMLSelectElement} */ (field).disabled = !visible;
+      });
+    });
+    renderWeeks();
+    updateSummary();
+  }
+
+  function renderWeeks() {
+    if (!weeksRoot || !yearEl) return;
+    const y = Number(yearEl.value);
+    const weeks = weeksByYear[y] || [];
+    weeksRoot.innerHTML = '';
+    let firstAvail = null;
+    for (const w of weeks) {
+      if (w.available) {
+        const lab = document.createElement('label');
+        lab.className =
+          'flex cursor-pointer flex-col rounded border border-hunt-border bg-hunt-surface-2 p-4 transition-colors hover:border-hunt-gold has-[:checked]:border-hunt-gold has-[:checked]:ring-1 has-[:checked]:ring-hunt-gold';
+        const inp = document.createElement('input');
+        inp.type = 'radio';
+        inp.name = 'preferredWeek';
+        inp.value = w.id;
+        inp.className = 'sr-only';
+        if (firstAvail === null) {
+          firstAvail = inp;
+          inp.checked = true;
+        }
+        lab.appendChild(inp);
+        const span = document.createElement('span');
+        span.className = 'text-sm text-hunt-cream';
+        span.textContent = w.label;
+        lab.appendChild(span);
+        weeksRoot.appendChild(lab);
+      } else {
+        const div = document.createElement('div');
+        div.className =
+          'relative rounded border border-hunt-border/60 bg-hunt-bg/80 p-4 opacity-60';
+        const t = document.createElement('span');
+        t.className = 'text-sm text-hunt-muted';
+        t.textContent = w.label;
+        div.appendChild(t);
+        const badge = document.createElement('span');
+        badge.className =
+          'absolute right-3 top-3 rounded bg-hunt-surface px-2 py-0.5 text-xs uppercase tracking-wider text-hunt-muted';
+        badge.textContent = 'Booked';
+        div.appendChild(badge);
+        weeksRoot.appendChild(div);
+      }
+    }
+    if (firstAvail) firstAvail.checked = true;
+    else {
+      const p = document.createElement('p');
+      p.className = 'col-span-full text-sm text-hunt-muted';
+      p.textContent = 'No open weeks for this year. Choose another hunt year.';
+      weeksRoot.appendChild(p);
+    }
+  }
+
+  function updateSummary() {
+    const meal = /** @type {HTMLInputElement} */ (mealEl)?.checked ?? false;
+    const { hunt, meals, total, dep, bal } = compute(partySize, meal);
+    if (summaryLines && summaryTotal && summaryDeposit && summaryBalance) {
+      let html = `<p>Hunt: ${partySize} hunters × $${HUNT_LODGING.toLocaleString()} = $${hunt.toLocaleString()}</p>`;
+      if (meal) {
+        html += `<p>Meals: $${meals.toLocaleString()}</p>`;
+      }
+      summaryLines.innerHTML = html;
+      summaryTotal.textContent = `Total hunt cost: $${total.toLocaleString()}`;
+      summaryDeposit.textContent = `Due today (deposit): ${partySize} hunters × $${HUNT_DEPOSIT} = $${dep.toLocaleString()}`;
+      summaryBalance.textContent = `Balance due July 1: $${bal.toLocaleString()}`;
+    }
+    if (submitBtn) {
+      submitBtn.textContent = `Reserve My Spot — Pay $${dep.toLocaleString()} Deposit`;
+    }
+  }
+
+  partyBtns.forEach((b) => {
+    b.addEventListener('click', () => {
+      const n = Number(/** @type {HTMLElement} */ (b).dataset.partySize);
+      if (n >= 1 && n <= 4) setPartySize(n);
+    });
+  });
+  yearEl?.addEventListener('change', () => {
+    renderWeeks();
+    updateSummary();
+  });
+  mealEl?.addEventListener('change', updateSummary);
+
+  blocks.forEach((block) => {
+    block.querySelectorAll('input[data-field],select[data-field]').forEach((el) => {
+      el.addEventListener('input', updateSummary);
+      el.addEventListener('change', updateSummary);
+    });
+  });
+
+  function collectHunters() {
+    const out = [];
+    for (let i = 0; i < partySize; i++) {
+      const block = blocks[i];
+      if (!block) continue;
+      const get = (field) =>
+        /** @type {HTMLInputElement | HTMLSelectElement | null} */ (block.querySelector(`[data-field="${field}"]`));
+      const firstName = get('firstName')?.value?.trim() ?? '';
+      const lastName = get('lastName')?.value?.trim() ?? '';
+      const email = get('email')?.value?.trim() ?? '';
+      const phone = get('phone')?.value?.trim() ?? '';
+      const state = get('state')?.value?.trim() ?? '';
+      out.push({ firstName, lastName, email, phone, state });
+    }
+    return out;
+  }
+
+  function showError(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+    errEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+  function clearError() {
+    errEl?.classList.add('hidden');
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    clearError();
+    const hunters = collectHunters();
+    for (let i = 0; i < hunters.length; i++) {
+      const h = hunters[i];
+      if (!h.firstName || !h.lastName || !h.email || !h.phone || !h.state) {
+        showError(`Please complete all fields for hunter ${i + 1}.`);
+        return;
+      }
+    }
+    const huntYear = Number(yearEl?.value);
+    const weekInp = /** @type {HTMLInputElement | null} */ (
+      weeksRoot?.querySelector('input[name="preferredWeek"]:checked')
+    );
+    if (!weekInp?.value) {
+      showError('Please select an available week.');
+      return;
+    }
+    const mealPackage = Boolean(mealEl?.checked);
+    const notesRaw = notesEl?.value?.trim() ?? '';
+    const body = {
+      hunters,
+      huntYear,
+      preferredWeek: weekInp.value,
+      mealPackage,
+      notes: notesRaw.length ? notesRaw : null,
+    };
+    submitBtn && (submitBtn.disabled = true);
+    try {
+      const res = await fetch('/api/hunt-reserve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showError(data.error || data.details || 'Could not start checkout. Try again.');
+        return;
+      }
+      if (data.stripeUrl) {
+        window.location.href = data.stripeUrl;
+        return;
+      }
+      showError('Unexpected response from server.');
+    } catch {
+      showError('Network error. Check your connection and try again.');
+    } finally {
+      submitBtn && (submitBtn.disabled = false);
+    }
+  });
+
+  setPartySize(1);
+</script>

@@ -1,0 +1,131 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getIntegrationDiagnostics } from '../../lib/integration-diagnostics';
+
+const d = getIntegrationDiagnostics(Astro.locals);
+const webhookProbeUrl = new URL('/api/webhooks/cal-booking', Astro.url.origin).href;
+
+function okLabel(on: boolean): string {
+  return on ? 'Present / bound' : 'Missing';
+}
+
+function rowClass(on: boolean): string {
+  return on ? 'text-slate-800' : 'font-medium text-amber-900';
+}
+---
+
+<AdminLayout title="Admin — Integrations">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900">Integrations &amp; notifications</h1>
+  <p class="mb-8 max-w-3xl text-sm text-slate-600">
+    Use this page to confirm the Worker is wired for order email, ntfy alerts, Cal.com webhooks, and
+    KV. Values are never shown—only whether bindings and required keys exist.
+  </p>
+
+  <section class="mb-10">
+    <h2 class="mb-3 text-lg font-semibold text-slate-900">Worker bindings &amp; secrets (presence)</h2>
+    <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+      <table class="min-w-full text-left text-sm">
+        <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
+          <tr>
+            <th class="px-4 py-3 font-medium">Item</th>
+            <th class="px-4 py-3 font-medium">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr class={rowClass(d.ordersKvBound)}>
+            <td class="px-4 py-3"><code class="text-xs">ORDERS_KV</code></td>
+            <td class="px-4 py-3">{okLabel(d.ordersKvBound)}</td>
+          </tr>
+          <tr class={rowClass(d.huntKvBound)}>
+            <td class="px-4 py-3"><code class="text-xs">HUNT_KV</code> (WCW hunt reservations)</td>
+            <td class="px-4 py-3">{okLabel(d.huntKvBound)}</td>
+          </tr>
+          <tr class={rowClass(d.productImagesBound)}>
+            <td class="px-4 py-3"><code class="text-xs">PRODUCT_IMAGES</code> (R2)</td>
+            <td class="px-4 py-3">{okLabel(d.productImagesBound)}</td>
+          </tr>
+          <tr class={rowClass(d.calWebhookSecretSet)}>
+            <td class="px-4 py-3"><code class="text-xs">CAL_WEBHOOK_SECRET</code></td>
+            <td class="px-4 py-3">{okLabel(d.calWebhookSecretSet)}</td>
+          </tr>
+          <tr class={rowClass(d.resendApiKeySet)}>
+            <td class="px-4 py-3"><code class="text-xs">RESEND_API_KEY</code></td>
+            <td class="px-4 py-3">{okLabel(d.resendApiKeySet)}</td>
+          </tr>
+          <tr class={rowClass(d.stripeSecretKeySet)}>
+            <td class="px-4 py-3"><code class="text-xs">STRIPE_SECRET_KEY</code></td>
+            <td class="px-4 py-3">{okLabel(d.stripeSecretKeySet)}</td>
+          </tr>
+          <tr class={rowClass(d.ntfyTopicOrUrlVarSet)}>
+            <td class="px-4 py-3"><code class="text-xs">NTFY_TOPIC</code> or <code class="text-xs">NTFY_TOPIC_URL</code></td>
+            <td class="px-4 py-3">
+              {d.ntfyTopicOrUrlVarSet ? 'Set (optional if default topic is OK)' : 'Unset (default topic)'}
+            </td>
+          </tr>
+          <tr class={rowClass(!d.ntfy.disabled)}>
+            <td class="px-4 py-3">ntfy destination</td>
+            <td class="px-4 py-3">
+              {
+                d.ntfy.disabled ? (
+                  <span class="text-amber-900">Disabled — notifications will not send</span>
+                ) : (
+                  <span>{d.ntfy.destinationLabel}</span>
+                )
+              }
+            </td>
+          </tr>
+          <tr class="text-slate-800">
+            <td class="px-4 py-3"><code class="text-xs">NTFY_ACCESS_TOKEN</code> / <code class="text-xs">NTFY_TOKEN</code></td>
+            <td class="px-4 py-3">
+              {d.ntfy.tokenConfigured ? 'Set' : 'Unset (required for private topics)'}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-3 text-lg font-semibold text-slate-900">Worker logs (orders + Cal)</h2>
+    <p class="mb-3 text-sm text-slate-600">
+      After checkout email send and after a Cal booking, tail the Worker and search for:
+    </p>
+    <ul class="list-inside list-disc space-y-1 text-sm text-slate-800">
+      <li><code class="text-xs">[ntfy]</code> — success, <code class="text-xs">publish skipped</code>, <code class="text-xs">publish failed</code>, or network errors</li>
+      <li><code class="text-xs">[cal-booking]</code> — webhook handling, <code class="text-xs">no orderId</code>, KV updates</li>
+    </ul>
+    <p class="mt-3 text-sm text-slate-600">
+      CLI: <code class="rounded bg-slate-100 px-1 py-0.5 text-xs">npx wrangler tail</code> (or Logs in the Cloudflare dashboard).
+    </p>
+  </section>
+
+  <section class="mb-10 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 class="mb-3 text-lg font-semibold text-slate-900">Cal.com webhook</h2>
+    <ul class="list-inside list-disc space-y-2 text-sm text-slate-700">
+      <li>
+        Subscriber URL must be your live site:
+        <code class="block mt-1 break-all rounded bg-slate-100 px-2 py-1 text-xs"
+          >https://&lt;your-domain&gt;/api/webhooks/cal-booking</code
+        >
+      </li>
+      <li>
+        Webhook secret in Cal must match <code class="text-xs">CAL_WEBHOOK_SECRET</code> on the Worker.
+        Failed signatures return 401; check Cal&rsquo;s webhook delivery log.
+      </li>
+      <li>
+        Booking question identifier must be exactly <code class="text-xs">orderId</code> (camelCase). Customers should open
+        scheduling from thank-you / success links that include <code class="text-xs">?orderId=&lt;uuid&gt;</code> so Cal captures the
+        same UUID stored in KV.
+      </li>
+    </ul>
+    <p class="mt-4 text-sm text-slate-600">
+      Probe this deployment (JSON hints):
+      <a href={webhookProbeUrl} class="break-all font-medium text-green-800 hover:underline">{webhookProbeUrl}</a>
+    </p>
+  </section>
+
+  <p class="text-sm text-slate-500">
+    <a href="/admin" class="text-green-700 hover:text-green-900">← Admin dashboard</a>
+  </p>
+</AdminLayout>

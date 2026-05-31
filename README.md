@@ -144,6 +144,30 @@ Use your **live** secret key (`sk_live_…`) for production; test keys only work
 
 You can also add secrets in the [Cloudflare dashboard](https://dash.cloudflare.com) → Workers & Pages → your worker → Settings → Variables and secrets.
 
+### Hunt reservations KV (`HUNT_KV`)
+
+Williams Creek Whitetails (`/hunt`) stores reservation JSON in a **separate** KV namespace from `ORDERS_KV`.
+
+1. Create a namespace (pick your own title; the binding name in code is always `HUNT_KV`):
+
+   ```bash
+   npx wrangler kv namespace create WCW_HUNT_RESERVATIONS
+   ```
+
+2. Copy the **id** from the command output (or from **Workers & Pages** → **KV**) into `wrangler.jsonc` → `kv_namespaces` for the `HUNT_KV` entry. Replace the placeholder `id` if the repo still ships a dummy value.
+
+3. Redeploy (`npm run deploy`). Local `astro dev` does not attach Worker bindings unless you use `wrangler dev` / preview wiring—see the [Astro Cloudflare adapter](https://docs.astro.build/en/guides/integrations-guide/cloudflare/) docs.
+
+Admin **Integrations** (`/admin/integrations`) shows whether `HUNT_KV` is bound in the deployed Worker.
+
+**Hunt deposit flow (Stripe + Resend):** `/hunt/reserve` posts to `POST /api/hunt-reserve`, which creates a Checkout Session and redirects the hunter to Stripe. Configure a **second** webhook endpoint in Stripe for hunt deposits only: subscriber URL `https://<your-site>/api/webhooks/stripe-hunt`, event `checkout.session.completed`, and store the signing secret as **`STRIPE_WEBHOOK_SECRET_HUNT`** (`npx wrangler secret put STRIPE_WEBHOOK_SECRET_HUNT`). Optional **`HUNT_NOTIFY_EMAIL`** receives an internal heads-up when a deposit clears (uses the same Resend credentials as orders).
+
+**Hunt balance (Phase 6):** `/hunt/final-payment` posts to `POST /api/hunt-balance`. The same Stripe webhook (`/api/webhooks/stripe-hunt`) handles **both** deposit and balance sessions; distinguish them in the Stripe Dashboard via Checkout Session metadata (`hunt_checkout_kind`: `deposit` vs `balance`).
+
+**Hunt manual QA (Stripe test mode):** Log in at `/hunt/login` → reserve flow (`/hunt/reserve`) → complete Checkout → confirm `/api/webhooks/stripe-hunt` receives `checkout.session.completed` (deposit) → Resend deposit mail → final payment (`/hunt/final-payment`) → balance webhook → balance mail. Confirm `public/robots.txt` disallows `/hunt`, sitemap excludes `/hunt`, and view-source on `/hunt` shows `noindex,nofollow`.
+
+**Optional Playwright (`npm run test:e2e`):** `tests/e2e/hunt-flow.spec.ts` always checks that `POST /api/hunt-reserve` and `POST /api/hunt-balance` are **not** hunt-session gated. To also run the login → reserve UI step, export **`HUNT_E2E_PASSWORD`** to match **`HUNT_PASSWORD`** (or the dev default if unset locally).
+
 ### Vercel (Recommended)
 
 1. Install Vercel CLI:

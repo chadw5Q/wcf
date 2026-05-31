@@ -1,0 +1,46 @@
+---
+import HuntLayout from '../../../layouts/HuntLayout.astro';
+import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
+import { reconcileHuntCheckoutFromSessionId } from '../../../lib/hunt-reconcile-checkout';
+
+const sessionId = Astro.url.searchParams.get('session_id');
+await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.locals));
+---
+
+<HuntLayout title="You're In — Williams Creek Whitetails">
+  <section class="mx-auto max-w-[640px] px-4 py-16 md:px-6 md:py-24">
+    <div class="flex justify-center">
+      <div
+        class="flex h-20 w-20 items-center justify-center rounded-full border-2 border-hunt-gold bg-hunt-surface text-hunt-gold"
+        aria-hidden="true"
+      >
+        <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+    </div>
+
+    <h1 class="mt-8 text-center font-hunt-heading text-3xl text-hunt-cream md:text-4xl">
+      You're In. Welcome to Williams Creek Whitetails.
+    </h1>
+
+    <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
+      Your deposit has been received. Chad will be in touch within 24 hours to confirm your week and answer any
+      questions. Text or call anytime: <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
+    </p>
+
+    <div class="mt-10 rounded border border-hunt-border bg-hunt-surface p-6 md:p-8">
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-gold">What happens next</p>
+      <ol class="mt-4 list-decimal space-y-3 pl-5 text-hunt-cream/95">
+        <li>Chad confirms your week reservation</li>
+        <li>Full balance invoice sent June 1</li>
+        <li>Full balance due July 1</li>
+        <li>Arrive Sunday after 2pm — the hunt begins</li>
+      </ol>
+    </div>
+
+    <p class="mt-8 text-center text-sm text-hunt-muted">
+      Didn’t mean to leave? <a class="text-hunt-gold underline decoration-hunt-gold/40" href="/hunt/reserve">Back to the reservation form</a>
+    </p>
+  </section>
+</HuntLayout>

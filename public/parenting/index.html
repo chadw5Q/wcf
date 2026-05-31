@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intentional Parenting — Resources</title>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+  <link rel="shortcut icon" href="./favicon.svg">
+  <style>
+
+    /* ============================================================
+       INFOGRAPHIC STYLES — verbatim from Intentional Parenting Infographic.html
+       ============================================================ */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Georgia', serif; background: #f5f0e8; color: #1a1a1a; }
+    .infographic { max-width: 100%; margin: 0 auto; padding: 28px 40px 36px; }
+
+    /* Header */
+    .header { background: #1F3864; color: white; border-radius: 4px; padding: 32px 40px 26px; text-align: center; margin-bottom: 6px; }
+    .header .eyebrow { font-family: Arial, sans-serif; font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #8fb3e0; margin-bottom: 10px; }
+    .header h1 { font-size: 42px; font-weight: bold; color: #ffffff; line-height: 1.15; margin-bottom: 6px; }
+    .header .scripture { font-family: Arial, sans-serif; font-size: 15px; color: #d4e4f7; margin-top: 14px; padding-top: 14px; border-top: 1px solid #2e5090; }
+
+    /* Core concept */
+    .core-concept { background: #C55A11; color: white; border-radius: 4px; padding: 24px 32px; text-align: center; margin-bottom: 6px; }
+    .core-concept .label { font-family: Arial, sans-serif; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #f9c49a; margin-bottom: 8px; }
+    .core-concept .big { font-size: 28px; font-weight: bold; color: #fff; margin-bottom: 6px; }
+    .core-concept .desc { font-family: Arial, sans-serif; font-size: 15px; color: #fde3cc; line-height: 1.6; }
+
+    /* Two column */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+
+    /* Pillar cards */
+    .pillar { background: white; border-radius: 4px; padding: 16px 18px; border-top: 4px solid #1F3864; }
+    .pillar.amber { border-top-color: #C55A11; }
+    .pillar.green { border-top-color: #375623; }
+    .pillar.teal  { border-top-color: #1F6B75; }
+    .pillar .num  { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; color: #999; margin-bottom: 6px; }
+    .pillar h3    { font-size: 19px; font-weight: bold; color: #1F3864; margin-bottom: 8px; line-height: 1.2; }
+    .pillar.amber h3 { color: #C55A11; }
+    .pillar.green h3 { color: #375623; }
+    .pillar.teal  h3 { color: #1F6B75; }
+    .pillar p     { font-family: Arial, sans-serif; font-size: 14px; color: #444; line-height: 1.6; }
+    .pillar .tag-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+    .tag { font-family: Arial, sans-serif; font-size: 12px; background: #eef2f9; color: #1F3864; padding: 3px 10px; border-radius: 20px; }
+    .pillar.amber .tag { background: #fef3ec; color: #C55A11; }
+    .pillar.green .tag { background: #eef4ea; color: #375623; }
+    .pillar.teal  .tag { background: #e8f4f6; color: #1F6B75; }
+
+    /* Three perspectives */
+    .perspectives { background: white; border-radius: 4px; padding: 20px 22px; margin-bottom: 6px; }
+    .perspectives .section-label { font-family: Arial, sans-serif; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #999; margin-bottom: 14px; text-align: center; }
+    .perspectives h2 { font-size: 21px; font-weight: bold; color: #1F3864; text-align: center; margin-bottom: 18px; }
+    .three-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .persp-card { text-align: center; padding: 14px 10px; border-radius: 4px; }
+    .persp-card.god   { background: #dde7f4; }
+    .persp-card.self  { background: #fde8d8; }
+    .persp-card.other { background: #e2efda; }
+    .persp-card .icon { font-size: 24px; margin-bottom: 6px; }
+    .persp-card h4 { font-family: Arial, sans-serif; font-size: 15px; font-weight: bold; margin-bottom: 8px; }
+    .persp-card.god   h4 { color: #1F3864; }
+    .persp-card.self  h4 { color: #C55A11; }
+    .persp-card.other h4 { color: #375623; }
+    .persp-card p { font-family: Arial, sans-serif; font-size: 13px; color: #555; line-height: 1.5; }
+
+    /* Deut 6 banner */
+    .deut-banner { background: #375623; color: white; border-radius: 4px; padding: 16px 24px; text-align: center; margin-bottom: 6px; }
+    .deut-banner .label { font-family: Arial, sans-serif; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #a8c896; margin-bottom: 8px; }
+    .deut-banner .big   { font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 8px; }
+    .deut-banner .ref   { font-family: Arial, sans-serif; font-size: 14px; color: #c5dfb8; line-height: 1.6; }
+
+    /* 4 habits */
+    .habits { background: white; border-radius: 4px; padding: 18px 22px; margin-bottom: 6px; }
+    .habits .section-label { font-family: Arial, sans-serif; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #999; margin-bottom: 14px; text-align: center; }
+    .habits h2 { font-size: 20px; font-weight: bold; color: #1F3864; text-align: center; margin-bottom: 16px; }
+    .habit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .habit { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; background: #f9f7f3; border-radius: 4px; border-left: 3px solid #1F3864; }
+    .habit .h-num { font-family: Arial, sans-serif; font-size: 22px; font-weight: bold; color: #1F3864; line-height: 1; min-width: 28px; }
+    .habit .h-text h4 { font-family: Arial, sans-serif; font-size: 15px; font-weight: bold; color: #222; margin-bottom: 4px; }
+    .habit .h-text p  { font-family: Arial, sans-serif; font-size: 13px; color: #666; line-height: 1.5; }
+
+    /* Footer */
+    .footer { background: #1a1a1a; color: white; border-radius: 4px; padding: 18px 28px; text-align: center; }
+    .footer .quote { font-size: 18px; font-style: italic; color: #ddd; line-height: 1.6; margin-bottom: 8px; }
+    .footer .ref   { font-family: Arial, sans-serif; font-size: 14px; color: #999; }
+
+    @media print {
+      body { background: #f5f0e8; }
+      .infographic { padding: 0; }
+    }
+
+    /* ============================================================
+       PAGE CHROME — nav, spacing, smooth scroll
+       ============================================================ */
+    html { scroll-behavior: smooth; }
+    body { padding-top: 48px; }
+
+    .page-nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: #1F3864;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+    }
+    .page-nav .nav-title {
+      font-family: Georgia, serif;
+      font-size: 17px;
+      font-weight: bold;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+    .page-nav .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+    }
+    .page-nav .nav-links a {
+      color: #c8d8f0;
+      text-decoration: none;
+      padding: 5px 9px;
+      border-radius: 3px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .page-nav .nav-links a:hover {
+      color: #ffffff;
+      background: rgba(255,255,255,0.12);
+    }
+    .page-nav .nav-sep {
+      color: #3a5590;
+      padding: 0 2px;
+      user-select: none;
+    }
+
+    /* ============================================================
+       RESOURCE SECTIONS
+       ============================================================ */
+    .resources-wrapper {
+      max-width: 100%;
+      margin: 0;
+      padding: 0 40px 56px;
+    }
+
+    .section-divider {
+      max-width: 100%;
+      margin: 0;
+      border: none;
+      border-top: 2px solid #1F3864;
+      opacity: 0.18;
+    }
+
+    .resource-section {
+      padding: 36px 0 12px;
+    }
+
+    .rs-header {
+      font-family: Georgia, serif;
+      font-size: 26px;
+      font-weight: bold;
+      color: #1F3864;
+      margin-bottom: 6px;
+    }
+
+    .rs-subtext {
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      color: #555555;
+      font-style: italic;
+      margin-bottom: 20px;
+    }
+
+    /* ---- Buttons ---- */
+    .btn {
+      display: inline-block;
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 13px 24px;
+      border-radius: 4px;
+      text-decoration: none;
+      line-height: 1;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-navy  { background: #1F3864; color: #ffffff; }
+    .btn-amber { background: #C55A11; color: #ffffff; font-size: 17px; padding: 15px 28px; }
+
+    /* ---- Section 1: Take-Home Resources ---- */
+    .download-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 22px;
+    }
+
+    .infographic-img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #cfc5b0;
+      border-radius: 4px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.13);
+    }
+
+    /* ---- Framework Feature Image ---- */
+    .framework-feature {
+      background: white;
+      border-radius: 4px;
+      border-top: 4px solid #1F3864;
+      padding: 22px 24px;
+      margin-top: 16px;
+    }
+    .framework-feature .ff-label {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 6px;
+    }
+    .framework-feature .ff-title {
+      font-family: Georgia, serif;
+      font-size: 19px;
+      font-weight: bold;
+      color: #1F3864;
+      margin-bottom: 14px;
+    }
+    .framework-feature img {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      border: 1px solid #d8d0c0;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+    }
+    .framework-feature .ff-actions {
+      margin-top: 14px;
+    }
+
+    /* ---- Section 2: Slide Cards ---- */
+    .slide-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .slide-card {
+      background: white;
+      border-radius: 4px;
+      border-left: 4px solid #1F3864;
+      padding: 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    .slide-card:hover {
+      background: #eef2f9;
+    }
+    .slide-card-num {
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #999;
+    }
+    .slide-card-title {
+      font-family: Georgia, serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #1F3864;
+      line-height: 1.25;
+    }
+    .slide-card-cta {
+      font-family: Arial, sans-serif;
+      font-size: 15px;
+      font-weight: bold;
+      color: #C55A11;
+      margin-top: auto;
+      padding-top: 6px;
+    }
+
+    /* ---- Section 3: Songs ---- */
+    .songs-card {
+      background: white;
+      border-top: 4px solid #C55A11;
+      border-radius: 4px;
+      padding: 24px 26px;
+    }
+    .songs-card p {
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      color: #444;
+      line-height: 1.65;
+      margin-bottom: 20px;
+      font-style: italic;
+    }
+
+    /* ---- Section 4: Podcast ---- */
+    .podcast-card {
+      background: white;
+      border-top: 4px solid #1F6B75;
+      border-radius: 4px;
+      padding: 24px 26px;
+    }
+    .podcast-listen-label {
+      font-family: Arial, sans-serif;
+      font-size: 14px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #1F6B75;
+      margin-bottom: 10px;
+    }
+    .podcast-card audio {
+      width: 100%;
+      display: block;
+      margin-bottom: 14px;
+      accent-color: #1F6B75;
+    }
+    .podcast-external {
+      font-family: Arial, sans-serif;
+      font-size: 16px;
+      color: #1F6B75;
+      text-decoration: none;
+    }
+    .podcast-external:hover {
+      text-decoration: underline;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
+    @media (max-width: 768px) {
+      .page-nav .nav-links { display: none; }
+      .slide-grid { grid-template-columns: 1fr; }
+      .download-row { flex-direction: column; }
+      .btn { width: 100%; text-align: center; }
+      .btn-amber { width: 100%; text-align: center; box-sizing: border-box; }
+    }
+
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       STICKY NAV
+       ============================================================ -->
+  <nav class="page-nav" aria-label="Page navigation">
+    <div class="nav-title">Intentional Parenting</div>
+    <div class="nav-links">
+      <span class="nav-sep">|</span>
+      <a href="#resources">Resources</a>
+      <span class="nav-sep">·</span>
+      <a href="#slides">Slides</a>
+      <span class="nav-sep">·</span>
+      <a href="#songs">Songs</a>
+      <span class="nav-sep">·</span>
+      <a href="#podcast">Podcast</a>
+    </div>
+  </nav>
+
+  <!-- ============================================================
+       PART 1 — INFOGRAPHIC (verbatim from Intentional Parenting Infographic.html)
+       ============================================================ -->
+  <div class="infographic">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="eyebrow">A 9-Week Series</div>
+      <h1>Intentional Parenting</h1>
+      <div class="scripture">"Train up a child in the way he should go; even when he is old he will not depart from it." &nbsp;— Proverbs 22:6</div>
+    </div>
+
+    <!-- Core concept -->
+    <div class="core-concept">
+      <div class="label">The Central Idea</div>
+      <div class="big">Behavior is never the real issue — the heart is.</div>
+      <div class="desc">Children are worshippers by design. They will bow to something. Our job is to point that worship toward God — not just manage what shows on the outside.</div>
+    </div>
+
+    <!-- Four pillars -->
+    <div class="two-col">
+      <div class="pillar">
+        <div class="num">Lessons 1–2</div>
+        <h3>Framework &amp; Mindset</h3>
+        <p>Parenting flows from a theology of the heart. Every behavior traces back to what a child worships.</p>
+        <div class="tag-row">
+          <span class="tag">Idols of the heart</span>
+          <span class="tag">Worshipper by design</span>
+          <span class="tag">Root vs. fruit</span>
+        </div>
+      </div>
+      <div class="pillar amber">
+        <div class="num">Lesson 3</div>
+        <h3>Marriage as Ministry</h3>
+        <p>Your marriage is the first theology your children see. A gospel-shaped home starts with how spouses love God and each other.</p>
+        <div class="tag-row">
+          <span class="tag">Modeling grace</span>
+          <span class="tag">Gospel in the home</span>
+          <span class="tag">First theology</span>
+        </div>
+      </div>
+      <div class="pillar green">
+        <div class="num">Lessons 5–6</div>
+        <h3>Discipline with Purpose</h3>
+        <p>Communication + Reproof + Rod. Correction without communication misses the heart. Always ask: what idol is driving this?</p>
+        <div class="tag-row">
+          <span class="tag">Rod &amp; reproof</span>
+          <span class="tag">Heart-level correction</span>
+          <span class="tag">Communication types</span>
+        </div>
+      </div>
+      <div class="pillar teal">
+        <div class="num">Lesson 7</div>
+        <h3>Technology &amp; School</h3>
+        <p>Screens and academics are discipleship opportunities. Wisdom is the goal — not achievement, compliance, or safety.</p>
+        <div class="tag-row">
+          <span class="tag">Digital wisdom</span>
+          <span class="tag">Schooling options</span>
+          <span class="tag">Goal: wisdom</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Three perspectives -->
+    <div class="perspectives">
+      <div class="section-label">Lesson 8 — The Coaching Plan</div>
+      <h2>Three Perspectives on Your Child</h2>
+      <div class="three-cols">
+        <div class="persp-card god">
+          <div class="icon">✝</div>
+          <h4>In Relationship with God</h4>
+          <p>Faith · Prayer · Heart toward God · Is faith their own or borrowed?</p>
+        </div>
+        <div class="persp-card self">
+          <div class="icon">◻</div>
+          <h4>In Relationship with Himself</h4>
+          <p>Self-awareness · Strengths &amp; weaknesses · Response to failure</p>
+        </div>
+        <div class="persp-card other">
+          <div class="icon">○○</div>
+          <h4>In Relationship with Others</h4>
+          <p>Friendships · Conflict · Serving vs. using · Peer approval</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deuteronomy 6 banner -->
+    <div class="deut-banner">
+      <div class="label">Lesson 9 — Sex &amp; Sexuality</div>
+      <div class="big">Be the first voice. Don't let silence be your answer.</div>
+      <div class="ref">Deuteronomy 6:7 — "Talk of them when you sit, when you walk, when you lie down, when you rise."<br>100 one-minute conversations &gt; 1 one-hundred-minute conversation</div>
+    </div>
+
+    <!-- Communication habits -->
+    <div class="habits">
+      <div class="section-label">The 4 T's of Communication</div>
+      <h2>How to Talk to Your Kids About Hard Things</h2>
+      <div class="habit-grid">
+        <div class="habit">
+          <div class="h-num">T1</div>
+          <div class="h-text">
+            <h4>Trust</h4>
+            <p>Build the relationship before the conversation. Kids talk to people they trust.</p>
+          </div>
+        </div>
+        <div class="habit">
+          <div class="h-num">T2</div>
+          <div class="h-text">
+            <h4>Timing</h4>
+            <p>6–12 months before they're likely to encounter it. It's never too late to start.</p>
+          </div>
+        </div>
+        <div class="habit">
+          <div class="h-num">T3</div>
+          <div class="h-text">
+            <h4>Tone</h4>
+            <p>Receptive, informal, composed. 60–70% of communication is non-verbal.</p>
+          </div>
+        </div>
+        <div class="habit">
+          <div class="h-num">T4</div>
+          <div class="h-text">
+            <h4>Talk</h4>
+            <p>Have the conversation. Proactive beats reactive every time.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="quote">"The goal of parenting is not behavioral conformity but heart transformation."</div>
+      <div class="ref">— Tedd Tripp, <em>Shepherding a Child's Heart</em></div>
+    </div>
+
+  </div><!-- /.infographic -->
+
+
+  <!-- ============================================================
+       DIVIDER
+       ============================================================ -->
+  <hr class="section-divider">
+
+
+  <!-- ============================================================
+       PART 2 — RESOURCE SECTIONS
+       ============================================================ -->
+  <div class="resources-wrapper">
+
+    <!-- ---- Section 1: Take-Home Resources ---- -->
+    <section id="resources" class="resource-section">
+      <div class="rs-header">Take-Home Resources</div>
+      <div class="download-row">
+        <a href="./Intentional%20Parenting%20Summary.pdf" class="btn btn-navy" download>Download Series Summary (PDF)</a>
+      </div>
+      <img
+        src="./Intentional%20Parenting%20InfoGraphic.png"
+        alt="Intentional Parenting Series Infographic"
+        class="infographic-img"
+      >
+      <div style="margin-top: 14px;">
+        <a href="./Intentional%20Parenting%20InfoGraphic.png" class="btn btn-navy" download="Intentional Parenting Infographic.png">Download Infographic (PNG)</a>
+      </div>
+    </section>
+
+    <!-- ---- Section 2: Session Slides ---- -->
+    <section id="slides" class="resource-section">
+      <div class="rs-header">Session Slides</div>
+      <div class="slide-grid">
+
+        <a href="./1.%20Intentional%20Parenting%20-%20Lesson%201%20-%20Framework-SLIDES.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 1</div>
+          <div class="slide-card-title">Framework</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./2A.%20Intentional%20Parenting%20-%20Lesson%202A%20-%20Mindset%20Part%201.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 2A</div>
+          <div class="slide-card-title">Mindset Part 1</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./2B.%20Intentional%20Parenting%20-%20Lesson%202B%20-%20Mindset%20Part%202.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 2B</div>
+          <div class="slide-card-title">Mindset Part 2</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./3.%20Intentional%20Parenting%20-%20Lesson%203%20-%20Marriage.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 3</div>
+          <div class="slide-card-title">Marriage</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./4.%20Intentional%20Parenting%20-%20Lesson%204%20-%20Conflict%20Resolution.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 4</div>
+          <div class="slide-card-title">Conflict Resolution</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./5.%20Intentional%20Parenting%20-%20Lesson%205%20-%20Discipline%20Part%201.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 5</div>
+          <div class="slide-card-title">Discipline Part 1</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./6.%20Intentional%20Parenting%20-%20Lesson%206%20-%20Discipline%20Part%202.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 6</div>
+          <div class="slide-card-title">Discipline Part 2</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./7.%20Intentional%20Parenting%20-%20Lesson%207%20-%20School%20%26%20Technology-SLIDES.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 7</div>
+          <div class="slide-card-title">Technology &amp; School</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./8.%20Intentional%20Parenting%20-%20Lesson%208%20-%20School%20Coaching%20Plan-SLIDES.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 8</div>
+          <div class="slide-card-title">School &amp; Coaching Plan</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+        <a href="./9.%20Discipling%20Our%20Children%20in%20a%20Sexually%20Broken%20World-SLIDES.pdf"
+           class="slide-card" target="_blank" rel="noopener">
+          <div class="slide-card-num">Lesson 9</div>
+          <div class="slide-card-title">Discipling in a Sexually Broken World</div>
+          <div class="slide-card-cta">View Slides →</div>
+        </a>
+
+      </div>
+
+      <!-- Lesson 1 Framework Diagram -->
+      <div class="framework-feature">
+        <div class="ff-label">Lesson 1 — Framework</div>
+        <div class="ff-title">The Intentional Parenting Framework</div>
+        <img
+          src="./1.%20Intentional%20parenting%20framework-Chad%20Williams.png"
+          alt="Intentional Parenting Framework Diagram — Lesson 1"
+        >
+        <div class="ff-actions">
+          <a href="./1.%20Intentional%20parenting%20framework-Chad%20Williams.png"
+             class="btn btn-navy"
+             download="Intentional Parenting Framework.png">Download Framework Diagram (PNG)</a>
+        </div>
+      </div>
+
+      <!-- Key Diagrams PDF -->
+      <div class="framework-feature" style="margin-top: 10px;">
+        <div class="ff-label">All Lessons</div>
+        <div class="ff-title">Flip Chart Diagrams</div>
+        <p style="font-family: Arial, sans-serif; font-size: 15px; color: #555; margin-bottom: 16px;">A compiled PDF of the flip chart diagrams used throughout the series.</p>
+        <div class="ff-actions">
+          <a href="./Intentional%20Parenting-Key%20Diagrams.pdf"
+             class="btn btn-navy"
+             target="_blank" rel="noopener">View Key Diagrams (PDF)</a>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ---- Section 3: Songs ---- -->
+    <section id="songs" class="resource-section">
+      <div class="rs-header">The Songs</div>
+      <div class="rs-subtext">Music created to help you remember the key concepts from the series.</div>
+      <div class="songs-card">
+        <p>We turned the content of this series into music. Listen to all three songs on Suno:</p>
+        <a href="https://suno.com/playlist/1abfe01a-7ef4-471e-85a6-c6ee2cf74fdf"
+           class="btn btn-amber" target="_blank" rel="noopener">
+          Listen to the Playlist on Suno →
+        </a>
+      </div>
+    </section>
+
+
+    <!-- ---- Section 4: Podcast ---- -->
+    <section id="podcast" class="resource-section">
+      <div class="rs-header">The Podcast</div>
+      <div class="rs-subtext">An AI-generated audio summary of the full series--how someone from the outside might perceive this material.</div>
+      <div class="podcast-card">
+        <div class="podcast-listen-label">Listen on NotebookLM:</div>
+        <div style="margin-bottom: 14px;">
+          <a href="https://notebooklm.google.com/notebook/9229e509-8dc3-47a4-a8f9-7ddc50823bb9/artifact/ce2e08e1-ede9-4256-bdce-ddaf060f22a3?utm_source=nlm_web_share&utm_medium=google_oo&utm_campaign=art_share_2&utm_content=&utm_smc=nlm_web_share_google_oo_art_share_2_"
+             class="btn" style="background:#1F6B75; color:white; font-size:16px; padding:13px 24px;"
+             target="_blank" rel="noopener">
+            Listen to the Podcast →
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /.resources-wrapper -->
+
+</body>
+</html>

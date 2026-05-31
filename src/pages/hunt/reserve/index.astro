@@ -1,0 +1,29 @@
+---
+import HuntReserveForm from '../../../components/hunt/HuntReserveForm.astro';
+import HuntLayout from '../../../layouts/HuntLayout.astro';
+import { allowedHuntReserveYears, getHuntWeeksForYear } from '../../../lib/hunt-weeks';
+
+const candidateYears = allowedHuntReserveYears();
+const years = candidateYears.filter((y) => getHuntWeeksForYear(y)?.some((w) => w.available));
+const reserveYears = years.length ? years : candidateYears;
+
+const weeksByYear: Record<number, { id: string; label: string; available: boolean }[]> = {};
+for (const y of reserveYears) {
+  const rows = getHuntWeeksForYear(y);
+  if (rows) weeksByYear[y] = rows.map((w) => ({ id: w.id, label: w.label, available: w.available }));
+}
+---
+
+<HuntLayout title="Reserve Your Hunt — Williams Creek Whitetails">
+  <section class="relative border-b border-hunt-border/80 bg-hunt-surface/50 px-4 py-12 md:px-6">
+    <div class="mx-auto max-w-[700px]">
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Williams Creek Whitetails</p>
+      <h1 class="mt-2 font-hunt-heading text-3xl text-hunt-cream md:text-4xl">Reserve Your Hunt</h1>
+      <p class="mt-3 max-w-xl text-hunt-muted">
+        Tell us about your party, pick your year and week, then pay the deposit securely through Stripe.
+      </p>
+    </div>
+  </section>
+
+  <HuntReserveForm years={reserveYears} weeksByYear={weeksByYear} />
+</HuntLayout>

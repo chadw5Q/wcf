@@ -1,0 +1,82 @@
+---
+import HuntLayout from '../../layouts/HuntLayout.astro';
+import { HUNT_LOGIN_ERROR_MESSAGE } from '../../lib/hunt-auth';
+
+const returnUrl = Astro.url.searchParams.get('return') ?? '';
+const showError = Astro.url.searchParams.get('error') === '1';
+---
+
+<HuntLayout title="Hunt login — Williams Creek Whitetails" minimal>
+  <div
+    class="flex min-h-screen flex-1 flex-col items-center justify-center px-6 py-16 hunt-grain"
+  >
+    <div class="relative z-10 w-full max-w-md text-center">
+      <p class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Williams Creek Whitetails</p>
+      <p class="mt-2 text-sm uppercase tracking-[0.2em] text-hunt-muted">Private access</p>
+
+      <form id="hunt-login-form" class="mt-12 text-left">
+        <label for="hunt-password" class="block text-xs font-semibold uppercase tracking-wider text-hunt-muted">
+          Password
+        </label>
+        <input
+          id="hunt-password"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          required
+          class="mt-2 w-full rounded border border-hunt-border bg-hunt-surface-2 px-4 py-3 text-hunt-cream placeholder:text-hunt-muted focus:border-hunt-gold focus:outline-none focus:ring-1 focus:ring-hunt-gold"
+          placeholder="Enter password"
+        />
+        <input type="hidden" name="return" value={returnUrl} id="hunt-return" />
+
+        <p id="hunt-login-error" class="mt-4 hidden text-sm text-hunt-red" role="alert">
+          {HUNT_LOGIN_ERROR_MESSAGE}
+        </p>
+        {showError && (
+          <p class="mt-4 text-sm text-hunt-red" role="alert">
+            {HUNT_LOGIN_ERROR_MESSAGE}
+          </p>
+        )}
+
+        <button type="submit" class="hunt-btn mt-6 w-full"> Sign in </button>
+      </form>
+    </div>
+  </div>
+</HuntLayout>
+
+<script define:vars={{ errorMessage: HUNT_LOGIN_ERROR_MESSAGE }}>
+  const form = document.getElementById('hunt-login-form');
+  const err = document.getElementById('hunt-login-error');
+  const ret = document.getElementById('hunt-return');
+
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    err?.classList.add('hidden');
+    const password = /** @type {HTMLInputElement} */ (document.getElementById('hunt-password'))?.value ?? '';
+    const returnRaw = /** @type {HTMLInputElement} */ (ret)?.value ?? '';
+
+    try {
+      const res = await fetch('/api/hunt-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, return: returnRaw || undefined }),
+      });
+      if (res.ok) {
+        const data = /** @type {{ redirect?: string }} */ (await res.json());
+        const next = typeof data.redirect === 'string' && data.redirect.startsWith('/hunt') ? data.redirect : '/hunt';
+        window.location.href = next;
+        return;
+      }
+      if (res.status === 401) {
+        err?.classList.remove('hidden');
+        if (err) err.textContent = errorMessage;
+        return;
+      }
+      err?.classList.remove('hidden');
+      if (err) err.textContent = 'Login is temporarily unavailable. Please try again later.';
+    } catch {
+      err?.classList.remove('hidden');
+      if (err) err.textContent = 'Network error. Please try again.';
+    }
+  });
+</script>

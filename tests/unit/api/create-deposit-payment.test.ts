@@ -105,5 +105,6 @@ describe('POST /api/create-deposit-payment', () => {
     const call = createCheckoutSession.mock.calls[createCheckoutSession.mock.calls.length - 1];
     const opts = call[1] as { metadata?: Record<string, string> };
     expect(opts?.metadata?.order_id).toBe(oid);
+    expect(opts?.metadata?.orderId).toBe(oid);
   });
 });

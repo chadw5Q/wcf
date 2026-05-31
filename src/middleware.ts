@@ -4,6 +4,12 @@ import {
   getSessionSigningSecret,
   verifyAdminSessionToken,
 } from './lib/auth';
+import {
+  HUNT_SESSION_COOKIE,
+  getHuntSessionSigningSecret,
+  requiresHuntSession,
+  verifyHuntSessionToken,
+} from './lib/hunt-auth';
 
 function normalizePath(pathname: string): string {
   const p = pathname.replace(/\/+$/, '') || '/';
@@ -37,6 +43,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
       });
+    }
+  }
+
+  if (requiresHuntSession(path)) {
+    const huntSecret = getHuntSessionSigningSecret();
+    const huntToken = context.cookies.get(HUNT_SESSION_COOKIE)?.value;
+    if (!huntSecret || !(await verifyHuntSessionToken(huntToken, huntSecret))) {
+      const login = new URL('/hunt/login', context.url);
+      login.searchParams.set('return', path + context.url.search);
+      return context.redirect(login.pathname + login.search);
     }
   }
 

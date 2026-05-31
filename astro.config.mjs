@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import sitemap from '@astrojs/sitemap';
 import cloudflare from '@astrojs/cloudflare';
+import { includePageInSitemap } from './sitemap-page-filter.mjs';
 
 // https://astro.build/config
 export default defineConfig({
@@ -14,11 +15,7 @@ export default defineConfig({
   }),
   integrations: [
     sitemap({
-      filter: (page) =>
-        !page.includes('/admin') &&
-        !page.includes('/api/') &&
-        !page.includes('/thank-you') &&
-        !page.includes('/success')
+      filter: (page) => includePageInSitemap(page),
     })
   ],
   vite: {
