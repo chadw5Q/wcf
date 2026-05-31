@@ -6,20 +6,19 @@
 	],
 	"main": "./dist/_worker.js/index.js",
 	"assets": {
-		"directory": "./dist"
+		"directory": "./dist",
+		"binding": "ASSETS"
 	},
 	"kv_namespaces": [
 		{
 			"binding": "ORDERS_KV",
 			"id": "ce4de178c6a242ea8d19ab8387530d96"
-		},
-		// Williams Creek Whitetails `/hunt` reservations (Phase 4+). Create a namespace, then replace id:
-		//   npx wrangler kv namespace create WCW_HUNT_RESERVATIONS
-		// See README → Cloudflare Workers → Hunt reservations KV (HUNT_KV).
-		{
-			"binding": "HUNT_KV",
-			"id": "deadbeefdeadbeefdeadbeefdeadbeef"
 		}
+		// HUNT_KV temporarily removed so deploys aren't blocked by a placeholder id.
+		// To enable the /hunt reserve + payment flow, create the namespace and re-add the binding:
+		//   npx wrangler kv namespace create WCW_HUNT_RESERVATIONS
+		// then add: { "binding": "HUNT_KV", "id": "<real-id>" }
+		// (Until then, /hunt pages render but reserve/balance/webhook return 503.)
 	],
 	// Create in dashboard: npx wrangler r2 bucket create wcf-product-images
 	"r2_buckets": [
