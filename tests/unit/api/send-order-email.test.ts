@@ -105,7 +105,7 @@ describe('POST /api/send-order-email', () => {
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(200);
     const ownerCall = mockSend.mock.calls[0][0];
-    expect(String(ownerCall.html)).toContain('Discount Bin Posts');
+    expect(String(ownerCall.html)).toContain("Last Year's Posts");
   });
 
   it('calls ntfy when orderId is present (after emails; matches inquiry flow)', async () => {
