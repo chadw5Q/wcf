@@ -54,7 +54,7 @@ export const HUNT_WEEKS_BY_YEAR: Readonly<Record<number, readonly HuntWeekSlot[]
     {
       id: 'w2',
       label: 'Week 2 — Nov 1–8 (First week of November — Prime Rut)',
-      available: true,
+      available: false,
     },
     {
       id: 'w3',
@@ -96,12 +96,12 @@ export function yearsWithWeekConfig(): number[] {
     .sort((a, b) => a - b);
 }
 
-/** PRD: dropdown current year through current year + 5, only if week config exists. */
+/** Dropdown: current year through current year + 9 (e.g. 2026 → 2035), only if week config exists. */
 export function allowedHuntReserveYears(now: Date = new Date()): number[] {
   const y0 = now.getFullYear();
   const configured = new Set(yearsWithWeekConfig());
   const out: number[] = [];
-  for (let i = 0; i <= 5; i++) {
+  for (let i = 0; i <= 9; i++) {
     const y = y0 + i;
     if (configured.has(y)) out.push(y);
   }

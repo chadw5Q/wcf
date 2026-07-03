@@ -1,0 +1,473 @@
+---
+import HuntLayout from '../../../layouts/HuntLayout.astro';
+
+const GUEST_NAME = 'Allen Wright';
+const HUNT_LABEL = 'Week 1 Gun Season 2026';
+// txn=pay + amount + note pre-fill the payment in the Venmo app/site.
+const VENMO_RESERVED_URL =
+  'https://venmo.com/cchadww?txn=pay&amount=3000.00&note=' +
+  encodeURIComponent('Reserved Buck - Week 1 Gun 2026');
+const VENMO_CULL_FEE_URL =
+  'https://venmo.com/cchadww?txn=pay&amount=5000.00&note=' +
+  encodeURIComponent('Reserved Buck Fee - Week 1 Gun 2026');
+---
+
+<HuntLayout title={`${GUEST_NAME} — ${HUNT_LABEL} — Williams Creek Whitetails`}>
+  <section class="relative border-b border-hunt-border/80 bg-hunt-surface/50 px-4 py-12 md:px-6 hunt-grain">
+    <div class="relative z-10 mx-auto max-w-[760px]">
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Williams Creek Whitetails — Private Guest Page</p>
+      <h1 class="mt-2 font-hunt-heading text-3xl text-hunt-cream md:text-4xl">Welcome, Allen</h1>
+      <p class="mt-4 max-w-2xl leading-relaxed text-hunt-cream/90">
+        Allen, we're honored to have you hunting with us for <strong class="text-hunt-gold">{HUNT_LABEL}</strong> at
+        Williams Creek Farms. Our Southwest Iowa ground holds some exceptional whitetails, and we've set this page up
+        just for you: choose the type of buck you want to hunt, then read and sign the liability release below.
+        If you have any questions along the way, call or text Chad anytime at
+        <a href="tel:+17122543999" class="text-hunt-gold-light underline">712-254-3999</a>.
+      </p>
+    </div>
+  </section>
+
+  <div class="mx-auto max-w-[760px] px-4 pb-20 pt-10 md:px-6">
+    <form id="guest-waiver-form" class="space-y-12">
+      <!-- Step 1: name -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 1</p>
+        <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Your Full Legal Name</h2>
+        <p class="mt-2 text-sm text-hunt-muted">
+          This name is used to fill in the liability release below. Correct it if it isn't exactly right.
+        </p>
+        <input
+          id="waiver-full-name"
+          name="fullName"
+          required
+          value={GUEST_NAME}
+          autocomplete="name"
+          class="mt-3 w-full max-w-md rounded border border-hunt-border bg-hunt-surface-2 px-4 py-3 text-hunt-cream focus:border-hunt-gold focus:outline-none focus:ring-1 focus:ring-hunt-gold"
+        />
+      </div>
+
+      <!-- Step 2: buck selection -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 2</p>
+        <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Which type of deer do you want to hunt?</h2>
+
+        <div class="mt-4 grid gap-3 sm:grid-cols-2">
+          <label class="relative flex cursor-pointer flex-col rounded border border-hunt-border bg-hunt-surface-2 p-5 pr-24 transition-all hover:border-hunt-gold has-[:checked]:border-hunt-gold has-[:checked]:bg-hunt-gold/15 has-[:checked]:ring-2 has-[:checked]:ring-hunt-gold">
+            <input type="radio" name="buckChoice" value="cull" required class="peer sr-only" />
+            <span class="absolute right-3 top-3 hidden items-center gap-1.5 rounded-full bg-hunt-gold px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-hunt-bg peer-checked:flex">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.415l-7.5 7.5a1 1 0 01-1.415 0l-3.5-3.5a1 1 0 111.415-1.414l2.792 2.792 6.793-6.793a1 1 0 011.415 0z" clip-rule="evenodd" />
+              </svg>
+              Selected
+            </span>
+            <span class="font-hunt-heading text-lg text-hunt-cream peer-checked:text-hunt-gold-light">Cull Bucks</span>
+            <span class="mt-1 text-sm text-hunt-muted peer-checked:text-hunt-cream/90">Cull / management bucks as designated by Williams Creek Farms.</span>
+          </label>
+
+          <label class="relative flex cursor-pointer flex-col rounded border border-hunt-border bg-hunt-surface-2 p-5 pr-24 transition-all hover:border-hunt-gold has-[:checked]:border-hunt-gold has-[:checked]:bg-hunt-gold/15 has-[:checked]:ring-2 has-[:checked]:ring-hunt-gold">
+            <input type="radio" name="buckChoice" value="reserved" required class="peer sr-only" />
+            <span class="absolute right-3 top-3 hidden items-center gap-1.5 rounded-full bg-hunt-gold px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-hunt-bg peer-checked:flex">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.415l-7.5 7.5a1 1 0 01-1.415 0l-3.5-3.5a1 1 0 111.415-1.414l2.792 2.792 6.793-6.793a1 1 0 011.415 0z" clip-rule="evenodd" />
+              </svg>
+              Selected
+            </span>
+            <span class="font-hunt-heading text-lg text-hunt-cream peer-checked:text-hunt-gold-light">Reserved Bucks</span>
+            <span class="mt-1 text-sm text-hunt-gold-light">$3,000</span>
+            <span class="mt-1 text-sm text-hunt-muted peer-checked:text-hunt-cream/90">Our reserved bucks.</span>
+          </label>
+        </div>
+
+        <div class="mt-4 rounded border border-hunt-gold/60 bg-hunt-surface p-4 text-sm text-hunt-cream/95">
+          <p>
+            <strong class="text-hunt-gold">Deadline:</strong> this form and any payment are due by
+            <strong class="text-hunt-gold-light">August 1, 2026</strong>.
+          </p>
+          <p class="mt-2">
+            <strong class="text-hunt-gold">Important:</strong> if you choose Cull Bucks and then shoot a reserved
+            buck, the amount you owe will be <strong class="text-hunt-gold-light">$5,000</strong>.
+          </p>
+        </div>
+
+        <div id="venmo-box" class="mt-4 hidden rounded border border-hunt-gold bg-hunt-surface-2 p-5">
+          <h3 class="font-hunt-heading text-lg text-hunt-gold">Reserved Buck Payment — $3,000</h3>
+          <p class="mt-2 text-sm text-hunt-cream/95">
+            Send <strong class="text-hunt-gold-light">$3,000</strong> by Venmo to
+            <strong class="text-hunt-gold-light">@cchadww</strong> no later than
+            <strong class="text-hunt-gold-light">August 1, 2026</strong>. Please put
+            &ldquo;Reserved Buck — Week 1 Gun 2026&rdquo; in the payment note.
+          </p>
+          <a href={VENMO_RESERVED_URL} target="_blank" rel="noopener noreferrer" class="hunt-btn mt-4">
+            Pay $3,000 on Venmo — @cchadww
+          </a>
+        </div>
+      </div>
+
+      <!-- Step 3: liability release -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 3</p>
+        <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Williams Creek Farms LLC Liability Release</h2>
+        <p class="mt-2 text-sm text-hunt-muted">Please read the full release. Your name from Step 1 is filled in automatically.</p>
+
+        <div class="mt-4 space-y-4 rounded border border-hunt-border bg-hunt-surface p-5 text-sm leading-relaxed text-hunt-cream/90">
+          <p>
+            A. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            HAVE ACCEPTED AND UNDERSTAND THE FACT THAT IN AND OF ITSELF HUNTING IS A DANGEROUS ACTIVITY. THE VOLUNTARY
+            USE OF WEAPONS IS DANGEROUS AND SINCE I HAVE VOLUNTARILY CHOSEN TO HUNT AND/OR OBSERVE HUNTING ON WILLIAMS
+            CREEK FARMS PROPERTIES I UNDERSTAND THAT IT IS NECESSARY TO SIGN THIS GENERAL RELEASE AND
+            <strong> ASSUME ALL RISK</strong> REASONABLY OR OTHERWISE RELATED TO <strong>CONSCIOUS CHOICE</strong> TO
+            PARTICIPATE IN THIS ACTIVITY.
+          </p>
+          <p>
+            B. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            hereby acknowledge I have voluntarily applied to participate in and/or observe the hunting activity with
+            WILLIAMS CREEK FARMS LLC, hereinafter referred to as RELEASEE.
+          </p>
+          <p>
+            C. As LAWFUL CONSIDERATION of being permitted to enter upon the premises upon which this event is
+            conducted or of being permitted to participate in or observe activities or otherwise use the facilities,
+            my heirs, distributes, legal representatives, next of kin, and I agree to the provisions set forth below:
+          </p>
+          <p class="pl-5">
+            I. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            hereby release, waive, discharge and agree not to sue, make a claim against the property of or otherwise
+            prosecute RELEASEES, one of its affiliate organizations, its officers, directors, shareholders, agents
+            and/or employees, for liability on account of damage to the property of or injury to the persons or death
+            of the undersigned, whether caused from the passive or active negligence of RELEASEES or otherwise while
+            the undersigned is participating in or observing the sport or related activities being presented by
+            RELEASEES.
+          </p>
+          <p class="pl-5">
+            II. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            hereby agree to Indemnify and save and hold harmless the RELEASEES and each of them any loss, liability,
+            damage, or cost RELEASEES may incur due to the presence of or any act either intentional or unintentional,
+            of the Undersigned while the Undersigned participates in or observes the sporting or related activities be
+            presented by RELEASEES, whether caused by the passive or active negligence or RELEASEES or otherwise.
+            I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            agree that in case any conflict arises from any of the above situations and if
+            <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>
+            or my agents choose to file a lawsuit, understanding that I have expressly waived this right in Section C
+            (I), then I understand that the laws of Iowa will be controlling.
+          </p>
+          <p class="pl-5">
+            III. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            expressly agree the foregoing Release, Waiver, and Indemnity Agreement is intended to be as broad and
+            inclusive as is permitted by the laws of the state of Iowa. The undersigned further agrees if any provision
+            of this agreement is held to be invalid, nevertheless, the balance of the agreement shall continue in full
+            force and effect.
+          </p>
+          <p class="pl-5">
+            IV. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            warrant the following statements are true and correct and understand RELEASEES have relied on them in
+            entering into the foregoing Release, Waiver, and Indemnity Agreement and is giving the Undersigned
+            permission to participate in and/or observe the sporting and other activities being conducted by RELEASEES.
+          </p>
+          <p>
+            D. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            acknowledge no oral presentation, statement, or inducements apart from the foregoing written agreement have
+            been made.
+          </p>
+          <p>
+            E. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            am fully aware of the risk and hazards inherent in entering upon the premises where RELEASEES events are
+            being conducted and participating in and/or observing any events held upon said premises knowing the
+            present condition thereof.
+          </p>
+          <p>
+            F. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            acknowledge the risk and hazards being assumed by the Undersigned may increase during the time the
+            Undersigned is participating in or observing the activities being conducted by RELEASEES.
+          </p>
+          <p>
+            G. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            AM AWARE THE PARTICIPATION IN OR THE OBSERVATION OF THE SPORT OF HUNTING WITH WEAPONS AND RELATED
+            ACTIVITIES IS A HAZARDOUS ACTIVITY. THE UNDERSIGNED DOES VOLUNTARILY PARTICIPATE IN OR OBSERVE THESE
+            ACTIVITIES WITH THE KNOWLEDGE AND APPRECIATION OF THE DANGER INVOLVED. THE UNDERSIGNED HEREBY AGREES TO
+            ACCEPT ANY AND ALL RISK OF PROPERTY DAMAGE, PERSONAL INJURY, DEATH, OR REASONABLE OR FORSEEABLE INCIDENT.
+          </p>
+          <p>
+            H. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            give consent to whatever medical care might be provided or available on the premises and further agrees to
+            conform and comply with all of the rules and regulations promulgated at the event.
+          </p>
+          <p>
+            I. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            AGREE TO COMPENSATE OR REIMBURSE RELEASEEES FOR ANY COST, EXPENSES, OR DAMAGES, INCLUDING ATTORNEY FEES
+            RESLTING FROM ANY CLAIM BROUGHT AGAINST RELEASEES FROM PROPERTY DAMAGE, PERSONAL INJURY, OR DEATH, THAT
+            ARISE AS A RESULT OF THE PASSIVE OR PARTICIPATING IN OR OBSERVING THE HUNTING AND RELATED ACTIVITIES
+            CONDUCTED BY RELEASEES.
+          </p>
+          <p>
+            J. I, <span data-waiver-name class="font-semibold text-hunt-gold-light underline decoration-hunt-gold/60 underline-offset-2">{GUEST_NAME}</span>,
+            HAVE CAREFULLY READ AND FULLY UNDERSTAND THE COVENANT NOT TO SUE CONTAINED HEREIN, AND VOLUNTARILY SIGN
+            THIS RELEASE, WAIVER OF LIABILITY, AND INDEMNITY AGREEMENT.
+          </p>
+          <p>
+            Should any provision of this Agreement be held invalid, then the balance hereof shall remain in full force
+            and effect.
+          </p>
+          <p>
+            Notwithstanding anything to the contrary herein, nothing contained in this agreement shall release
+            RELEASEES from any intentional or willful act on its part, which directly causes damage, injury or death
+            to the undersigned.
+          </p>
+          <p>
+            I am over the age of eighteen (18) years or, I am signing this agreement on behalf of a person under the
+            age of eighteen (18) years, then I covenant I have all legal authority to act on behalf of such person and
+            I bind him or her to the terms of this agreement.
+          </p>
+        </div>
+
+        <div class="mt-6 rounded border border-hunt-border bg-hunt-surface p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Please complete</p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="release-date" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Date</label>
+              <input id="release-date" name="releaseDate" type="date" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div>
+              <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Name</label>
+              <p class="mt-1 rounded border border-hunt-border/60 bg-hunt-bg/60 px-3 py-2 text-hunt-cream/90">
+                <span data-waiver-name>{GUEST_NAME}</span>
+              </p>
+            </div>
+            <div class="sm:col-span-2">
+              <label for="minor-name" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Name of minor, if any (optional)</label>
+              <input id="minor-name" name="minorName" class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div class="sm:col-span-2">
+              <label for="waiver-address" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Address</label>
+              <input id="waiver-address" name="address" required autocomplete="street-address" class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div>
+              <label for="waiver-phone" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Phone number</label>
+              <input id="waiver-phone" name="phone" type="tel" required autocomplete="tel" class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div>
+              <label for="release-signature" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Signature (type your full name)</label>
+              <input id="release-signature" name="releaseSignature" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 font-hunt-heading italic text-hunt-gold-light" placeholder="Type your full name to sign" />
+            </div>
+          </div>
+          <label class="mt-5 flex cursor-pointer items-start gap-3">
+            <input id="release-agree" type="checkbox" required class="mt-1 h-4 w-4 rounded border-hunt-border text-hunt-gold" />
+            <span class="text-sm text-hunt-cream/95">
+              I have carefully read and fully understand this Release, Waiver of Liability, and Indemnity Agreement,
+              and I sign it voluntarily. I understand my typed signature is legally binding.
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Step 4: medical authorization -->
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 4</p>
+        <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">Authorization for Medical Treatment</h2>
+
+        <div class="mt-4 space-y-4 rounded border border-hunt-border bg-hunt-surface p-5 text-sm leading-relaxed text-hunt-cream/90">
+          <p>
+            I, the undersigned, do hereby authorize any WILLIAMS CREEK FARMS employee or agent of WILLIAMS CREEK FARMS
+            who is with me at my outing on the Farm to act as my agent(s) in an emergency or life threatening situation
+            when it is not feasible to contact the emergency contact listed below, with power and consent to any x-ray
+            examination, anesthetic, medical or surgical diagnosis, procedure, treatment, or hospital care which is
+            deemed advisable by, and is to be rendered under the general or special supervision of any licensed
+            physician or other licensed provider of health care, whether such diagnosis, procedure, or treatment is
+            rendered at the office of the physician or health care provider, at a hospital, or at the Farm. Such
+            authority shall be granted only to the extent that I am not capable of making such care decisions for
+            myself.
+          </p>
+          <p>
+            I understand that this authorization is given in advance of any specific procedure, diagnosis, treatment
+            or hospital care being required and is given to provide authority and power on the part my aforesaid
+            agent(s) to give specific consent to any such procedure, diagnosis, treatment or hospital care which the
+            aforementioned physician or health care provider in the exercise of his/her best judgment may deem
+            advisable.
+          </p>
+          <p>
+            This authorization shall be effective throughout the duration of my outing at the Farm, including my
+            transportation to and from the Farm to the extent that such transportation is provided via vehicles owned
+            and operated by WILLIAMS CREEK FARMS.
+          </p>
+          <p>
+            I have read and understood this document and I am signing it voluntarily and with full knowledge of its
+            significance.
+          </p>
+        </div>
+
+        <div class="mt-6 rounded border border-hunt-border bg-hunt-surface p-5">
+          <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Please complete</p>
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="medical-signature" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Signature of participant (type your full name)</label>
+              <input id="medical-signature" name="medicalSignature" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 font-hunt-heading italic text-hunt-gold-light" placeholder="Type your full name to sign" />
+            </div>
+            <div>
+              <label for="medical-date" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Date</label>
+              <input id="medical-date" name="medicalDate" type="date" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div class="sm:col-span-2">
+              <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Printed name</label>
+              <p class="mt-1 rounded border border-hunt-border/60 bg-hunt-bg/60 px-3 py-2 text-hunt-cream/90">
+                <span data-waiver-name>{GUEST_NAME}</span>
+              </p>
+            </div>
+            <div>
+              <label for="emergency-name" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Emergency contact — name</label>
+              <input id="emergency-name" name="emergencyContactName" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+            <div>
+              <label for="emergency-phone" class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Emergency contact — telephone</label>
+              <input id="emergency-phone" name="emergencyContactPhone" type="tel" required class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p id="waiver-error" class="mb-4 hidden rounded border border-hunt-red/60 bg-hunt-surface px-4 py-3 text-sm text-hunt-cream" role="alert"></p>
+        <button id="waiver-submit" type="submit" class="hunt-btn w-full sm:w-auto">Submit signed release</button>
+        <p class="mt-3 text-xs text-hunt-muted">
+          Remember: this form and any payment are due by August 1, 2026.
+        </p>
+      </div>
+    </form>
+
+    <!-- Confirmation (replaces the form after submit) -->
+    <div id="waiver-confirmation" class="hidden rounded border border-hunt-gold bg-hunt-surface p-6">
+      <h2 class="font-hunt-heading text-2xl text-hunt-gold">You're all set, <span data-confirm-name>Allen</span></h2>
+      <p class="mt-3 text-hunt-cream/95">
+        Your signed liability release and medical authorization have been received. Chad has been notified and will
+        follow up with the details of your {HUNT_LABEL} hunt.
+      </p>
+      <div id="confirmation-venmo" class="mt-5 hidden rounded border border-hunt-gold/70 bg-hunt-surface-2 p-5">
+        <h3 class="font-hunt-heading text-lg text-hunt-gold">One more step — Reserved Buck payment</h3>
+        <p class="mt-2 text-sm text-hunt-cream/95">
+          You selected <strong class="text-hunt-gold-light">Reserved Bucks ($3,000)</strong>. Please send payment by
+          Venmo to <strong class="text-hunt-gold-light">@cchadww</strong> — due by
+          <strong class="text-hunt-gold-light">August 1, 2026</strong>.
+        </p>
+        <a href={VENMO_RESERVED_URL} target="_blank" rel="noopener noreferrer" class="hunt-btn mt-4">
+          Pay $3,000 on Venmo — @cchadww
+        </a>
+      </div>
+      <div id="confirmation-venmo-cull" class="mt-5 hidden rounded border border-hunt-border bg-hunt-surface-2 p-5">
+        <h3 class="font-hunt-heading text-lg text-hunt-gold">Payment info, just in case</h3>
+        <p class="mt-2 text-sm text-hunt-cream/95">
+          You selected <strong class="text-hunt-gold-light">Cull Bucks</strong> — no payment is due. Remember: if you
+          take a reserved buck, the <strong class="text-hunt-gold-light">$5,000</strong> fee is payable by Venmo to
+          <strong class="text-hunt-gold-light">@cchadww</strong>.
+        </p>
+        <a href={VENMO_CULL_FEE_URL} target="_blank" rel="noopener noreferrer" class="hunt-btn mt-4">
+          Chad&apos;s Venmo — @cchadww
+        </a>
+      </div>
+      <p class="mt-5 text-sm text-hunt-muted">
+        Questions? Call or text Chad at <a href="tel:+17122543999" class="text-hunt-gold-light underline">712-254-3999</a>.
+      </p>
+    </div>
+  </div>
+</HuntLayout>
+
+<script>
+  function setupGuestWaiverPage() {
+    const form = document.getElementById('guest-waiver-form') as HTMLFormElement | null;
+    const nameInput = document.getElementById('waiver-full-name') as HTMLInputElement | null;
+    const errorEl = document.getElementById('waiver-error');
+    const submitBtn = document.getElementById('waiver-submit') as HTMLButtonElement | null;
+    const venmoBox = document.getElementById('venmo-box');
+    const confirmation = document.getElementById('waiver-confirmation');
+    const confirmationVenmo = document.getElementById('confirmation-venmo');
+    const confirmationVenmoCull = document.getElementById('confirmation-venmo-cull');
+    if (!form || !nameInput) return;
+
+    const syncName = () => {
+      const name = nameInput.value.trim() || '______________________';
+      document.querySelectorAll('[data-waiver-name]').forEach((el) => {
+        el.textContent = name;
+      });
+      document.querySelectorAll('[data-confirm-name]').forEach((el) => {
+        el.textContent = nameInput.value.trim() || 'hunter';
+      });
+    };
+    nameInput.addEventListener('input', syncName);
+    syncName();
+
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    for (const id of ['release-date', 'medical-date']) {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (el && !el.value) el.value = iso;
+    }
+
+    const buckRadios = form.querySelectorAll<HTMLInputElement>('input[name="buckChoice"]');
+    const syncVenmo = () => {
+      const choice = form.querySelector<HTMLInputElement>('input[name="buckChoice"]:checked')?.value;
+      venmoBox?.classList.toggle('hidden', choice !== 'reserved');
+    };
+    buckRadios.forEach((r) => r.addEventListener('change', syncVenmo));
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorEl?.classList.add('hidden');
+
+      const field = (id: string) => (document.getElementById(id) as HTMLInputElement | null)?.value.trim() ?? '';
+      const buckChoice = form.querySelector<HTMLInputElement>('input[name="buckChoice"]:checked')?.value;
+
+      const body = {
+        guestSlug: 'allen-wright',
+        huntLabel: 'Week 1 Gun Season 2026',
+        buckChoice,
+        fullName: nameInput.value.trim(),
+        releaseDate: field('release-date'),
+        minorName: field('minor-name') || null,
+        address: field('waiver-address'),
+        phone: field('waiver-phone'),
+        releaseSignature: field('release-signature'),
+        agreedToRelease: (document.getElementById('release-agree') as HTMLInputElement | null)?.checked === true,
+        medicalSignature: field('medical-signature'),
+        medicalDate: field('medical-date'),
+        emergencyContactName: field('emergency-name'),
+        emergencyContactPhone: field('emergency-phone'),
+      };
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting…';
+      }
+
+      try {
+        const res = await fetch('/api/hunt-waiver', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        if (res.ok) {
+          form.classList.add('hidden');
+          confirmation?.classList.remove('hidden');
+          confirmationVenmo?.classList.toggle('hidden', buckChoice !== 'reserved');
+          confirmationVenmoCull?.classList.toggle('hidden', buckChoice === 'reserved');
+          confirmation?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (errorEl) {
+          errorEl.textContent = data.error
+            ? `Could not submit: ${data.error}`
+            : 'Could not submit the form. Please try again or call Chad at 712-254-3999.';
+          errorEl.classList.remove('hidden');
+        }
+      } catch {
+        if (errorEl) {
+          errorEl.textContent = 'Network error. Please try again or call Chad at 712-254-3999.';
+          errorEl.classList.remove('hidden');
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit signed release';
+        }
+      }
+    });
+  }
+
+  setupGuestWaiverPage();
+</script>

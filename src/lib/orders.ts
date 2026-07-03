@@ -18,6 +18,7 @@ const LINE_KEYS: OrderFieldName[] = [
   'premiumCorner',
   'regularLine',
   'regularCorner',
+  'discountBin',
   'bowStave',
 ];
 
@@ -62,15 +63,11 @@ export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): O
   const q = {
     premiumLine: Math.max(0, Math.floor(Number(input.quantities.premiumLine) || 0)),
     premiumCorner: Math.max(0, Math.floor(Number(input.quantities.premiumCorner) || 0)),
-    premiumExtraLong: Math.max(0, Math.floor(Number(input.quantities.premiumExtraLong) || 0)),
     regularLine: Math.max(0, Math.floor(Number(input.quantities.regularLine) || 0)),
     regularCorner: Math.max(0, Math.floor(Number(input.quantities.regularCorner) || 0)),
+    discountBin: Math.max(0, Math.floor(Number(input.quantities.discountBin) || 0)),
     bowStave: Math.max(0, Math.floor(Number(input.quantities.bowStave) || 0)),
   };
-
-  if (q.premiumExtraLong > 0) {
-    throw new Error('Premium Extra Long Posts are sold out.');
-  }
 
   for (const key of LINE_KEYS) {
     const sku = skuMap[key];
@@ -103,7 +100,8 @@ export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): O
     throw new Error('Order must include at least one line item.');
   }
 
-  const postCount = q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner;
+  const postCount =
+    q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner + q.discountBin;
   const volumeApplied = postCount >= 100;
   const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
   const discountedSubtotal = Math.round((subtotal - discountAmount) * 100) / 100;
@@ -440,8 +438,6 @@ export function adminRebuildMatchesExisting(existing: StoredOrder, input: AdminO
     const have = existing.items.find((i) => i.fieldName === key)?.quantity ?? 0;
     if (want !== have) return false;
   }
-  const extra = Math.max(0, Math.floor(Number(input.quantities.premiumExtraLong) || 0));
-  if (extra !== 0) return false;
   return true;
 }
 

@@ -1,13 +1,16 @@
 import type { APIRoute } from 'astro';
 import {
+  createHuntGuestToken,
   createHuntSessionToken,
   getHuntPassword,
   getHuntSessionSigningSecret,
+  HUNT_GUEST_COOKIE,
   HUNT_SESSION_COOKIE,
   huntSessionCookieOptions,
   safeHuntReturnParam,
   verifyHuntPassword,
 } from '../../lib/hunt-auth';
+import { findHuntGuestByPassword } from '../../lib/hunt-guests';
 
 export const prerender = false;
 
@@ -45,7 +48,10 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   }
 
   const plain = String(body.password ?? '');
-  if (!verifyHuntPassword(plain, configuredPassword)) {
+  const isMaster = verifyHuntPassword(plain, configuredPassword);
+  const guest = isMaster ? undefined : findHuntGuestByPassword(plain);
+
+  if (!isMaster && !guest) {
     return new Response(JSON.stringify({ error: 'Invalid password' }), {
       status: 401,
       headers: { 'Content-Type': 'application/json' },
@@ -55,7 +61,12 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const token = await createHuntSessionToken(secret);
   cookies.set(HUNT_SESSION_COOKIE, token, huntSessionCookieOptions());
 
-  const next = safeHuntReturnParam(body.return);
+  let next = safeHuntReturnParam(body.return);
+  if (guest) {
+    const guestToken = await createHuntGuestToken(secret, guest.slug);
+    cookies.set(HUNT_GUEST_COOKIE, guestToken, huntSessionCookieOptions());
+    next = guest.landingPath;
+  }
 
   return new Response(JSON.stringify({ success: true, redirect: next }), {
     status: 200,

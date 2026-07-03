@@ -5,9 +5,9 @@ export const PRODUCTS_CONFIG_KV_KEY = 'products_config_v1';
 export const ORDER_CHECKOUT_KEYS = [
   'premiumLine',
   'premiumCorner',
-  'premiumExtraLong',
   'regularLine',
   'regularCorner',
+  'discountBin',
   'bowStave',
 ] as const;
 
@@ -15,13 +15,32 @@ export type OrderCheckoutKey = (typeof ORDER_CHECKOUT_KEYS)[number];
 
 /** Fallback images when `orderSkus[].image` is unset (admin can override per line item). */
 export const ORDER_SKU_MARKETING_IMAGES: Record<OrderCheckoutKey, { src: string }> = {
-  premiumLine: { src: '/images/hedge-posts.jpg' },
-  premiumCorner: { src: '/images/hedge-posts.jpg' },
-  premiumExtraLong: { src: '/images/hedge-posts.jpg' },
-  regularLine: { src: '/images/hedge-posts.jpg' },
-  regularCorner: { src: '/images/hedge-posts.jpg' },
+  premiumLine: { src: '/images/posts/premium-line-1.jpg' },
+  premiumCorner: { src: '/images/posts/premium-corner-1.jpg' },
+  regularLine: { src: '/images/posts/standard-line-1.jpg' },
+  regularCorner: { src: '/images/posts/standard-corner-1.jpg' },
+  discountBin: { src: '/images/posts/discount-bin-1.jpg' },
   bowStave: { src: '/images/hedge-bowstave007.jpg' },
 };
+
+/**
+ * Home-page pricing cards can show a small photo gallery per product. Falls back to the
+ * single effective image (see `getOrderSkuGalleryImages`) when a key is not listed here.
+ */
+export const ORDER_SKU_GALLERY_IMAGES: Partial<Record<OrderCheckoutKey, string[]>> = {
+  premiumLine: ['/images/posts/premium-line-1.jpg', '/images/posts/premium-line-2.jpg'],
+  premiumCorner: ['/images/posts/premium-corner-1.jpg', '/images/posts/premium-corner-2.jpg'],
+  regularLine: ['/images/posts/standard-line-1.jpg', '/images/posts/standard-line-2.jpg'],
+  regularCorner: ['/images/posts/standard-corner-1.jpg', '/images/posts/standard-corner-2.jpg'],
+  discountBin: ['/images/posts/discount-bin-1.jpg', '/images/posts/discount-bin-2.jpg'],
+};
+
+/** Photos for the home-page card gallery: the curated set if present, else the single image. */
+export function getOrderSkuGalleryImages(row: OrderSkuRow, key: OrderCheckoutKey): string[] {
+  const gallery = ORDER_SKU_GALLERY_IMAGES[key];
+  if (gallery && gallery.length > 0) return gallery;
+  return [getOrderSkuImageSrc(row, key)];
+}
 
 /** Resolved image URL/path for home, JSON-LD, and order form. */
 export function getOrderSkuImageSrc(row: OrderSkuRow, key: OrderCheckoutKey): string {
@@ -42,9 +61,9 @@ export function getOrderSkuImageAbsoluteUrl(siteBase: string, row: OrderSkuRow, 
 const orderSkuFieldSchema = z.enum([
   'premiumLine',
   'premiumCorner',
-  'premiumExtraLong',
   'regularLine',
   'regularCorner',
+  'discountBin',
   'bowStave',
 ]);
 
@@ -53,7 +72,7 @@ export const orderSkuRowSchema = z.object({
   label: z.string().min(1),
   shortDescription: z.string().transform((s) => s.trim()),
   unitPrice: z.number().nonnegative(),
-  /** SOLD OUT badge on /order-now. Server still rejects premiumExtraLong qty > 0 (see orders.ts). */
+  /** SOLD OUT badge on /order-now; server rejects sold-out line items with qty > 0 (see orders.ts). */
   soldOut: z.boolean(),
   /** Optional. Public path (e.g. /images/foo.jpg) or absolute URL. Empty uses ORDER_SKU_MARKETING_IMAGES. */
   image: z
@@ -85,22 +104,15 @@ function defaultOrderSkus(): OrderSkuRow[] {
       fieldName: 'premiumLine',
       label: 'Premium Line Posts',
       shortDescription: '3-6" diameter, relatively straight, 9ft long',
-      unitPrice: 25,
+      unitPrice: 15,
       soldOut: false,
     },
     {
       fieldName: 'premiumCorner',
       label: 'Premium Corner/Second Posts',
       shortDescription: '6-12" diameter, relatively straight, 9ft long',
-      unitPrice: 40,
+      unitPrice: 25,
       soldOut: false,
-    },
-    {
-      fieldName: 'premiumExtraLong',
-      label: 'Premium Extra Long Posts',
-      shortDescription: "At least 12' long, relatively straight",
-      unitPrice: 60,
-      soldOut: true,
     },
     {
       fieldName: 'regularLine',
@@ -113,7 +125,15 @@ function defaultOrderSkus(): OrderSkuRow[] {
       fieldName: 'regularCorner',
       label: 'Regular Corner Posts',
       shortDescription: '8-14" diameter, curvy or cut last year, 9ft long',
-      unitPrice: 20,
+      unitPrice: 15,
+      soldOut: false,
+    },
+    {
+      fieldName: 'discountBin',
+      label: "Last Year's Posts",
+      shortDescription:
+        "Last year's posts, premium and standard, corners and lines, 9ft long, all $10 each",
+      unitPrice: 10,
       soldOut: false,
     },
     {
@@ -122,7 +142,7 @@ function defaultOrderSkus(): OrderSkuRow[] {
       shortDescription:
         'Usually around 6" diameter, at least 6 ft long, no knots, hand-selected, pickup only',
       unitPrice: 125,
-      soldOut: false,
+      soldOut: true,
     },
   ];
 }

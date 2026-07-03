@@ -81,7 +81,7 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
       <select id="hunt-year" class="mt-4 w-full max-w-md rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream" required>
         {years.map((y) => <option value={y}>{y}</option>)}
       </select>
-      <p class="mt-2 text-sm text-hunt-muted">2026 is fully booked. 2027 is next available.</p>
+      <p class="mt-2 text-sm text-hunt-muted">2027 is fully booked. 2028 is next available.</p>
     </div>
 
     <div>
@@ -186,8 +186,11 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
     if (countInput) countInput.value = String(n);
     partyBtns.forEach((b) => {
       const bn = Number(/** @type {HTMLElement} */ (b).dataset.partySize);
-      b.classList.toggle('border-hunt-gold', bn === n);
-      b.classList.toggle('bg-hunt-surface-2', bn === n);
+      const selected = bn === n;
+      b.classList.toggle('border-hunt-gold', selected);
+      b.classList.toggle('bg-hunt-surface-2', selected);
+      b.classList.toggle('border-hunt-border', !selected);
+      b.classList.toggle('bg-hunt-surface', !selected);
     });
     blocks.forEach((block, i) => {
       const el = /** @type {HTMLElement} */ (block);

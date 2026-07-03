@@ -79,6 +79,32 @@ export function verifyHuntPassword(plain: string, stored: string | undefined): b
   return timingSafeEqualStr(plain, stored);
 }
 
+export const HUNT_GUEST_COOKIE = 'hunt_guest';
+
+/** Signed guest token: `expUnix:slug:hexSig` (sig over `expUnix:slug`). */
+export async function createHuntGuestToken(secret: string, slug: string): Promise<string> {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_DAYS * 24 * 3600;
+  const payload = `${exp}:${slug}`;
+  const sig = await hmacHex(secret, payload);
+  return `${payload}:${sig}`;
+}
+
+/** Returns the guest slug when the token is valid and unexpired, else null. */
+export async function verifyHuntGuestToken(
+  token: string | undefined,
+  secret: string
+): Promise<string | null> {
+  if (!token || !secret) return null;
+  const parts = token.split(':');
+  if (parts.length !== 3) return null;
+  const [expStr, slug, sig] = parts;
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return null;
+  if (!slug) return null;
+  const expected = await hmacHex(secret, `${expStr}:${slug}`);
+  return timingSafeEqualStr(sig.toLowerCase(), expected.toLowerCase()) ? slug : null;
+}
+
 /**
  * Paths that require a valid `hunt_session` cookie (middleware).
  * `/hunt/login` and everything outside `/hunt` are false.

@@ -14,11 +14,10 @@ describe('HUNT_WEEKS_BY_YEAR', () => {
     expect(w.map((x) => x.id)).toEqual(['w1', 'w2', 'w3']);
   });
 
-  it('2027 matches PRD: only week 2 is open', () => {
+  it('2027 is fully booked: all weeks unavailable', () => {
     const w = HUNT_WEEKS_BY_YEAR[2027];
-    expect(w?.find((x) => x.id === 'w1')?.available).toBe(false);
-    expect(w?.find((x) => x.id === 'w2')?.available).toBe(true);
-    expect(w?.find((x) => x.id === 'w3')?.available).toBe(false);
+    expect(w).toHaveLength(3);
+    expect(w.every((x) => !x.available)).toBe(true);
   });
 
   it('2028 has expected ids and all weeks available', () => {
@@ -30,17 +29,19 @@ describe('HUNT_WEEKS_BY_YEAR', () => {
 
 describe('isPreferredWeekAvailable', () => {
   it('returns true only for configured available slots', () => {
-    expect(isPreferredWeekAvailable(2027, 'w2')).toBe(true);
+    expect(isPreferredWeekAvailable(2028, 'w2')).toBe(true);
+    expect(isPreferredWeekAvailable(2027, 'w2')).toBe(false);
     expect(isPreferredWeekAvailable(2027, 'w1')).toBe(false);
     expect(isPreferredWeekAvailable(2099, 'w1')).toBe(false);
   });
 });
 
 describe('allowedHuntReserveYears', () => {
-  it('returns configured years within current..+5 window', () => {
+  it('returns configured years within current..+9 window (through 2035 from 2026)', () => {
     const y = allowedHuntReserveYears(new Date('2026-05-01'));
     expect(y[0]).toBe(2026);
     expect(y).toContain(2027);
-    expect(Math.max(...y)).toBeLessThanOrEqual(2031);
+    expect(y).toContain(2035);
+    expect(Math.max(...y)).toBe(2035);
   });
 });

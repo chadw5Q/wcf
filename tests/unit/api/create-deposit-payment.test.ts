@@ -42,7 +42,7 @@ describe('POST /api/create-deposit-payment', () => {
         orderTotal: 100,
         customerInfo: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
         orderItems: [],
-        quantities: { premiumLine: 4, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+        quantities: { premiumLine: 4, premiumCorner: 0, regularLine: 0, regularCorner: 0, discountBin: 0, bowStave: 0 },
       }),
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(503);
@@ -55,7 +55,7 @@ describe('POST /api/create-deposit-payment', () => {
         orderTotal: 2.5,
         customerInfo: { firstName: 'A', lastName: 'B', email: 'a@b.com' },
         orderItems: [],
-        quantities: { premiumLine: 1, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+        quantities: { premiumLine: 1, premiumCorner: 0, regularLine: 0, regularCorner: 0, discountBin: 0, bowStave: 0 },
       }),
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(400);
@@ -74,7 +74,7 @@ describe('POST /api/create-deposit-payment', () => {
           notes: '',
         },
         orderItems: [{ type: 'Premium Line Posts', quantity: 4, price: 25, total: 100 }],
-        quantities: { premiumLine: 4, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+        quantities: { premiumLine: 4, premiumCorner: 0, regularLine: 0, regularCorner: 0, discountBin: 0, bowStave: 0 },
       }),
     } as Parameters<typeof POST>[0]);
     expect(res.status).toBe(200);
@@ -98,7 +98,7 @@ describe('POST /api/create-deposit-payment', () => {
           notes: '',
         },
         orderItems: [{ type: 'Premium Line Posts', quantity: 4, price: 25, total: 100 }],
-        quantities: { premiumLine: 4, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+        quantities: { premiumLine: 4, premiumCorner: 0, regularLine: 0, regularCorner: 0, discountBin: 0, bowStave: 0 },
       }),
     } as Parameters<typeof POST>[0]);
     expect(createCheckoutSession).toHaveBeenCalled();

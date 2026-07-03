@@ -18,9 +18,9 @@ import { POST } from '../../../src/pages/api/send-order-email';
 const baseQuantities = {
   premiumLine: 1,
   premiumCorner: 0,
-  premiumExtraLong: 0,
   regularLine: 0,
   regularCorner: 0,
+  discountBin: 0,
   bowStave: 0,
 };
 
@@ -93,17 +93,19 @@ describe('POST /api/send-order-email', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when premium extra long > 0 (sold out)', async () => {
+  it('returns 200 for a discount bin order', async () => {
     const res = await POST({
       request: jsonRequest({
         customerInfo: baseCustomer,
-        quantities: { ...baseQuantities, premiumExtraLong: 1 },
-        orderTotal: 60,
+        quantities: { ...baseQuantities, premiumLine: 0, discountBin: 3 },
+        orderTotal: 30,
         isDeposit: false,
         depositAmount: 0,
       }),
     } as Parameters<typeof POST>[0]);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
+    const ownerCall = mockSend.mock.calls[0][0];
+    expect(String(ownerCall.html)).toContain('Discount Bin Posts');
   });
 
   it('calls ntfy when orderId is present (after emails; matches inquiry flow)', async () => {

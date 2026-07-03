@@ -21,7 +21,6 @@ function initialQuantities(o: StoredOrder): Record<string, number> {
   for (const item of o.items) {
     m[item.fieldName] = item.quantity;
   }
-  m.premiumExtraLong = 0;
   return m;
 }
 
@@ -29,7 +28,7 @@ const qtyLabels: Record<string, string> = Object.fromEntries(
   ORDER_QUANTITY_KEYS.map((k) => {
     const row = skuMap[k];
     const label = row?.label ?? k;
-    return [k, k === 'premiumExtraLong' && row?.soldOut ? `${label} (sold out)` : label];
+    return [k, row?.soldOut ? `${label} (sold out)` : label];
   })
 );
 
@@ -293,7 +292,7 @@ const revisionNewestFirst = order
                   <h4 class="mb-3 text-sm font-semibold text-slate-900">Quantities</h4>
                   <div class="grid gap-3 sm:grid-cols-2">
                     {ORDER_QUANTITY_KEYS.map((key) => {
-                      const disabled = key === 'premiumExtraLong';
+                      const disabled = skuMap[key]?.soldOut ?? false;
                       const val = initialQuantities(order)[key];
                       return (
                         <div class={disabled ? 'opacity-60' : ''}>

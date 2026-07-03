@@ -27,7 +27,7 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
         <div>
           <h1 class="text-4xl md:text-6xl font-bold text-white mb-6">
-            Premium Hedge Posts for
+            Premium Hedge Fence Posts for
             <span class="text-green-400">Permanent Fencing</span>
           </h1>
           <p class="text-xl text-gray-200 mb-8 leading-relaxed">
@@ -71,6 +71,7 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
   <!-- Pricing Section -->
   <section id="pricing" class="section-padding bg-gray-50">
     <div class="max-w-7xl mx-auto">
+      {/* Benefits section commented out per request:
       <!-- Benefits of Hedge Posts Section -->
       <div class="mb-20">
         <div class="text-center mb-12">
@@ -189,6 +190,7 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
           </div>
         </div>
       </div>
+      */}
 
       <!-- Pricing Section Header -->
       <div id="pricing-content" class="text-center mb-16">
@@ -200,28 +202,28 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         </p>
       </div>
       
-      <!-- Premium / regular / bow pricing: same `orderSkus` as /order-now (KV products_config_v1) -->
+      <!-- Premium / regular / bow / discount pricing: same `orderSkus` as /order-now (KV products_config_v1) -->
       <div class="mb-16">
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Premium Posts</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <HomeOrderSkuCard sku={skuMap.premiumLine} variant="premium" />
           <HomeOrderSkuCard sku={skuMap.premiumCorner} variant="premium" />
-          <HomeOrderSkuCard sku={skuMap.premiumExtraLong} variant="premium" />
         </div>
       </div>
 
       <div class="mb-16">
         <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Regular Posts</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <HomeOrderSkuCard sku={skuMap.regularLine} variant="regular" />
           <HomeOrderSkuCard sku={skuMap.regularCorner} variant="regular" />
         </div>
       </div>
 
       <div class="mb-16">
-        <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Traditional Bow Stave Logs</h3>
-        <div class="grid grid-cols-1 max-w-md mx-auto">
+        <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Bow Stave Logs & Discount Bin</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           <HomeOrderSkuCard sku={skuMap.bowStave} variant="bow" />
+          <HomeOrderSkuCard sku={skuMap.discountBin} variant="discount" />
         </div>
       </div>
       

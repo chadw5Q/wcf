@@ -16,7 +16,6 @@ A modern, responsive website for Southwest Iowa Hedge built with Astro, featurin
 - **Home**: Landing page with hero section and featured products
 - **Hedge Posts**: Product catalog with filtering and shopping cart
 - **Contact**: Contact form and business information
-- **Outfitter**: Promotional page for outfitter services (not in main menu)
 - **Success**: Order confirmation page
 
 ## Tech Stack

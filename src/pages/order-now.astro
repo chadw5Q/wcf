@@ -314,8 +314,8 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
           </div>
         </div>
         
-        <!-- Order Information -->
-        <div class="space-y-8">
+        <!-- Order Information (sticks in view on large screens as the form scrolls) -->
+        <div class="space-y-8 lg:sticky lg:top-8 lg:self-start">
           <!-- Contact Info -->
           <div class="card">
             <h3 class="text-xl font-semibold text-gray-900 mb-4">Contact Information</h3>
@@ -362,6 +362,9 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
           
           <!-- Important Notes -->
           <div class="card bg-red-50 border border-red-200">
+            <p class="mb-5 text-center text-2xl md:text-3xl font-extrabold leading-tight text-green-700">
+              You don't pay until you pick them up.
+            </p>
             <h3 class="text-xl font-semibold text-red-900 mb-4">Important Information</h3>
             <ul class="space-y-2 text-red-800 text-sm">
               <li class="flex items-start space-x-2">
@@ -403,7 +406,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
     }
 
     function readQuantitiesFromForm() {
-      const ids = ['premiumLine', 'premiumCorner', 'premiumExtraLong', 'regularLine', 'regularCorner', 'bowStave'];
+      const ids = ['premiumLine', 'premiumCorner', 'regularLine', 'regularCorner', 'discountBin', 'bowStave'];
       /** @type {Record<string, number>} */
       const quantities = {};
       ids.forEach((id) => {
@@ -492,7 +495,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
 
     // Add event listeners to all quantity inputs
     document.addEventListener('DOMContentLoaded', function() {
-      const quantityInputs = ['premiumLine', 'premiumCorner', 'premiumExtraLong', 'regularLine', 'regularCorner', 'bowStave'];
+      const quantityInputs = ['premiumLine', 'premiumCorner', 'regularLine', 'regularCorner', 'discountBin', 'bowStave'];
       
       quantityInputs.forEach((id) => {
         if (isSoldOutField(id)) return;

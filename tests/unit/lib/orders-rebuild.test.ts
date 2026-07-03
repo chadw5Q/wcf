@@ -12,9 +12,9 @@ const skuMap = getDefaultOrderSkuMap();
 const baseQuantities = {
   premiumLine: 2,
   premiumCorner: 0,
-  premiumExtraLong: 0,
   regularLine: 0,
   regularCorner: 0,
+  discountBin: 0,
   bowStave: 0,
 };
 

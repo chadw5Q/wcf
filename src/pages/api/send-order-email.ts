@@ -20,9 +20,9 @@ function computeOrderTotals(quantities: Record<string, unknown>, skuMap: OrderSk
   const q = {
     premiumLine: Number(quantities.premiumLine) || 0,
     premiumCorner: Number(quantities.premiumCorner) || 0,
-    premiumExtraLong: Number(quantities.premiumExtraLong) || 0,
     regularLine: Number(quantities.regularLine) || 0,
     regularCorner: Number(quantities.regularCorner) || 0,
+    discountBin: Number(quantities.discountBin) || 0,
     bowStave: Number(quantities.bowStave) || 0,
   };
 
@@ -31,7 +31,8 @@ function computeOrderTotals(quantities: Record<string, unknown>, skuMap: OrderSk
     subtotal += q[k] * skuMap[k].unitPrice;
   }
 
-  const postCount = q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner;
+  const postCount =
+    q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner + q.discountBin;
   const hasVolumeDiscount = postCount >= 100;
   const discountAmount = hasVolumeDiscount ? subtotal * 0.1 : 0;
   const finalTotal = subtotal - discountAmount;
@@ -120,13 +121,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
-    }
-
-    if (Number(quantities.premiumExtraLong) > 0) {
-      return new Response(
-        JSON.stringify({ error: 'Premium Extra Long Posts are currently sold out.' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
-      );
     }
 
     const { q, subtotal, hasVolumeDiscount, discountAmount, finalTotal } =

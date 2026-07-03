@@ -9,7 +9,7 @@ export const IOWA_DNR_DEER_URL =
   'https://www.iowadnr.gov/things-do/hunting-trapping/hunting-licenses/nonresident-hunting-application';
 
 export const propertyStats = [
-  { value: '725 Acres', description: 'Owned & managed timber' },
+  { value: '725 Acres', description: 'Timber, crop and CRP. Managed for whitetails.' },
   { value: '35+ Stands', description: 'Mix of hang-on, ladder, and Redneck/Banks blinds' },
   { value: 'Zone 4', description: 'Adams & Montgomery County, Iowa' },
   { value: 'Since 2020', description: 'Active habitat management' },

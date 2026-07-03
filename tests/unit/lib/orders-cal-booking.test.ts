@@ -11,7 +11,7 @@ const baseInput = {
   phone: '',
   notes: null,
   depositSelected: false,
-  quantities: { premiumLine: 1, premiumCorner: 0, premiumExtraLong: 0, regularLine: 0, regularCorner: 0, bowStave: 0 },
+  quantities: { premiumLine: 1, premiumCorner: 0, regularLine: 0, regularCorner: 0, discountBin: 0, bowStave: 0 },
 };
 
 describe('applyCalBookingToOrder', () => {

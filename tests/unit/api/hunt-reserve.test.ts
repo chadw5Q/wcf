@@ -73,7 +73,7 @@ describe('POST /api/hunt-reserve', () => {
     const res = await POST({
       request: jsonRequest({
         hunters: [validHunter],
-        huntYear: 2027,
+        huntYear: 2028,
         preferredWeek: 'w2',
         mealPackage: true,
         notes: 'Corner bunk please',

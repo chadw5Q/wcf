@@ -5,6 +5,7 @@ export type OrderFieldName =
   | 'premiumCorner'
   | 'regularLine'
   | 'regularCorner'
+  | 'discountBin'
   | 'bowStave';
 
 export interface OrderLineItem {
