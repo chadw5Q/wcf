@@ -166,6 +166,12 @@ const currentPath = Astro.url.pathname;
                 Order Now
               </a>
               <a
+                href="/faq"
+                class={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentPath === '/faq' ? 'text-green-600 bg-green-50' : 'text-gray-700 hover:text-green-600'}`}
+              >
+                FAQ
+              </a>
+              <a
                 href="/contact"
                 class={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${currentPath === '/contact' ? 'text-green-600 bg-green-50' : 'text-gray-700 hover:text-green-600'}`}
               >
@@ -209,6 +215,12 @@ const currentPath = Astro.url.pathname;
             class={`block px-3 py-2 rounded-md text-base font-medium ${currentPath === '/order-now' ? 'text-green-600 bg-green-50' : 'text-gray-700 hover:text-green-600 hover:bg-gray-50'}`}
           >
             Order Now
+          </a>
+          <a
+            href="/faq"
+            class={`block px-3 py-2 rounded-md text-base font-medium ${currentPath === '/faq' ? 'text-green-600 bg-green-50' : 'text-gray-700 hover:text-green-600 hover:bg-gray-50'}`}
+          >
+            FAQ
           </a>
           <a
             href="/contact"
@@ -279,6 +291,7 @@ const currentPath = Astro.url.pathname;
               <li><a href="/" class="text-gray-300 hover:text-white transition-colors">Hedge Posts</a></li>
               <li><a href="/osage-bow-staves" class="text-gray-300 hover:text-white transition-colors">Osage Bow Staves</a></li>
               <li><a href="/order-now" class="text-gray-300 hover:text-white transition-colors">Order Now</a></li>
+              <li><a href="/faq" class="text-gray-300 hover:text-white transition-colors">FAQ</a></li>
               <li><a href="/contact" class="text-gray-300 hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>

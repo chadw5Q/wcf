@@ -1,0 +1,285 @@
+---
+export const prerender = true;
+import Layout from '../layouts/Layout.astro';
+
+type FaqItem = { q: string; a: string };
+type FaqSection = { title: string; items: FaqItem[] };
+
+const sections: FaqSection[] = [
+  {
+    title: 'About Hedge / Osage Orange',
+    items: [
+      {
+        q: 'What is a hedge post, and what wood is it made from?',
+        a: `<p>A hedge post is a fence post cut from the Osage Orange tree, also known as hedge, bodark, bois d'arc, or bow wood. It grows throughout Southwest Iowa and the surrounding region and has been the go-to wood for permanent fencing here for well over a century. Our posts are cut from mature trees on and around our farm near Grant, Iowa.</p>`,
+      },
+      {
+        q: 'Why is Osage Orange better than treated pine or steel T-posts?',
+        a: `<p>Osage Orange is one of the hardest, densest, and most rot-resistant woods in North America. Unlike treated pine, it does not rely on chemicals to resist decay, and it will not bend, lean, or work loose the way a steel T-post can under heavy wire tension or livestock pressure. It is the difference between a fence you set once and fence posts you keep replacing.</p>`,
+      },
+      {
+        q: 'How long do hedge posts really last in the ground?',
+        a: `<p>Generations. My grandfather set hedge posts in 1962. They were weathered but still standing strong when we replaced them in 2018, 56 years later. Fifty-plus years of service in the ground is normal for hedge, which is why people who fence with it rarely go back to anything else.</p>`,
+      },
+      {
+        q: 'Do hedge posts rot, and do they need treatment or sealing?',
+        a: `<p>No treatment needed. Osage Orange is naturally decay- and insect-resistant, so there is nothing to paint, dip, or reapply. You set it and forget it. (Bow stave logs are the one exception where we seal the cut ends, and that is to prevent the wood from checking as it dries, not to prevent rot.)</p>`,
+      },
+      {
+        q: 'Will hedge posts hold staples and nails? Do they get harder as they dry?',
+        a: `<p>Yes and yes. That is exactly why we sell our posts the same year we cut them. Green hedge drives staples and nails far more easily than cured hedge. Once it seasons in the ground, it becomes extremely hard, which is what locks your fence in place for decades. If you wait years to staple a fully cured post, expect to pre-drill.</p>`,
+      },
+    ],
+  },
+  {
+    title: 'Choosing the Right Post',
+    items: [
+      {
+        q: 'What is the difference between line posts and corner posts?',
+        a: `<p>Line posts are the smaller-diameter posts that run down the length of your fence. Corner posts (and end, gate, and brace posts) are larger in diameter to handle the extra load and wire tension at corners and terminations. Most fencing projects use mostly line posts with a smaller number of corner posts.</p>`,
+      },
+      {
+        q: 'What is the difference between Premium and Regular posts?',
+        a: `<p>Premium posts are relatively straight. Regular posts are the same length and the same durable hedge, but they are curvier, smaller, or were cut the previous year. The wood performs the same in the ground; you are mainly paying for how straight the post is.</p>
+<ul>
+  <li>Premium Line Posts: 3-6" diameter, relatively straight, 9 ft</li>
+  <li>Premium Corner/Second Posts: 6-12" diameter, relatively straight, 9 ft</li>
+  <li>Regular Line Posts: 3-6" diameter, curvy or smaller, 9 ft</li>
+  <li>Regular Corner Posts: 8-14" diameter, curvy, 9 ft</li>
+</ul>
+<p>See our <a href="https://www.williamscreekfarms.com/order-now">order page</a> for current pricing.</p>`,
+      },
+      {
+        q: 'What are "Last Year\'s Posts," and are they still good?',
+        a: `<p>They are premium and regular posts, corners and lines, that were cut the prior season and did not sell. Same 9 ft length, same hedge durability. They have simply dried more, so they are priced to move at $10 OBO each while they last. Great value if you do not mind pre-drilling for staples on the harder ones.</p>`,
+      },
+      {
+        q: 'What size and length are your posts?',
+        a: `<p>Every post we sell is 9 ft long. Diameters vary by category, from 3" line posts up to 14" corner posts (see the pricing list above).</p>`,
+      },
+      {
+        q: 'How many posts do I need for my fence?',
+        a: `<p>A good rule of thumb is one line post every 8 to 12 feet, plus a corner or brace post at every corner, gate, and end. As a rough estimate, divide your total fence length in feet by 10 to get your line post count, then add corners separately. Text us your project details and we are happy to help you figure out a count.</p>`,
+      },
+      {
+        q: 'Are your posts fresh cut or seasoned, and does that matter?',
+        a: `<p>Fresh cut. We cut for easy nailing and stapling, because green hedge is much easier to work with than fully cured hedge. It seasons and hardens naturally once it is in your fence line.</p>`,
+      },
+    ],
+  },
+  {
+    title: 'Ordering and Pricing',
+    items: [
+      {
+        q: 'How much do posts cost, and is there a volume discount?',
+        a: `<p>Pricing varies from season to season. See our <a href="https://www.williamscreekfarms.com/order-now">order page</a> for current pricing. Orders of more than 100 posts automatically receive a 10% discount, applied on the order form.</p>`,
+      },
+      {
+        q: 'Is there a minimum order?',
+        a: `<p>No, there is no minimum order.</p>`,
+      },
+      {
+        q: 'How do I place an order, and how do I pay?',
+        a: `<p>Fill out the order form on our Order Now page. Payment is not due when you order. We contact you within 24 hours to confirm details and schedule pickup. You then come to the farm, pick out your specific posts, and pay the remaining balance at pickup. Card payments are processed securely through Stripe, and we accept cash, check, or Venmo at pickup.</p>`,
+      },
+      {
+        q: 'Do you take deposits, and how long is my order held?',
+        a: `<p>Deposits are optional but recommended. Because we sell out most years, a 10% deposit secures your place in our queue and reserves your posts. The deposit is paid by card through Stripe, and the remaining balance is due at pickup. Reservations are held for 30 days.</p>`,
+      },
+      {
+        q: 'When do you sell out, and when is the best time to order?',
+        a: `<p>We typically sell out of our inventory every year. The best time to order is as early as you can. Placing an order (and an optional deposit) is the surest way to lock in your posts before they are gone.</p>`,
+      },
+    ],
+  },
+  {
+    title: 'Pickup, Delivery, and Shipping',
+    items: [
+      {
+        q: 'Do you ship posts, or is it pickup only?',
+        a: `<p>We do not ship posts; pickup is at the farm only. We do have a skid loader on site to assist with loading.</p>`,
+      },
+      {
+        q: 'Where are you located, and where do I pick up?',
+        a: `<p>Southwest Iowa Hedge, 1100 Apple Ave, Grant, Iowa. All pickups are at the farm, where you select your specific posts before paying the balance.</p>`,
+      },
+      {
+        q: 'Do you deliver, and how far will you go?',
+        a: `<p>Yes, deliveries are available for a fee of $2 per mile, one way.</p>`,
+      },
+      {
+        q: 'How heavy are the posts, and will you help load them? What do I need to haul them?',
+        a: `<p>Fresh cut hedge is dense and heavy, and larger corner posts especially so. A pickup truck or trailer is recommended, and a larger order will need a trailer sized to a 9 ft post. We assist with loading and have a skid loader on site to get the job done.</p>`,
+      },
+      {
+        q: 'What areas do you serve?',
+        a: `<p>We serve Southwest Iowa, Northwest Missouri, and Southeast Nebraska, including the counties and towns throughout that region. If you are within driving range of Grant, Iowa, you are in our area.</p>`,
+      },
+    ],
+  },
+  {
+    title: 'Bow Staves (Archery)',
+    items: [
+      {
+        q: 'What is a bow stave, and what do you offer?',
+        a: `<p>A bow stave is a length of wood shaped into a traditional longbow. We sell hand-selected Osage Orange logs that you split into your own bow staves, chosen from the straightest, most knot-free sections of mature trees. Osage Orange has been prized by bowyers for centuries; Native Americans called it the "bow wood."</p>`,
+      },
+      {
+        q: 'What are the specs of your bow stave logs?',
+        a: `<p>Usually around 6" in diameter and at least 6 ft long, with no knots, hand-selected and inspected for defects. Each log typically yields 3 to 8 quality staves, giving you options for multiple bow designs or backup material. See our <a href="https://www.williamscreekfarms.com/order-now">order page</a> for current pricing.</p>`,
+      },
+      {
+        q: "Why can't bow stave logs be shipped?",
+        a: `<p>Bow stave logs are pickup only. They are heavy and awkward to handle, which makes shipping them impractical and very expensive. Personal selection is also part of what makes them worth it: you choose the specific log that fits your project when you visit the farm. We seal the cut ends within 24 hours of cutting to prevent checking, and careful handling at pickup protects that quality.</p>`,
+      },
+      {
+        q: 'How do I get on the list when bow staves are sold out?',
+        a: `<p>When bow staves show as sold out, text or call <a href="tel:+17122543999">712-254-3999</a> or email <a href="mailto:cchadww@gmail.com">cchadww@gmail.com</a> and we will add you to our wait list and let you know when the next logs are available.</p>`,
+      },
+    ],
+  },
+  {
+    title: 'Practical / Handling',
+    items: [
+      {
+        q: 'How do I set or drive a hedge post? Any tips for working with green hedge?',
+        a: `<p>Set hedge posts like any wood post: dig or auger a hole, set the post, and tamp firmly, or drive smaller line posts with a post driver. Green hedge takes staples and nails easily, so do your fastening while the post is still fresh. As it cures in the ground it hardens dramatically, which is what makes the fence so long-lived.</p>`,
+      },
+      {
+        q: 'Can I cut or trim posts to a shorter length?',
+        a: `<p>Yes. Posts are 9 ft as sold, and we recommend cutting them down to your fence height. A sharp chainsaw handles green hedge best; cured hedge is considerably harder on a blade.</p>`,
+      },
+      {
+        q: 'Do you offer any guarantee or returns?',
+        a: `<p>There are no guarantees. You pick out and select every post in person at pickup, so you see exactly what you are getting before you take it home.</p>`,
+      },
+    ],
+  },
+];
+
+const stripHtml = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+const faqSchema = {
+  '@type': 'FAQPage',
+  mainEntity: sections.flatMap((s) =>
+    s.items.map((item) => ({
+      '@type': 'Question',
+      name: item.q,
+      acceptedAnswer: { '@type': 'Answer', text: stripHtml(item.a) },
+    }))
+  ),
+};
+
+const slugify = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+---
+
+<Layout
+  title="FAQ - Southwest Iowa Hedge"
+  description="Answers to common questions about Osage Orange hedge posts: durability, pricing, premium vs regular posts, pickup and delivery, bow stave logs, and more."
+  ogTitle="Frequently Asked Questions — Southwest Iowa Hedge"
+  ogDescription="Everything you need to know about our Osage Orange hedge posts and bow stave logs."
+  image="/images/hedge002.jpg"
+  structuredData={faqSchema}
+>
+  <!-- Hero Section -->
+  <section class="bg-gradient-to-r from-green-600 to-green-700 text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <div class="text-center">
+        <h1 class="text-4xl md:text-5xl font-bold mb-6">
+          Frequently Asked Questions
+        </h1>
+        <p class="text-xl text-green-100 max-w-3xl mx-auto">
+          Everything you need to know about our Osage Orange hedge posts and bow stave logs.
+          Still have a question? Text or call us at
+          <a href="tel:+17122543999" class="font-semibold text-white underline decoration-green-300 underline-offset-2 hover:decoration-white">712-254-3999</a>
+          or email
+          <a href="mailto:cchadww@gmail.com" class="font-semibold text-white underline decoration-green-300 underline-offset-2 hover:decoration-white">cchadww@gmail.com</a>.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Content -->
+  <section class="section-padding bg-gray-50">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Section quick links -->
+      <nav aria-label="FAQ sections" class="mb-12 flex flex-wrap justify-center gap-2">
+        {
+          sections.map((section) => (
+            <a
+              href={`#${slugify(section.title)}`}
+              class="rounded-full border border-green-200 bg-white px-4 py-2 text-sm font-medium text-green-700 transition-colors hover:bg-green-50 hover:border-green-400"
+            >
+              {section.title}
+            </a>
+          ))
+        }
+      </nav>
+
+      {
+        sections.map((section) => (
+          <div class="mb-12">
+            <h2 id={slugify(section.title)} class="scroll-mt-24 text-2xl md:text-3xl font-bold text-gray-900 mb-6">
+              {section.title}
+            </h2>
+            <div class="space-y-4">
+              {section.items.map((item) => (
+                <details class="group rounded-lg border border-gray-200 bg-white shadow-sm open:shadow-md transition-shadow">
+                  <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-4 text-left font-semibold text-gray-900 [&::-webkit-details-marker]:hidden">
+                    <span>{item.q}</span>
+                    <svg
+                      class="h-5 w-5 flex-shrink-0 text-green-600 transition-transform group-open:rotate-180"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </summary>
+                  <div
+                    class="faq-answer px-6 pb-5 text-gray-700 leading-relaxed space-y-3"
+                    set:html={item.a}
+                  />
+                </details>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+
+      <!-- Bottom CTA -->
+      <div class="mt-4 rounded-2xl bg-green-600 px-8 py-10 text-center text-white">
+        <h2 class="text-2xl font-bold mb-3">Ready to order?</h2>
+        <p class="text-green-100 mb-6">Payment isn't due until you pick your posts up at the farm.</p>
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+          <a href="/order-now" class="btn-primary bg-white !text-green-700 hover:bg-green-50 text-center">Order Now</a>
+          <a href="/contact" class="btn-secondary text-center">Contact Us</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</Layout>
+
+<style>
+  .faq-answer :global(a) {
+    color: #16a34a;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .faq-answer :global(a:hover) {
+    color: #15803d;
+  }
+  .faq-answer :global(ul) {
+    list-style: disc;
+    padding-left: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+</style>
