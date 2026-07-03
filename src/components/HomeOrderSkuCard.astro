@@ -53,7 +53,7 @@ const priceColor = variant === 'discount' ? 'text-amber-700' : variant === 'regu
 
 <div class={cardClass} style={cardStyle}>
   {
-    (sku.soldOut || variant === 'premium' || variant === 'discount') && (
+    (sku.soldOut || variant === 'premium') && (
       <div
         class:list={[
           'mb-3 flex flex-wrap items-center gap-2',
@@ -65,9 +65,6 @@ const priceColor = variant === 'discount' ? 'text-amber-700' : variant === 'regu
         )}
         {variant === 'premium' && (
           <span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">PREMIUM</span>
-        )}
-        {variant === 'discount' && (
-          <span class="bg-amber-600 text-white text-xs font-bold px-3 py-1 rounded-full shrink-0">DISCOUNT BIN</span>
         )}
       </div>
     )

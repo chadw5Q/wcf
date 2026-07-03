@@ -132,7 +132,7 @@ function defaultOrderSkus(): OrderSkuRow[] {
       fieldName: 'discountBin',
       label: "Last Year's Posts",
       shortDescription:
-        "Last year's posts, premium and standard, corners and lines, 9ft long, all $10 each",
+        "Last year's posts, premium and standard, corners and lines, 9ft long, all $10 each OBO",
       unitPrice: 10,
       soldOut: false,
     },
