@@ -5,16 +5,33 @@ const measurementId = import.meta.env.PUBLIC_GA_MEASUREMENT_ID;
 
 {
   measurementId && (
-    <>
-      <script async src={`https://www.googletagmanager.com/gtag/js?id=${measurementId}`} />
-      <script is:inline define:vars={{ measurementId }}>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() {
-          dataLayer.push(arguments);
+    <script is:inline define:vars={{ measurementId }}>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+      gtag('config', measurementId);
+      // Load the gtag script after the page finishes loading so it doesn't
+      // compete with above-the-fold images for bandwidth (PageSpeed LCP win).
+      // Events fired before it loads are queued in dataLayer and not lost.
+      (function () {
+        var loaded = false;
+        function loadGtag() {
+          if (loaded) return;
+          loaded = true;
+          var s = document.createElement('script');
+          s.async = true;
+          s.src = 'https://www.googletagmanager.com/gtag/js?id=' + measurementId;
+          document.head.appendChild(s);
         }
-        gtag('js', new Date());
-        gtag('config', measurementId);
-      </script>
-    </>
+        if (document.readyState === 'complete') {
+          loadGtag();
+        } else {
+          window.addEventListener('load', loadGtag, { once: true });
+          setTimeout(loadGtag, 5000);
+        }
+      })();
+    </script>
   )
 }

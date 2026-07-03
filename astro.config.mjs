@@ -9,6 +9,10 @@ import { includePageInSitemap } from './sitemap-page-filter.mjs';
 export default defineConfig({
   output: 'server',
   site: 'https://williamscreekfarms.com',
+  build: {
+    // Inline page CSS to remove the render-blocking stylesheet request (PageSpeed LCP/FCP win).
+    inlineStylesheets: 'always',
+  },
   adapter: cloudflare({
     // Avoid requiring Cloudflare Images; use Astro’s default image handling.
     imageService: 'passthrough',

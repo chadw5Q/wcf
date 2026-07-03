@@ -21,7 +21,15 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
   structuredData={homeProductSchemas}
 >
   <!-- Hero Section -->
-  <section class="relative overflow-hidden" style="background-image: url('/images/hedge002.jpg'); background-size: cover; background-position: center; background-repeat: no-repeat;">
+  <section class="relative overflow-hidden">
+    <img
+      src="/images/hedge002.webp"
+      alt=""
+      fetchpriority="high"
+      class="absolute inset-0 h-full w-full object-cover object-center"
+      width="540"
+      height="540"
+    />
     <div class="absolute inset-0 bg-black opacity-40"></div>
     <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 section-padding">
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -57,15 +65,19 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
           </div>
           <div class="grid grid-cols-2 gap-1 px-1">
             <img
-              src="/images/posts/old-post-1962-1.jpg"
+              src="/images/posts/old-post-1962-1.webp"
               alt="Hedge fence post set in 1962, still standing in a barbed wire fence"
               class="h-64 w-full rounded-l-lg object-cover sm:h-80"
+              width="640"
+              height="853"
               loading="lazy"
             />
             <img
-              src="/images/posts/old-post-1962-2.jpg"
+              src="/images/posts/old-post-1962-2.webp"
               alt="Weathered hedge fence post from 1962 still holding barbed wire"
               class="h-64 w-full rounded-r-lg object-cover sm:h-80"
+              width="640"
+              height="853"
               loading="lazy"
             />
           </div>

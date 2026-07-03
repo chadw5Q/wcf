@@ -15,12 +15,12 @@ export type OrderCheckoutKey = (typeof ORDER_CHECKOUT_KEYS)[number];
 
 /** Fallback images when `orderSkus[].image` is unset (admin can override per line item). */
 export const ORDER_SKU_MARKETING_IMAGES: Record<OrderCheckoutKey, { src: string }> = {
-  premiumLine: { src: '/images/posts/premium-line-1.jpg' },
-  premiumCorner: { src: '/images/posts/premium-corner-1.jpg' },
-  regularLine: { src: '/images/posts/standard-line-1.jpg' },
-  regularCorner: { src: '/images/posts/standard-corner-1.jpg' },
-  discountBin: { src: '/images/posts/discount-bin-1.jpg' },
-  bowStave: { src: '/images/hedge-bowstave007.jpg' },
+  premiumLine: { src: '/images/posts/premium-line-1.webp' },
+  premiumCorner: { src: '/images/posts/premium-corner-1.webp' },
+  regularLine: { src: '/images/posts/standard-line-1.webp' },
+  regularCorner: { src: '/images/posts/standard-corner-1.webp' },
+  discountBin: { src: '/images/posts/discount-bin-1.webp' },
+  bowStave: { src: '/images/hedge-bowstave007.webp' },
 };
 
 /**
@@ -28,11 +28,11 @@ export const ORDER_SKU_MARKETING_IMAGES: Record<OrderCheckoutKey, { src: string 
  * single effective image (see `getOrderSkuGalleryImages`) when a key is not listed here.
  */
 export const ORDER_SKU_GALLERY_IMAGES: Partial<Record<OrderCheckoutKey, string[]>> = {
-  premiumLine: ['/images/posts/premium-line-1.jpg', '/images/posts/premium-line-2.jpg'],
-  premiumCorner: ['/images/posts/premium-corner-1.jpg', '/images/posts/premium-corner-2.jpg'],
-  regularLine: ['/images/posts/standard-line-1.jpg', '/images/posts/standard-line-2.jpg'],
-  regularCorner: ['/images/posts/standard-corner-1.jpg', '/images/posts/standard-corner-2.jpg'],
-  discountBin: ['/images/posts/discount-bin-1.jpg', '/images/posts/discount-bin-2.jpg'],
+  premiumLine: ['/images/posts/premium-line-1.webp', '/images/posts/premium-line-2.webp'],
+  premiumCorner: ['/images/posts/premium-corner-1.webp', '/images/posts/premium-corner-2.webp'],
+  regularLine: ['/images/posts/standard-line-1.webp', '/images/posts/standard-line-2.webp'],
+  regularCorner: ['/images/posts/standard-corner-1.webp', '/images/posts/standard-corner-2.webp'],
+  discountBin: ['/images/posts/discount-bin-1.webp', '/images/posts/discount-bin-2.webp'],
 };
 
 /** Photos for the home-page card gallery: the curated set if present, else the single image. */
