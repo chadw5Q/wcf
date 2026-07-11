@@ -96,6 +96,18 @@ const revisionNewestFirst = order
                 >
                   Edit
                 </button>
+                {
+                  order.status === 'fulfilled' && (
+                    <button
+                      type="button"
+                      id="email-receipt"
+                      class="rounded border border-green-700 bg-white px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-50 disabled:opacity-50"
+                      data-order-id={order.id}
+                    >
+                      Email receipt
+                    </button>
+                  )
+                }
                 <button
                   type="button"
                   id="delete-order"
@@ -632,6 +644,42 @@ const revisionNewestFirst = order
           });
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
+
+          document.getElementById('email-receipt')?.addEventListener('click', async () => {
+            const btn = document.getElementById('email-receipt');
+            if (!(btn instanceof HTMLButtonElement)) return;
+            const orderId = btn.dataset.orderId?.trim();
+            if (!orderId) return;
+            const ok = window.confirm(
+              'Email a receipt copy to the customer and the admin notification address?'
+            );
+            if (!ok) return;
+            btn.disabled = true;
+            const prevLabel = btn.textContent;
+            btn.textContent = 'Sending…';
+            try {
+              const res = await fetch('/api/admin/email-receipt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: orderId }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok) {
+                const customer = data.sentTo?.customer || 'customer';
+                const admin = data.sentTo?.admin || 'admin';
+                showMsg(true, `Receipt emailed to ${customer} and ${admin}.`);
+                btn.textContent = 'Sent';
+              } else {
+                showMsg(false, data.error || data.details || 'Email failed.');
+                btn.disabled = false;
+                btn.textContent = prevLabel || 'Email receipt';
+              }
+            } catch {
+              showMsg(false, 'Email failed (network error).');
+              btn.disabled = false;
+              btn.textContent = prevLabel || 'Email receipt';
+            }
+          });
 
           document.getElementById('delete-order')?.addEventListener('click', async () => {
             const btn = document.getElementById('delete-order');
