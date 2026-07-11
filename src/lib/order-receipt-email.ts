@@ -57,7 +57,7 @@ export function buildOrderReceiptHtml(order: StoredOrder): string {
     : '';
 
   const depositBlock = order.deposit.selected
-    ? `<p><strong>Deposit selected at checkout:</strong> ${escapeHtmlText(formatUsd(order.depositAmount))}</p>
+    ? `<p><strong>Deposit:</strong> ${escapeHtmlText(formatUsd(order.depositAmount))}</p>
        <p><strong>Balance due (estimated):</strong> ${escapeHtmlText(formatUsd(order.balanceDue))}</p>`
     : `<p><strong>Deposit:</strong> Not selected at checkout</p>`;
 

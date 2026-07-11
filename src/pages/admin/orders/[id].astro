@@ -244,9 +244,11 @@ const revisionNewestFirst = order
                       <span class="tabular-nums">{formatUsd(order.discountedSubtotal)}</span>
                     </li>
                     <li class="flex justify-between gap-4">
-                      <span>Deposit selected at checkout</span>
+                      <span>Deposit</span>
                       <span class="tabular-nums">
-                        {order.deposit.selected ? `Yes — ${formatUsd(order.depositAmount)}` : 'No'}
+                        {order.deposit.selected || order.depositAmount > 0
+                          ? formatUsd(order.depositAmount)
+                          : 'No'}
                       </span>
                     </li>
                     <li class="text-xs text-slate-500">
@@ -469,11 +471,20 @@ const revisionNewestFirst = order
                       {formatUsd(order.discountedSubtotal)}
                     </span>
                   </li>
-                  <li class="flex justify-between gap-4">
-                    <span>Deposit (at checkout)</span>
-                    <span class="tabular-nums" data-est="deposit">
-                      {order.deposit.selected ? formatUsd(order.depositAmount) : 'No'}
-                    </span>
+                  <li class="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                    <label for="depositAmount" class="font-medium text-slate-800">
+                      Deposit (USD)
+                    </label>
+                    <input
+                      id="depositAmount"
+                      name="depositAmount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputmode="decimal"
+                      value={order.depositAmount}
+                      class="min-h-11 w-full rounded border border-slate-300 bg-white px-3 py-2 text-base tabular-nums text-slate-900 sm:max-w-[10rem] sm:text-right"
+                    />
                   </li>
                   <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
                     <span>Balance due (estimated)</span>
@@ -481,7 +492,8 @@ const revisionNewestFirst = order
                   </li>
                 </ul>
                 <p class="mt-2 text-xs text-slate-500">
-                  Final totals are recalculated on the server when you save (same rules as checkout).
+                  Enter a dollar deposit (not a percentage). Use 0 for no deposit. Amount is capped at the order
+                  total when you save.
                 </p>
               </div>
 
@@ -600,7 +612,6 @@ const revisionNewestFirst = order
           function updateEstimates() {
             if (!(form instanceof HTMLFormElement)) return;
             const prices = getCatalogPrices();
-            const depositSelected = page?.dataset.depositSelected === '1';
             let subtotal = 0;
             let postCount = 0;
 
@@ -623,8 +634,12 @@ const revisionNewestFirst = order
             const volumeApplied = postCount >= 100;
             const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
             const total = Math.round((subtotal - discountAmount) * 100) / 100;
-            const depositAmount =
-              depositSelected && total > 0 ? Math.round(total * 0.1 * 100) / 100 : 0;
+
+            const depositEl = document.getElementById('depositAmount');
+            let depositRaw =
+              depositEl instanceof HTMLInputElement ? Number(depositEl.value) : 0;
+            if (!Number.isFinite(depositRaw) || depositRaw < 0) depositRaw = 0;
+            const depositAmount = Math.round(Math.max(0, Math.min(depositRaw, total)) * 100) / 100;
             const balance = Math.round((total - depositAmount) * 100) / 100;
 
             const set = (name: string, text: string) => {
@@ -634,7 +649,6 @@ const revisionNewestFirst = order
             set('subtotal', formatUsd(subtotal));
             set('discount', volumeApplied ? `−${formatUsd(discountAmount)}` : '—');
             set('total', formatUsd(total));
-            set('deposit', depositSelected ? formatUsd(depositAmount) : 'No');
             set('balance', formatUsd(balance));
 
             const discountRow = document.querySelector('[data-est-row="discount"]');
@@ -768,7 +782,10 @@ const revisionNewestFirst = order
 
           form?.addEventListener('input', (e) => {
             const t = e.target;
-            if (t instanceof HTMLInputElement && t.matches('[data-qty-input]')) {
+            if (
+              t instanceof HTMLInputElement &&
+              (t.matches('[data-qty-input]') || t.id === 'depositAmount')
+            ) {
               updateEstimates();
             }
           });
@@ -803,6 +820,11 @@ const revisionNewestFirst = order
             const email = (form.querySelector('[name="email"]') as HTMLInputElement)?.value ?? '';
             const phone = (form.querySelector('[name="phone"]') as HTMLInputElement)?.value ?? '';
             const notes = (form.querySelector('[name="notes"]') as HTMLTextAreaElement)?.value ?? '';
+            const depositEl = form.querySelector('[name="depositAmount"]');
+            const depositAmount =
+              depositEl instanceof HTMLInputElement
+                ? Math.max(0, Number(depositEl.value) || 0)
+                : 0;
 
             const body = {
               id: idEl.value,
@@ -815,6 +837,7 @@ const revisionNewestFirst = order
                 phone,
                 notes: notes.trim() || null,
                 quantities,
+                depositAmount: Math.round(depositAmount * 100) / 100,
               },
             };
 

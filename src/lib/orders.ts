@@ -32,7 +32,11 @@ export interface BuildOrderInput {
   quantities: Record<string, unknown>;
 }
 
-/** Admin rebuild input — `deposit.selected` is never taken from this; it stays on the stored order. */
+/**
+ * Admin rebuild input.
+ * When `depositAmount` is provided, it sets the deposit in dollars (0 = no deposit)
+ * and overrides the checkout 10% calculation. `deposit.selected` is derived from amount > 0.
+ */
 export interface AdminOrderRebuildInput {
   firstName: string;
   lastName: string;
@@ -40,6 +44,8 @@ export interface AdminOrderRebuildInput {
   phone: string;
   notes: string | null;
   quantities: Record<string, unknown>;
+  /** Explicit deposit in USD. Clamped to [0, order total] on rebuild. */
+  depositAmount?: number;
 }
 
 type OrderComputedBody = Pick<
@@ -167,8 +173,9 @@ function pushRevision(order: StoredOrder, entry: OrderRevisionEntry): void {
 }
 
 /**
- * Recompute line items and totals from admin input. Preserves id, createdAt, status, deliverySlot,
- * and deposit.selected (recalculates deposit amount only if deposit was selected at checkout).
+ * Recompute line items and totals from admin input. Preserves id, createdAt, status, deliverySlot.
+ * When `input.depositAmount` is set, applies that dollar deposit (clamped to the order total).
+ * Otherwise keeps `deposit.selected` and recalculates the 10% checkout deposit.
  */
 export function rebuildStoredOrder(
   existing: StoredOrder,
@@ -186,14 +193,38 @@ export function rebuildStoredOrder(
   };
 
   const body = computeOrderBody(buildInput, skuMap);
+
+  if (input.depositAmount !== undefined) {
+    const depositAmount =
+      Math.round(Math.max(0, Math.min(input.depositAmount, body.discountedSubtotal)) * 100) / 100;
+    const depositSelected = depositAmount > 0;
+    body.deposit = {
+      selected: depositSelected,
+      rate: 0.1,
+      amount: depositAmount,
+    };
+    body.depositAmount = depositAmount;
+    body.balanceDue = Math.round((body.discountedSubtotal - depositAmount) * 100) / 100;
+  }
+
   const now = new Date().toISOString();
 
   const entry: OrderRevisionEntry = {
     at: now,
     action: 'rebuild',
-    summary: 'Order details updated (quantities, customer, and/or notes). Deposit-at-checkout flag unchanged.',
+    summary:
+      input.depositAmount !== undefined
+        ? 'Order details updated (quantities, customer, notes, and/or deposit amount).'
+        : 'Order details updated (quantities, customer, and/or notes). Deposit-at-checkout flag unchanged.',
     details: {
-      depositSelectedUnchanged: existing.deposit.selected,
+      depositBefore: {
+        selected: existing.deposit.selected,
+        amount: existing.depositAmount,
+      },
+      depositAfter: {
+        selected: body.deposit.selected,
+        amount: body.depositAmount,
+      },
       totals: {
         before: existing.discountedSubtotal,
         after: body.discountedSubtotal,
@@ -438,6 +469,14 @@ export function adminRebuildMatchesExisting(existing: StoredOrder, input: AdminO
     const have = existing.items.find((i) => i.fieldName === key)?.quantity ?? 0;
     if (want !== have) return false;
   }
+
+  if (input.depositAmount !== undefined) {
+    const want =
+      Math.round(Math.max(0, Math.min(input.depositAmount, existing.discountedSubtotal)) * 100) / 100;
+    if (want !== existing.depositAmount) return false;
+    if ((want > 0) !== existing.deposit.selected) return false;
+  }
+
   return true;
 }
 
@@ -459,7 +498,8 @@ export function parseAdminRebuildPayload(r: Record<string, unknown>): AdminOrder
       : String(notesRaw).trim()
         ? String(notesRaw).trim()
         : null;
-  return {
+
+  const out: AdminOrderRebuildInput = {
     firstName,
     lastName,
     email,
@@ -467,6 +507,16 @@ export function parseAdminRebuildPayload(r: Record<string, unknown>): AdminOrder
     notes,
     quantities: quantities as Record<string, unknown>,
   };
+
+  if ('depositAmount' in r && r.depositAmount !== undefined && r.depositAmount !== null && r.depositAmount !== '') {
+    const n = Number(r.depositAmount);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new Error('Deposit amount must be a number greater than or equal to 0');
+    }
+    out.depositAmount = Math.round(n * 100) / 100;
+  }
+
+  return out;
 }
 
 export function summarizeItemsForNtfy(items: OrderLineItem[]): string {
