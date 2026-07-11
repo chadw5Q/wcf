@@ -32,6 +32,12 @@ const qtyLabels: Record<string, string> = Object.fromEntries(
   })
 );
 
+const catalogPrices: Record<string, number> = Object.fromEntries(
+  ORDER_QUANTITY_KEYS.map((k) => [k, skuMap[k]?.unitPrice ?? 0])
+);
+
+const qtyInitial = order ? initialQuantities(order) : {};
+
 const revisionNewestFirst = order
   ? [...(order.revisionLog ?? [])].reverse()
   : [];
@@ -58,211 +64,253 @@ const revisionNewestFirst = order
   {
     order && (
       <>
-        <div class="no-print mb-6 flex flex-wrap items-center gap-4">
-          <a href="/admin/all-orders" class="text-sm font-medium text-green-700 hover:text-green-900">
-            ← All orders
-          </a>
-          <button
-            type="button"
-            id="print-order"
-            class="rounded border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-          >
-            Print
-          </button>
-          <button
-            type="button"
-            id="delete-order"
-            class="rounded border border-red-200 bg-white px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
-            data-order-id={order.id}
-            data-customer-name={order.customer.name}
-          >
-            Delete order
-          </button>
-        </div>
+        <div
+          id="order-page"
+          class="order-page"
+          data-mode="view"
+          data-deposit-selected={order.deposit.selected ? '1' : '0'}
+          data-catalog-prices={JSON.stringify(catalogPrices)}
+        >
+          {/* Sticky action bar */}
+          <div class="no-print sticky top-0 z-20 -mx-4 mb-6 border-b border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-slate-50/80">
+            <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-2">
+              <a
+                href="/admin/all-orders"
+                class="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                ← All orders
+              </a>
 
-        <div class="print-break rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:border print:shadow-none">
-          <div class="mb-6 flex flex-wrap justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h1 class="text-2xl font-bold text-slate-900">Order</h1>
-              <p class="mt-1 font-mono text-sm text-slate-600">{order.id}</p>
-              <p class="text-sm text-slate-600">
-                Placed: <span class="font-medium text-slate-800">{formatCentralDateTime(order.createdAt)}</span> (Central)
-              </p>
-              {order.updatedAt && (
-                <p class="text-sm text-slate-500">
-                  Last updated: {formatCentralDateTime(order.updatedAt)} (Central)
-                </p>
-              )}
-            </div>
-            <div class="text-right text-sm text-slate-600">
-              <div>
-                Status: <span class="font-semibold capitalize text-slate-900">{order.status}</span>
-              </div>
-              {order.deliverySlot && (
-                <div class="mt-1">
-                  Delivery / pickup slot:{' '}
-                  <span class="font-medium text-slate-800">{order.deliverySlot}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div class="grid gap-8 md:grid-cols-2 print-break">
-            <div>
-              <h2 class="mb-2 text-lg font-semibold text-slate-900">Customer</h2>
-              <ul class="space-y-1 text-slate-700">
-                <li>{order.customer.name}</li>
-                <li>
-                  <a href={`mailto:${order.customer.email}`} class="text-green-700 hover:underline">
-                    {order.customer.email}
-                  </a>
-                </li>
-                <li>{order.customer.phone || '—'}</li>
-              </ul>
-            </div>
-            <div>
-              <h2 class="mb-2 text-lg font-semibold text-slate-900">Totals</h2>
-              <ul class="space-y-1 text-sm text-slate-700">
-                <li class="flex justify-between gap-4">
-                  <span>Subtotal</span>
-                  <span class="tabular-nums">{formatUsd(order.subtotal)}</span>
-                </li>
-                {order.volumeDiscount.applied && (
-                  <li class="flex justify-between gap-4 text-green-800">
-                    <span>Volume discount (10%)</span>
-                    <span class="tabular-nums">−{formatUsd(order.volumeDiscount.amount)}</span>
-                  </li>
-                )}
-                <li class="flex justify-between gap-4 font-semibold text-slate-900">
-                  <span>Order total</span>
-                  <span class="tabular-nums">{formatUsd(order.discountedSubtotal)}</span>
-                </li>
-                <li class="flex justify-between gap-4">
-                  <span>Deposit selected at checkout</span>
-                  <span class="tabular-nums">
-                    {order.deposit.selected ? `Yes — ${formatUsd(order.depositAmount)}` : 'No'}
-                  </span>
-                </li>
-                <li class="text-xs text-slate-500">
-                  Stripe capture is not shown here; check the Stripe dashboard for paid deposits.
-                </li>
-                <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
-                  <span>Balance due (estimated)</span>
-                  <span class="tabular-nums">{formatUsd(order.balanceDue)}</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          <div class="mt-8 print-break">
-            <h2 class="mb-3 text-lg font-semibold text-slate-900">Line items</h2>
-            <table class="w-full text-sm">
-              <thead class="border-b border-slate-200 text-left text-slate-600">
-                <tr>
-                  <th class="py-2 pr-4 font-medium">Product</th>
-                  <th class="py-2 pr-4 font-medium">Qty</th>
-                  <th class="py-2 pr-4 font-medium">Unit</th>
-                  <th class="py-2 font-medium">Line</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100" id="line-items-body">
-                {order.items.map((i) => (
-                  <tr>
-                    <td class="py-2 pr-4">{i.product}</td>
-                    <td class="py-2 pr-4 tabular-nums">{i.quantity}</td>
-                    <td class="py-2 pr-4 tabular-nums">{formatUsd(i.unitPrice)}</td>
-                    <td class="py-2 tabular-nums font-medium">{formatUsd(i.lineTotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-8 print-break rounded border border-slate-100 bg-slate-50 p-4">
-            <h2 class="mb-2 font-semibold text-slate-900">Notes</h2>
-            <p class="whitespace-pre-wrap text-slate-700">{order.notes || '—'}</p>
-          </div>
-
-          <div class="no-print mt-10 border-t border-slate-200 pt-8">
-            <h2 class="mb-2 text-lg font-semibold text-slate-900">Status & pickup</h2>
-            <p class="mb-4 text-sm text-slate-600">Update order status and delivery or pickup slot without opening the full editor.</p>
-            <form id="meta-form" class="max-w-xl space-y-4">
-              <input type="hidden" name="id" value={order.id} />
-              <div>
-                <label for="meta-status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-                <select
-                  id="meta-status"
-                  name="status"
-                  class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
+              <div class="view-only flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  id="print-order"
+                  class="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                 >
-                  <option value="pending" selected={order.status === 'pending'}>Pending</option>
-                  <option value="scheduled" selected={order.status === 'scheduled'}>Scheduled</option>
-                  <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
-                </select>
+                  Print
+                </button>
+                <button
+                  type="button"
+                  id="enter-edit"
+                  class="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  id="delete-order"
+                  class="rounded border border-red-200 bg-white px-3 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  data-order-id={order.id}
+                  data-customer-name={order.customer.name}
+                >
+                  Delete
+                </button>
               </div>
-              <div>
-                <label for="meta-deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
-                  Delivery / pickup slot
-                </label>
-                <input
-                  id="meta-deliverySlot"
-                  name="deliverySlot"
-                  type="text"
-                  value={order.deliverySlot ?? ''}
-                  placeholder="e.g. Sat Apr 12, 9–11am"
-                  class="w-full rounded border border-slate-300 px-3 py-2 text-slate-900"
-                />
-              </div>
-              <p id="meta-save-msg" class="hidden text-sm"></p>
-              <button
-                type="submit"
-                class="rounded bg-green-700 px-4 py-2 font-medium text-white hover:bg-green-800"
-              >
-                Save status & pickup
-              </button>
-            </form>
 
-            <div class="mt-8 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-8">
-              <button
-                type="button"
-                id="toggle-order-body-edit"
-                class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
-              >
-                Edit Order
-              </button>
-              <p class="text-sm text-slate-500">Change customer info, quantities, and notes.</p>
+              <div class="edit-only flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  id="cancel-edit"
+                  class="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  form="order-edit-form"
+                  id="save-order"
+                  class="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+            <p id="edit-save-msg" class="mx-auto mt-2 hidden max-w-6xl text-sm" role="status" aria-live="polite"></p>
+          </div>
+
+          <div class="print-break rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6 print:border print:shadow-none">
+            <div class="mb-6 flex flex-wrap justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h1 class="text-2xl font-bold text-slate-900">Order</h1>
+                <p class="mt-1 break-all font-mono text-sm text-slate-600">{order.id}</p>
+                <p class="text-sm text-slate-600">
+                  Placed:{' '}
+                  <span class="font-medium text-slate-800">{formatCentralDateTime(order.createdAt)}</span>{' '}
+                  (Central)
+                </p>
+                {
+                  order.updatedAt && (
+                    <p class="text-sm text-slate-500">
+                      Last updated: {formatCentralDateTime(order.updatedAt)} (Central)
+                    </p>
+                  )
+                }
+              </div>
+              <div class="view-only text-sm text-slate-600 sm:text-right">
+                <div>
+                  Status:{' '}
+                  <span class="font-semibold capitalize text-slate-900">{order.status}</span>
+                </div>
+                {
+                  order.deliverySlot && (
+                    <div class="mt-1">
+                      Delivery / pickup:{' '}
+                      <span class="font-medium text-slate-800">{order.deliverySlot}</span>
+                    </div>
+                  )
+                }
+              </div>
             </div>
 
-            <div id="order-body-editor" class="hidden mt-6 max-w-2xl space-y-6 rounded-lg border border-slate-200 bg-slate-50/50 p-6">
-              <h3 class="text-lg font-semibold text-slate-900">Edit order details</h3>
-              <p class="text-sm text-slate-600">
-                Quantities and customer fields are recalculated on the server (same pricing rules as checkout). Deposit
-                at checkout is <strong>not</strong> editable. Status and pickup above apply when you save here too.
-              </p>
-              <form id="rebuild-form" class="space-y-6">
-                <input type="hidden" name="id" value={order.id} />
+            {/* —— View mode —— */}
+            <div class="view-only space-y-8">
+              <div class="grid gap-8 md:grid-cols-2 print-break">
+                <div>
+                  <h2 class="mb-2 text-lg font-semibold text-slate-900">Customer</h2>
+                  <ul class="space-y-1 text-slate-700">
+                    <li>{order.customer.name}</li>
+                    <li>
+                      <a
+                        href={`mailto:${order.customer.email}`}
+                        class="break-all text-green-700 hover:underline"
+                      >
+                        {order.customer.email}
+                      </a>
+                    </li>
+                    <li>
+                      {
+                        order.customer.phone ? (
+                          <a href={`tel:${order.customer.phone}`} class="text-green-700 hover:underline">
+                            {order.customer.phone}
+                          </a>
+                        ) : (
+                          '—'
+                        )
+                      }
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <h2 class="mb-2 text-lg font-semibold text-slate-900">Totals</h2>
+                  <ul class="space-y-1 text-sm text-slate-700">
+                    <li class="flex justify-between gap-4">
+                      <span>Subtotal</span>
+                      <span class="tabular-nums">{formatUsd(order.subtotal)}</span>
+                    </li>
+                    {
+                      order.volumeDiscount.applied && (
+                        <li class="flex justify-between gap-4 text-green-800">
+                          <span>Volume discount (10%)</span>
+                          <span class="tabular-nums">−{formatUsd(order.volumeDiscount.amount)}</span>
+                        </li>
+                      )
+                    }
+                    <li class="flex justify-between gap-4 font-semibold text-slate-900">
+                      <span>Order total</span>
+                      <span class="tabular-nums">{formatUsd(order.discountedSubtotal)}</span>
+                    </li>
+                    <li class="flex justify-between gap-4">
+                      <span>Deposit selected at checkout</span>
+                      <span class="tabular-nums">
+                        {order.deposit.selected ? `Yes — ${formatUsd(order.depositAmount)}` : 'No'}
+                      </span>
+                    </li>
+                    <li class="text-xs text-slate-500">
+                      Stripe capture is not shown here; check the Stripe dashboard for paid deposits.
+                    </li>
+                    <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
+                      <span>Balance due (estimated)</span>
+                      <span class="tabular-nums">{formatUsd(order.balanceDue)}</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
 
+              <div class="print-break">
+                <h2 class="mb-3 text-lg font-semibold text-slate-900">Line items</h2>
+                {/* Desktop table */}
+                <table class="hidden w-full text-sm md:table">
+                  <thead class="border-b border-slate-200 text-left text-slate-600">
+                    <tr>
+                      <th class="py-2 pr-4 font-medium">Product</th>
+                      <th class="py-2 pr-4 font-medium">Qty</th>
+                      <th class="py-2 pr-4 font-medium">Unit</th>
+                      <th class="py-2 font-medium">Line</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-100">
+                    {
+                      order.items.map((i) => (
+                        <tr>
+                          <td class="py-2 pr-4">{i.product}</td>
+                          <td class="py-2 pr-4 tabular-nums">{i.quantity}</td>
+                          <td class="py-2 pr-4 tabular-nums">{formatUsd(i.unitPrice)}</td>
+                          <td class="py-2 tabular-nums font-medium">{formatUsd(i.lineTotal)}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+                {/* Mobile cards */}
+                <ul class="space-y-3 md:hidden">
+                  {
+                    order.items.map((i) => (
+                      <li class="rounded-lg border border-slate-100 bg-slate-50/80 p-4">
+                        <p class="font-medium text-slate-900">{i.product}</p>
+                        <div class="mt-2 flex flex-wrap justify-between gap-2 text-sm text-slate-700">
+                          <span>
+                            Qty <span class="tabular-nums font-medium">{i.quantity}</span>
+                          </span>
+                          <span class="tabular-nums">{formatUsd(i.unitPrice)} each</span>
+                          <span class="font-semibold tabular-nums text-slate-900">
+                            {formatUsd(i.lineTotal)}
+                          </span>
+                        </div>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </div>
+
+              <div class="print-break rounded border border-slate-100 bg-slate-50 p-4">
+                <h2 class="mb-2 font-semibold text-slate-900">Notes</h2>
+                <p class="whitespace-pre-wrap text-slate-700">{order.notes || '—'}</p>
+              </div>
+            </div>
+
+            {/* —— Edit mode —— */}
+            <form id="order-edit-form" class="edit-only space-y-8" novalidate>
+              <input type="hidden" name="id" value={order.id} />
+
+              <fieldset class="space-y-4">
+                <legend class="mb-1 text-lg font-semibold text-slate-900">Customer</legend>
                 <div class="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">First name</label>
+                    <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">
+                      First name
+                    </label>
                     <input
                       id="firstName"
                       name="firstName"
                       type="text"
                       required
+                      autocomplete="given-name"
                       value={order.customer.firstName}
-                      class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                      class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
                     />
                   </div>
                   <div>
-                    <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">Last name</label>
+                    <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">
+                      Last name
+                    </label>
                     <input
                       id="lastName"
                       name="lastName"
                       type="text"
                       required
+                      autocomplete="family-name"
                       value={order.customer.lastName}
-                      class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                      class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
                     />
                   </div>
                 </div>
@@ -273,8 +321,10 @@ const revisionNewestFirst = order
                     name="email"
                     type="email"
                     required
+                    autocomplete="email"
+                    inputmode="email"
                     value={order.customer.email}
-                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
                   />
                 </div>
                 <div>
@@ -283,97 +333,312 @@ const revisionNewestFirst = order
                     id="phone"
                     name="phone"
                     type="tel"
+                    autocomplete="tel"
+                    inputmode="tel"
                     value={order.customer.phone}
-                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
                   />
                 </div>
+              </fieldset>
 
-                <div>
-                  <h4 class="mb-3 text-sm font-semibold text-slate-900">Quantities</h4>
-                  <div class="grid gap-3 sm:grid-cols-2">
-                    {ORDER_QUANTITY_KEYS.map((key) => {
+              <fieldset>
+                <legend class="mb-3 text-lg font-semibold text-slate-900">Line items</legend>
+                <p class="mb-4 text-sm text-slate-600">
+                  Set quantity to 0 to remove a line. Prices use the current catalog; deposit at checkout is not
+                  editable.
+                </p>
+                <ul class="space-y-3">
+                  {
+                    ORDER_QUANTITY_KEYS.map((key) => {
                       const disabled = skuMap[key]?.soldOut ?? false;
-                      const val = initialQuantities(order)[key];
+                      const val = qtyInitial[key] ?? 0;
+                      const unit = catalogPrices[key] ?? 0;
                       return (
-                        <div class={disabled ? 'opacity-60' : ''}>
-                          <label for={`qty-${key}`} class="mb-1 block text-xs font-medium text-slate-700">
-                            {qtyLabels[key] ?? key}
-                          </label>
-                          <input
-                            id={`qty-${key}`}
-                            name={`qty_${key}`}
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={disabled ? 0 : val}
-                            disabled={disabled}
-                            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900 disabled:bg-slate-100"
-                          />
-                        </div>
+                        <li
+                          class:list={[
+                            'rounded-lg border border-slate-200 bg-slate-50/80 p-4',
+                            disabled && 'opacity-60',
+                          ]}
+                          data-qty-card={key}
+                        >
+                          <div class="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p class="font-medium text-slate-900">{qtyLabels[key] ?? key}</p>
+                              <p class="mt-0.5 text-sm tabular-nums text-slate-600">
+                                {formatUsd(unit)} each
+                              </p>
+                            </div>
+                            <p
+                              class="text-sm font-semibold tabular-nums text-slate-900"
+                              data-line-total={key}
+                            >
+                              {formatUsd(disabled ? 0 : val * unit)}
+                            </p>
+                          </div>
+                          <div class="mt-3 flex items-center gap-2">
+                            <button
+                              type="button"
+                              class="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-xl font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-40"
+                              data-qty-dec={key}
+                              disabled={disabled}
+                              aria-label={`Decrease ${qtyLabels[key] ?? key}`}
+                            >
+                              −
+                            </button>
+                            <input
+                              id={`qty-${key}`}
+                              name={`qty_${key}`}
+                              type="number"
+                              min="0"
+                              step="1"
+                              inputmode="numeric"
+                              value={disabled ? 0 : val}
+                              disabled={disabled}
+                              data-qty-input={key}
+                              class="min-h-12 w-full min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-center text-base tabular-nums text-slate-900 disabled:bg-slate-100"
+                            />
+                            <button
+                              type="button"
+                              class="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-xl font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-40"
+                              data-qty-inc={key}
+                              disabled={disabled}
+                              aria-label={`Increase ${qtyLabels[key] ?? key}`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </li>
                       );
-                    })}
-                  </div>
-                </div>
+                    })
+                  }
+                </ul>
+              </fieldset>
 
-                <div>
-                  <label for="notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    rows="4"
-                    class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-slate-900"
-                  >
-                    {order.notes ?? ''}
-                  </textarea>
-                </div>
-
-                <p id="rebuild-save-msg" class="hidden text-sm"></p>
-                <button
-                  type="submit"
-                  class="rounded bg-green-700 px-4 py-2 font-medium text-white hover:bg-green-800"
-                >
-                  Save order details
-                </button>
-              </form>
-            </div>
-          </div>
-
-          {revisionNewestFirst.length > 0 && (
-            <div class="no-print mt-10 border-t border-slate-200 pt-8">
-              <h2 class="mb-4 text-lg font-semibold text-slate-900">Revision log</h2>
-              <p class="mb-4 text-sm text-slate-600">Newest first. Up to 100 entries are kept.</p>
-              <ul class="space-y-4">
-                {revisionNewestFirst.map((entry) => (
-                  <li class="rounded-lg border border-slate-100 bg-slate-50/80 p-4 text-sm">
-                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                      <span class="font-medium text-slate-900">{entry.summary}</span>
-                      <time class="text-xs text-slate-500 tabular-nums">{formatCentralDateTime(entry.at)}</time>
-                    </div>
-                    <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">{entry.action}</p>
-                    {entry.details && Object.keys(entry.details).length > 0 && (
-                      <details class="mt-2">
-                        <summary class="cursor-pointer text-xs font-medium text-green-800">Technical details</summary>
-                        <pre class="mt-2 max-h-48 overflow-auto rounded bg-white p-2 text-xs text-slate-700">{JSON.stringify(entry.details, null, 2)}</pre>
-                      </details>
-                    )}
+              <div class="rounded-lg border border-slate-200 bg-white p-4">
+                <h2 class="mb-2 text-lg font-semibold text-slate-900">Estimated totals</h2>
+                <ul class="space-y-1 text-sm text-slate-700">
+                  <li class="flex justify-between gap-4">
+                    <span>Subtotal</span>
+                    <span class="tabular-nums" data-est="subtotal">{formatUsd(order.subtotal)}</span>
                   </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                  <li class="flex justify-between gap-4 text-green-800" data-est-row="discount">
+                    <span>Volume discount (10%)</span>
+                    <span class="tabular-nums" data-est="discount">
+                      {order.volumeDiscount.applied
+                        ? `−${formatUsd(order.volumeDiscount.amount)}`
+                        : '—'}
+                    </span>
+                  </li>
+                  <li class="flex justify-between gap-4 font-semibold text-slate-900">
+                    <span>Order total</span>
+                    <span class="tabular-nums" data-est="total">
+                      {formatUsd(order.discountedSubtotal)}
+                    </span>
+                  </li>
+                  <li class="flex justify-between gap-4">
+                    <span>Deposit (at checkout)</span>
+                    <span class="tabular-nums" data-est="deposit">
+                      {order.deposit.selected ? formatUsd(order.depositAmount) : 'No'}
+                    </span>
+                  </li>
+                  <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
+                    <span>Balance due (estimated)</span>
+                    <span class="tabular-nums" data-est="balance">{formatUsd(order.balanceDue)}</span>
+                  </li>
+                </ul>
+                <p class="mt-2 text-xs text-slate-500">
+                  Final totals are recalculated on the server when you save (same rules as checkout).
+                </p>
+              </div>
+
+              <fieldset class="space-y-4">
+                <legend class="mb-1 text-lg font-semibold text-slate-900">Status & pickup</legend>
+                <div>
+                  <label for="meta-status" class="mb-1 block text-sm font-medium text-slate-700">
+                    Status
+                  </label>
+                  <select
+                    id="meta-status"
+                    name="status"
+                    class="min-h-12 w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
+                  >
+                    <option value="pending" selected={order.status === 'pending'}>Pending</option>
+                    <option value="scheduled" selected={order.status === 'scheduled'}>Scheduled</option>
+                    <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="meta-deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
+                    Delivery / pickup slot
+                  </label>
+                  <input
+                    id="meta-deliverySlot"
+                    name="deliverySlot"
+                    type="text"
+                    value={order.deliverySlot ?? ''}
+                    placeholder="e.g. Sat Apr 12, 9–11am"
+                    class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
+                  />
+                </div>
+              </fieldset>
+
+              <div>
+                <label for="notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  rows="4"
+                  class="w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
+                >{order.notes ?? ''}</textarea>
+              </div>
+            </form>
+
+            {
+              revisionNewestFirst.length > 0 && (
+                <div class="view-only no-print mt-10 border-t border-slate-200 pt-8">
+                  <h2 class="mb-4 text-lg font-semibold text-slate-900">Revision log</h2>
+                  <p class="mb-4 text-sm text-slate-600">Newest first. Up to 100 entries are kept.</p>
+                  <ul class="space-y-4">
+                    {revisionNewestFirst.map((entry) => (
+                      <li class="rounded-lg border border-slate-100 bg-slate-50/80 p-4 text-sm">
+                        <div class="flex flex-wrap items-baseline justify-between gap-2">
+                          <span class="font-medium text-slate-900">{entry.summary}</span>
+                          <time class="text-xs tabular-nums text-slate-500">
+                            {formatCentralDateTime(entry.at)}
+                          </time>
+                        </div>
+                        <p class="mt-1 text-xs uppercase tracking-wide text-slate-500">{entry.action}</p>
+                        {entry.details && Object.keys(entry.details).length > 0 && (
+                          <details class="mt-2">
+                            <summary class="cursor-pointer text-xs font-medium text-green-800">
+                              Technical details
+                            </summary>
+                            <pre class="mt-2 max-h-48 overflow-auto rounded bg-white p-2 text-xs text-slate-700">
+                              {JSON.stringify(entry.details, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )
+            }
+          </div>
         </div>
+
+        <style>
+          .order-page[data-mode='view'] .edit-only {
+            display: none !important;
+          }
+          .order-page[data-mode='edit'] .view-only {
+            display: none !important;
+          }
+        </style>
 
         <script>
           import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
+
+          const page = document.getElementById('order-page');
+          const form = document.getElementById('order-edit-form');
+          const msgEl = document.getElementById('edit-save-msg');
+
+          function formatUsd(n: number): string {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+          }
+
+          function setMode(mode: 'view' | 'edit') {
+            if (!page) return;
+            page.dataset.mode = mode;
+            if (mode === 'edit') {
+              document.getElementById('firstName')?.focus();
+              updateEstimates();
+            }
+            if (msgEl) {
+              msgEl.classList.add('hidden');
+              msgEl.textContent = '';
+            }
+          }
+
+          function showMsg(ok: boolean, text: string) {
+            if (!msgEl) return;
+            msgEl.classList.remove('hidden', 'text-red-600', 'text-green-800');
+            msgEl.classList.add(ok ? 'text-green-800' : 'text-red-600');
+            msgEl.textContent = text;
+          }
+
+          function getCatalogPrices(): Record<string, number> {
+            try {
+              const raw = page?.dataset.catalogPrices;
+              if (!raw) return {};
+              return JSON.parse(raw) as Record<string, number>;
+            } catch {
+              return {};
+            }
+          }
+
+          function updateEstimates() {
+            if (!(form instanceof HTMLFormElement)) return;
+            const prices = getCatalogPrices();
+            const depositSelected = page?.dataset.depositSelected === '1';
+            let subtotal = 0;
+            let postCount = 0;
+
+            for (const key of ORDER_QUANTITY_KEYS) {
+              const el = form.querySelector(`[data-qty-input="${key}"]`);
+              const qty =
+                el instanceof HTMLInputElement && !el.disabled
+                  ? Math.max(0, parseInt(el.value, 10) || 0)
+                  : 0;
+              const unit = prices[key] ?? 0;
+              const line = Math.round(qty * unit * 100) / 100;
+              subtotal += line;
+              if (key !== 'bowStave') postCount += qty;
+
+              const lineEl = document.querySelector(`[data-line-total="${key}"]`);
+              if (lineEl) lineEl.textContent = formatUsd(line);
+            }
+
+            subtotal = Math.round(subtotal * 100) / 100;
+            const volumeApplied = postCount >= 100;
+            const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+            const total = Math.round((subtotal - discountAmount) * 100) / 100;
+            const depositAmount =
+              depositSelected && total > 0 ? Math.round(total * 0.1 * 100) / 100 : 0;
+            const balance = Math.round((total - depositAmount) * 100) / 100;
+
+            const set = (name: string, text: string) => {
+              const el = document.querySelector(`[data-est="${name}"]`);
+              if (el) el.textContent = text;
+            };
+            set('subtotal', formatUsd(subtotal));
+            set('discount', volumeApplied ? `−${formatUsd(discountAmount)}` : '—');
+            set('total', formatUsd(total));
+            set('deposit', depositSelected ? formatUsd(depositAmount) : 'No');
+            set('balance', formatUsd(balance));
+
+            const discountRow = document.querySelector('[data-est-row="discount"]');
+            if (discountRow instanceof HTMLElement) {
+              discountRow.classList.toggle('opacity-40', !volumeApplied);
+            }
+          }
+
+          document.getElementById('enter-edit')?.addEventListener('click', () => setMode('edit'));
+
+          document.getElementById('cancel-edit')?.addEventListener('click', () => {
+            if (form instanceof HTMLFormElement) form.reset();
+            setMode('view');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          });
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
 
           document.getElementById('delete-order')?.addEventListener('click', async () => {
             const btn = document.getElementById('delete-order');
             if (!(btn instanceof HTMLButtonElement)) return;
-            const id = btn.dataset.orderId?.trim();
+            const orderId = btn.dataset.orderId?.trim();
             const name = (btn.dataset.customerName || 'this customer').trim() || 'this customer';
-            if (!id) return;
+            if (!orderId) return;
             const ok = window.confirm(
               `Delete order for ${name}?\n\nThis permanently removes the order from your dashboard. This cannot be undone.`
             );
@@ -382,74 +647,51 @@ const revisionNewestFirst = order
             const res = await fetch('/api/admin/delete-order', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id }),
+              body: JSON.stringify({ id: orderId }),
             });
             const data = await res.json().catch(() => ({}));
             if (res.ok) {
-              window.location.href = '/admin';
+              window.location.href = '/admin/all-orders';
             } else {
               window.alert(data.error || data.details || 'Delete failed.');
               btn.disabled = false;
             }
           });
 
-          const orderBodyEditor = document.getElementById('order-body-editor');
-          const toggleEditBtn = document.getElementById('toggle-order-body-edit');
-          toggleEditBtn?.addEventListener('click', () => {
-            orderBodyEditor?.classList.toggle('hidden');
-            const open = orderBodyEditor && !orderBodyEditor.classList.contains('hidden');
-            if (toggleEditBtn) {
-              toggleEditBtn.textContent = open ? 'Hide order details' : 'Edit Order';
+          form?.addEventListener('click', (e) => {
+            const t = e.target;
+            if (!(t instanceof Element)) return;
+            const dec = t.closest('[data-qty-dec]');
+            const inc = t.closest('[data-qty-inc]');
+            const key =
+              (dec instanceof HTMLElement && dec.dataset.qtyDec) ||
+              (inc instanceof HTMLElement && inc.dataset.qtyInc) ||
+              '';
+            if (!key) return;
+            const input = form.querySelector(`[data-qty-input="${key}"]`);
+            if (!(input instanceof HTMLInputElement) || input.disabled) return;
+            let n = Math.max(0, parseInt(input.value, 10) || 0);
+            if (dec) n = Math.max(0, n - 1);
+            if (inc) n = n + 1;
+            input.value = String(n);
+            updateEstimates();
+          });
+
+          form?.addEventListener('input', (e) => {
+            const t = e.target;
+            if (t instanceof HTMLInputElement && t.matches('[data-qty-input]')) {
+              updateEstimates();
             }
           });
 
-          function showMsg(el: HTMLElement | null, ok: boolean, text: string, reload: boolean) {
-            if (!el) return;
-            el.classList.remove('hidden', 'text-red-600', 'text-green-800');
-            el.classList.add(ok ? 'text-green-800' : 'text-red-600');
-            el.textContent = text;
-            if (ok && reload) window.location.reload();
-          }
-
-          document.getElementById('meta-form')?.addEventListener('submit', async (e) => {
+          form?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const form = e.target;
             if (!(form instanceof HTMLFormElement)) return;
-            const idEl = form.querySelector('[name="id"]');
-            const statusEl = document.getElementById('meta-status');
-            const slotEl = document.getElementById('meta-deliverySlot');
-            const msg = document.getElementById('meta-save-msg');
-            if (!(idEl instanceof HTMLInputElement) || !(statusEl instanceof HTMLSelectElement)) return;
-            const slot =
-              slotEl instanceof HTMLInputElement ? slotEl.value.trim() || null : null;
-            const body = {
-              id: idEl.value,
-              status: statusEl.value,
-              deliverySlot: slot,
-            };
-            const res = await fetch('/api/admin/update-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok) {
-              showMsg(
-                msg,
-                true,
-                data.unchanged ? 'No changes to save.' : 'Saved.',
-                !data.unchanged
-              );
-            } else {
-              showMsg(msg, false, data.error || data.details || 'Save failed.', false);
-            }
-          });
+            if (!form.reportValidity()) return;
 
-          document.getElementById('rebuild-form')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            if (!(form instanceof HTMLFormElement)) return;
-            const msg = document.getElementById('rebuild-save-msg');
+            const saveBtn = document.getElementById('save-order');
+            if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = true;
+
             const idEl = form.querySelector('[name="id"]');
             if (!(idEl instanceof HTMLInputElement)) return;
 
@@ -487,21 +729,29 @@ const revisionNewestFirst = order
               },
             };
 
-            const res = await fetch('/api/admin/update-order', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (res.ok) {
-              showMsg(
-                msg,
-                true,
-                data.unchanged ? 'No changes to save.' : 'Saved.',
-                !data.unchanged
-              );
-            } else {
-              showMsg(msg, false, data.error || data.details || 'Save failed.', false);
+            try {
+              const res = await fetch('/api/admin/update-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok) {
+                if (data.unchanged) {
+                  showMsg(true, 'No changes to save.');
+                  setMode('view');
+                  if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+                } else {
+                  showMsg(true, 'Saved.');
+                  window.location.reload();
+                }
+              } else {
+                showMsg(false, data.error || data.details || 'Save failed.');
+                if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+              }
+            } catch {
+              showMsg(false, 'Save failed (network error).');
+              if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
             }
           });
         </script>
@@ -509,4 +759,3 @@ const revisionNewestFirst = order
     )
   }
 </AdminLayout>
-
