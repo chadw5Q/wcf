@@ -80,8 +80,8 @@ export function buildOrderReceiptHtml(order: StoredOrder): string {
 </head>
 <body>
   <div class="header">
-    <h1>Order receipt</h1>
-    <p>Southwest Iowa Hedge</p>
+    <h1>Thank you for your order</h1>
+    <p><a href="https://williamscreekfarms.com/" style="color:#ffffff;text-decoration:underline;">Williams Creek Farms</a></p>
   </div>
   <div class="content">
     <p><strong>Order ID:</strong> <code>${escapeHtmlText(order.id)}</code></p>
@@ -119,7 +119,7 @@ export function buildOrderReceiptHtml(order: StoredOrder): string {
 
     ${notesBlock}
 
-    <p style="margin-top:24px;color:#666;font-size:0.9em;">— Southwest Iowa Hedge · 712-254-3999</p>
+    <p style="margin-top:24px;color:#666;font-size:0.9em;">— <a href="https://williamscreekfarms.com/" style="color:#15803d;">Southwest Iowa Hedge</a> · 712-254-3999</p>
   </div>
 </body>
 </html>`;

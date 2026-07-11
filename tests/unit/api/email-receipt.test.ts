@@ -131,7 +131,9 @@ describe('POST /api/admin/email-receipt', () => {
     const adminCall = mockSend.mock.calls[1][0];
     expect(customerCall.to).toEqual(['jane@example.com']);
     expect(adminCall.to).toEqual(['owner@test.com']);
-    expect(customerCall.html).toContain('Order receipt');
+    expect(customerCall.html).toContain('Thank you for your order');
+    expect(customerCall.html).toContain('https://williamscreekfarms.com/');
+    expect(customerCall.html).toContain('Williams Creek Farms');
     expect(customerCall.html).toContain('Jane Doe');
     expect(customerCall.html).toContain('Premium Line Posts');
   });

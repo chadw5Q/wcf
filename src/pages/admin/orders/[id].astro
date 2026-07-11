@@ -137,6 +137,32 @@ const revisionNewestFirst = order
                 </button>
               </div>
             </div>
+
+            <div class="mx-auto mt-3 flex max-w-6xl flex-wrap items-end gap-2">
+              <div class="min-w-[10rem] flex-1 sm:max-w-xs">
+                <label for="meta-status" class="mb-1 block text-xs font-medium text-slate-600">
+                  Status
+                </label>
+                <select
+                  id="meta-status"
+                  name="status"
+                  form="order-edit-form"
+                  class="min-h-11 w-full rounded border border-slate-300 bg-white px-3 py-2 text-base text-slate-900"
+                >
+                  <option value="pending" selected={order.status === 'pending'}>Pending</option>
+                  <option value="scheduled" selected={order.status === 'scheduled'}>Scheduled</option>
+                  <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                id="save-status"
+                data-order-id={order.id}
+                class="min-h-11 rounded bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900 disabled:opacity-50"
+              >
+                Save status
+              </button>
+            </div>
             <p id="edit-save-msg" class="mx-auto mt-2 hidden max-w-6xl text-sm" role="status" aria-live="polite"></p>
           </div>
 
@@ -159,13 +185,9 @@ const revisionNewestFirst = order
                 }
               </div>
               <div class="view-only text-sm text-slate-600 sm:text-right">
-                <div>
-                  Status:{' '}
-                  <span class="font-semibold capitalize text-slate-900">{order.status}</span>
-                </div>
                 {
                   order.deliverySlot && (
-                    <div class="mt-1">
+                    <div>
                       Delivery / pickup:{' '}
                       <span class="font-medium text-slate-800">{order.deliverySlot}</span>
                     </div>
@@ -464,21 +486,7 @@ const revisionNewestFirst = order
               </div>
 
               <fieldset class="space-y-4">
-                <legend class="mb-1 text-lg font-semibold text-slate-900">Status & pickup</legend>
-                <div>
-                  <label for="meta-status" class="mb-1 block text-sm font-medium text-slate-700">
-                    Status
-                  </label>
-                  <select
-                    id="meta-status"
-                    name="status"
-                    class="min-h-12 w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
-                  >
-                    <option value="pending" selected={order.status === 'pending'}>Pending</option>
-                    <option value="scheduled" selected={order.status === 'scheduled'}>Scheduled</option>
-                    <option value="fulfilled" selected={order.status === 'fulfilled'}>Fulfilled</option>
-                  </select>
-                </div>
+                <legend class="mb-1 text-lg font-semibold text-slate-900">Pickup</legend>
                 <div>
                   <label for="meta-deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
                     Delivery / pickup slot
@@ -645,6 +653,38 @@ const revisionNewestFirst = order
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
 
+          document.getElementById('save-status')?.addEventListener('click', async () => {
+            const btn = document.getElementById('save-status');
+            const statusEl = document.getElementById('meta-status');
+            if (!(btn instanceof HTMLButtonElement) || !(statusEl instanceof HTMLSelectElement)) return;
+            const orderId = btn.dataset.orderId?.trim();
+            if (!orderId) return;
+            btn.disabled = true;
+            try {
+              const res = await fetch('/api/admin/update-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: orderId, status: statusEl.value }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (res.ok) {
+                if (data.unchanged) {
+                  showMsg(true, 'Status unchanged.');
+                  btn.disabled = false;
+                } else {
+                  showMsg(true, 'Status saved.');
+                  window.location.reload();
+                }
+              } else {
+                showMsg(false, data.error || data.details || 'Could not save status.');
+                btn.disabled = false;
+              }
+            } catch {
+              showMsg(false, 'Could not save status (network error).');
+              btn.disabled = false;
+            }
+          });
+
           document.getElementById('email-receipt')?.addEventListener('click', async () => {
             const btn = document.getElementById('email-receipt');
             if (!(btn instanceof HTMLButtonElement)) return;
@@ -668,7 +708,8 @@ const revisionNewestFirst = order
                 const customer = data.sentTo?.customer || 'customer';
                 const admin = data.sentTo?.admin || 'admin';
                 showMsg(true, `Receipt emailed to ${customer} and ${admin}.`);
-                btn.textContent = 'Sent';
+                btn.disabled = false;
+                btn.textContent = prevLabel || 'Email receipt';
               } else {
                 showMsg(false, data.error || data.details || 'Email failed.');
                 btn.disabled = false;
