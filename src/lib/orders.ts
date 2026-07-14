@@ -165,6 +165,68 @@ export function buildStoredOrder(
   };
 }
 
+export interface WalkInOrderInput extends AdminOrderRebuildInput {
+  status?: OrderStatus;
+  deliverySlot?: string | null;
+}
+
+/**
+ * Create an admin walk-in order (no public checkout / schedule email).
+ * Defaults status to `fulfilled`. Applies optional dollar deposit and pickup slot.
+ */
+export function createWalkInStoredOrder(
+  input: WalkInOrderInput,
+  id: string,
+  createdAt: string,
+  skuMap: OrderSkuMap
+): StoredOrder {
+  const depositAmountRaw = input.depositAmount ?? 0;
+  const order = buildStoredOrder(
+    {
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email,
+      phone: input.phone,
+      notes: input.notes,
+      depositSelected: depositAmountRaw > 0,
+      quantities: input.quantities,
+    },
+    id,
+    createdAt,
+    skuMap
+  );
+
+  const depositAmount =
+    Math.round(Math.max(0, Math.min(depositAmountRaw, order.discountedSubtotal)) * 100) / 100;
+  order.deposit = {
+    selected: depositAmount > 0,
+    rate: 0.1,
+    amount: depositAmount,
+  };
+  order.depositAmount = depositAmount;
+  order.balanceDue = Math.round((order.discountedSubtotal - depositAmount) * 100) / 100;
+
+  const status: OrderStatus = input.status ?? 'fulfilled';
+  if (!['pending', 'scheduled', 'fulfilled'].includes(status)) {
+    throw new Error('Invalid status');
+  }
+  order.status = status;
+  order.deliverySlot = input.deliverySlot?.trim() ? input.deliverySlot.trim() : null;
+
+  pushRevision(order, {
+    at: createdAt,
+    action: 'meta',
+    summary: 'Walk-in order created (no schedule email).',
+    details: {
+      source: 'admin_walk_in',
+      status: order.status,
+      depositAmount: order.depositAmount,
+    },
+  });
+
+  return order;
+}
+
 function pushRevision(order: StoredOrder, entry: OrderRevisionEntry): void {
   const log = order.revisionLog ?? [];
   log.push(entry);

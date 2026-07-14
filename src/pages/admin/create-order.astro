@@ -1,0 +1,410 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { ORDER_QUANTITY_KEYS } from '../../lib/order-form-keys';
+import { formatUsd } from '../../lib/format-order';
+import { getProductsConfig, orderSkusToMap } from '../../lib/products-config';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const productsConfig = await getProductsConfig(kv);
+const skuMap = orderSkusToMap(productsConfig.orderSkus);
+
+const qtyLabels: Record<string, string> = Object.fromEntries(
+  ORDER_QUANTITY_KEYS.map((k) => {
+    const row = skuMap[k];
+    const label = row?.label ?? k;
+    return [k, row?.soldOut ? `${label} (sold out)` : label];
+  })
+);
+
+const catalogPrices: Record<string, number> = Object.fromEntries(
+  ORDER_QUANTITY_KEYS.map((k) => [k, skuMap[k]?.unitPrice ?? 0])
+);
+---
+
+<AdminLayout title="Create order — Admin">
+  <p class="mb-4 text-sm text-slate-600">
+    <a href="/admin" class="font-medium text-green-700 hover:text-green-900">← Admin home</a>
+  </p>
+
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>ORDERS_KV is not bound.</strong> Saving is disabled until KV is available.
+      </div>
+    )
+  }
+
+  <h1 class="mb-2 text-2xl font-bold text-slate-900">Create order</h1>
+  <p class="mb-6 max-w-2xl text-sm text-slate-600">
+    Walk-in order: saves to admin only. No schedule email. Use <strong>Email receipt</strong> on the
+    order page after Fulfilled.
+  </p>
+
+  <form
+    id="create-order-form"
+    class="space-y-8"
+    data-catalog-prices={JSON.stringify(catalogPrices)}
+    novalidate
+  >
+    <fieldset class="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <legend class="px-1 text-lg font-semibold text-slate-900">Customer</legend>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">First name</label>
+          <input
+            id="firstName"
+            name="firstName"
+            type="text"
+            required
+            autocomplete="given-name"
+            class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+          />
+        </div>
+        <div>
+          <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">Last name</label>
+          <input
+            id="lastName"
+            name="lastName"
+            type="text"
+            required
+            autocomplete="family-name"
+            class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+          />
+        </div>
+      </div>
+      <div>
+        <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          required
+          autocomplete="email"
+          inputmode="email"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+      </div>
+      <div>
+        <label for="phone" class="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          autocomplete="tel"
+          inputmode="tel"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+      </div>
+    </fieldset>
+
+    <fieldset class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <legend class="mb-3 px-1 text-lg font-semibold text-slate-900">Line items</legend>
+      <ul class="space-y-3">
+        {
+          ORDER_QUANTITY_KEYS.map((key) => {
+            const disabled = skuMap[key]?.soldOut ?? false;
+            const unit = catalogPrices[key] ?? 0;
+            return (
+              <li
+                class:list={[
+                  'rounded-lg border border-slate-200 bg-slate-50/80 p-4',
+                  disabled && 'opacity-60',
+                ]}
+              >
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p class="font-medium text-slate-900">{qtyLabels[key] ?? key}</p>
+                    <p class="mt-0.5 text-sm tabular-nums text-slate-600">{formatUsd(unit)} each</p>
+                  </div>
+                  <p class="text-sm font-semibold tabular-nums text-slate-900" data-line-total={key}>
+                    {formatUsd(0)}
+                  </p>
+                </div>
+                <div class="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-xl font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-40"
+                    data-qty-dec={key}
+                    disabled={disabled}
+                    aria-label={`Decrease ${qtyLabels[key] ?? key}`}
+                  >
+                    −
+                  </button>
+                  <input
+                    id={`qty-${key}`}
+                    name={`qty_${key}`}
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputmode="numeric"
+                    value={0}
+                    disabled={disabled}
+                    data-qty-input={key}
+                    class="min-h-12 w-full min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-center text-base tabular-nums text-slate-900 disabled:bg-slate-100"
+                  />
+                  <button
+                    type="button"
+                    class="flex h-12 w-12 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-xl font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-40"
+                    data-qty-inc={key}
+                    disabled={disabled}
+                    aria-label={`Increase ${qtyLabels[key] ?? key}`}
+                  >
+                    +
+                  </button>
+                </div>
+              </li>
+            );
+          })
+        }
+      </ul>
+    </fieldset>
+
+    <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900">Totals</h2>
+      <ul class="space-y-2 text-sm text-slate-700">
+        <li class="flex justify-between gap-4">
+          <span>Subtotal</span>
+          <span class="tabular-nums" data-est="subtotal">{formatUsd(0)}</span>
+        </li>
+        <li class="flex justify-between gap-4 text-green-800" data-est-row="discount">
+          <span>Volume discount (10%)</span>
+          <span class="tabular-nums" data-est="discount">—</span>
+        </li>
+        <li class="flex justify-between gap-4 font-semibold text-slate-900">
+          <span>Order total</span>
+          <span class="tabular-nums" data-est="total">{formatUsd(0)}</span>
+        </li>
+        <li class="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+          <label for="depositAmount" class="font-medium text-slate-800">Deposit (USD)</label>
+          <input
+            id="depositAmount"
+            name="depositAmount"
+            type="number"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            value="0"
+            class="min-h-11 w-full rounded border border-slate-300 bg-white px-3 py-2 text-base tabular-nums text-slate-900 sm:max-w-[10rem] sm:text-right"
+          />
+        </li>
+        <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
+          <span>Balance due</span>
+          <span class="tabular-nums" data-est="balance">{formatUsd(0)}</span>
+        </li>
+      </ul>
+    </div>
+
+    <fieldset class="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <legend class="px-1 text-lg font-semibold text-slate-900">Status & pickup</legend>
+      <div>
+        <label for="status" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
+        <select
+          id="status"
+          name="status"
+          class="min-h-12 w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
+        >
+          <option value="fulfilled" selected>Fulfilled</option>
+          <option value="pending">Pending</option>
+          <option value="scheduled">Scheduled</option>
+        </select>
+      </div>
+      <div>
+        <label for="deliverySlot" class="mb-1 block text-sm font-medium text-slate-700">
+          Delivery / pickup slot
+        </label>
+        <input
+          id="deliverySlot"
+          name="deliverySlot"
+          type="text"
+          placeholder="e.g. Sat Apr 12, 9–11am"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+      </div>
+      <div>
+        <label for="notes" class="mb-1 block text-sm font-medium text-slate-700">Notes</label>
+        <textarea
+          id="notes"
+          name="notes"
+          rows="3"
+          class="w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        ></textarea>
+      </div>
+    </fieldset>
+
+    <p id="create-msg" class="hidden text-sm" role="status" aria-live="polite"></p>
+
+    <div class="sticky bottom-0 -mx-4 border-t border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur">
+      <button
+        type="submit"
+        id="save-create-order"
+        disabled={kvMissing}
+        class="min-h-12 w-full rounded bg-green-700 px-4 py-3 text-base font-medium text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      >
+        Save order
+      </button>
+    </div>
+  </form>
+
+  <script>
+    import { ORDER_QUANTITY_KEYS } from '../../lib/order-form-keys';
+
+    const form = document.getElementById('create-order-form');
+    const msgEl = document.getElementById('create-msg');
+
+    function formatUsd(n: number): string {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+    }
+
+    function showMsg(ok: boolean, text: string) {
+      if (!msgEl) return;
+      msgEl.classList.remove('hidden', 'text-red-600', 'text-green-800');
+      msgEl.classList.add(ok ? 'text-green-800' : 'text-red-600');
+      msgEl.textContent = text;
+    }
+
+    function getCatalogPrices(): Record<string, number> {
+      try {
+        const raw = form?.dataset.catalogPrices;
+        if (!raw) return {};
+        return JSON.parse(raw) as Record<string, number>;
+      } catch {
+        return {};
+      }
+    }
+
+    function updateEstimates() {
+      if (!(form instanceof HTMLFormElement)) return;
+      const prices = getCatalogPrices();
+      let subtotal = 0;
+      let postCount = 0;
+
+      for (const key of ORDER_QUANTITY_KEYS) {
+        const el = form.querySelector(`[data-qty-input="${key}"]`);
+        const qty =
+          el instanceof HTMLInputElement && !el.disabled
+            ? Math.max(0, parseInt(el.value, 10) || 0)
+            : 0;
+        const unit = prices[key] ?? 0;
+        const line = Math.round(qty * unit * 100) / 100;
+        subtotal += line;
+        if (key !== 'bowStave') postCount += qty;
+        const lineEl = document.querySelector(`[data-line-total="${key}"]`);
+        if (lineEl) lineEl.textContent = formatUsd(line);
+      }
+
+      subtotal = Math.round(subtotal * 100) / 100;
+      const volumeApplied = postCount >= 100;
+      const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+      const total = Math.round((subtotal - discountAmount) * 100) / 100;
+
+      const depositEl = document.getElementById('depositAmount');
+      let depositRaw = depositEl instanceof HTMLInputElement ? Number(depositEl.value) : 0;
+      if (!Number.isFinite(depositRaw) || depositRaw < 0) depositRaw = 0;
+      const depositAmount = Math.round(Math.max(0, Math.min(depositRaw, total)) * 100) / 100;
+      const balance = Math.round((total - depositAmount) * 100) / 100;
+
+      const set = (name: string, text: string) => {
+        const el = document.querySelector(`[data-est="${name}"]`);
+        if (el) el.textContent = text;
+      };
+      set('subtotal', formatUsd(subtotal));
+      set('discount', volumeApplied ? `−${formatUsd(discountAmount)}` : '—');
+      set('total', formatUsd(total));
+      set('balance', formatUsd(balance));
+
+      const discountRow = document.querySelector('[data-est-row="discount"]');
+      if (discountRow instanceof HTMLElement) {
+        discountRow.classList.toggle('opacity-40', !volumeApplied);
+      }
+    }
+
+    form?.addEventListener('click', (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      const dec = t.closest('[data-qty-dec]');
+      const inc = t.closest('[data-qty-inc]');
+      const key =
+        (dec instanceof HTMLElement && dec.dataset.qtyDec) ||
+        (inc instanceof HTMLElement && inc.dataset.qtyInc) ||
+        '';
+      if (!key || !(form instanceof HTMLFormElement)) return;
+      const input = form.querySelector(`[data-qty-input="${key}"]`);
+      if (!(input instanceof HTMLInputElement) || input.disabled) return;
+      let n = Math.max(0, parseInt(input.value, 10) || 0);
+      if (dec) n = Math.max(0, n - 1);
+      if (inc) n = n + 1;
+      input.value = String(n);
+      updateEstimates();
+    });
+
+    form?.addEventListener('input', (e) => {
+      const t = e.target;
+      if (
+        t instanceof HTMLInputElement &&
+        (t.matches('[data-qty-input]') || t.id === 'depositAmount')
+      ) {
+        updateEstimates();
+      }
+    });
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!(form instanceof HTMLFormElement)) return;
+      if (!form.reportValidity()) return;
+
+      const saveBtn = document.getElementById('save-create-order');
+      if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = true;
+
+      const quantities: Record<string, number> = {};
+      for (const key of ORDER_QUANTITY_KEYS) {
+        const el = form.querySelector(`[name="qty_${key}"]`);
+        if (el instanceof HTMLInputElement) {
+          quantities[key] = Math.max(0, parseInt(el.value, 10) || 0);
+        }
+      }
+
+      const depositEl = form.querySelector('[name="depositAmount"]');
+      const depositAmount =
+        depositEl instanceof HTMLInputElement ? Math.max(0, Number(depositEl.value) || 0) : 0;
+      const statusEl = document.getElementById('status');
+      const slotEl = document.getElementById('deliverySlot');
+
+      const payload = {
+        firstName: (form.querySelector('[name="firstName"]') as HTMLInputElement)?.value ?? '',
+        lastName: (form.querySelector('[name="lastName"]') as HTMLInputElement)?.value ?? '',
+        email: (form.querySelector('[name="email"]') as HTMLInputElement)?.value ?? '',
+        phone: (form.querySelector('[name="phone"]') as HTMLInputElement)?.value ?? '',
+        notes: ((form.querySelector('[name="notes"]') as HTMLTextAreaElement)?.value ?? '').trim() || null,
+        quantities,
+        depositAmount: Math.round(depositAmount * 100) / 100,
+        status: statusEl instanceof HTMLSelectElement ? statusEl.value : 'fulfilled',
+        deliverySlot:
+          slotEl instanceof HTMLInputElement ? slotEl.value.trim() || null : null,
+      };
+
+      try {
+        const res = await fetch('/api/admin/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.orderId) {
+          showMsg(true, 'Saved. Opening order…');
+          window.location.href = `/admin/orders/${encodeURIComponent(data.orderId)}`;
+          return;
+        }
+        showMsg(false, data.error || data.details || 'Could not save order.');
+        if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+      } catch {
+        showMsg(false, 'Could not save order (network error).');
+        if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+      }
+    });
+
+    updateEstimates();
+  </script>
+</AdminLayout>
