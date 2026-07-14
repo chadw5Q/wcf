@@ -58,33 +58,29 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
             </a>
           </div>
         </div>
-        <div class="overflow-hidden rounded-2xl bg-green-900 shadow-xl">
-          <div class="p-6 pb-4 text-center text-white">
-            <h3 class="text-2xl font-bold mb-1">50+ Years Strong</h3>
-            <p class="text-green-100">Hedge posts have proven durability for generations</p>
-          </div>
-          <div class="grid grid-cols-2 gap-1 px-1">
+        <div class="overflow-hidden rounded-2xl bg-black/30 shadow-xl ring-1 ring-white/15">
+          <div class="grid grid-cols-2 gap-1.5 p-1.5">
             <img
-              src="/images/posts/old-post-1962-1.webp"
-              alt="Hedge fence post set in 1962, still standing in a barbed wire fence"
-              class="h-64 w-full rounded-l-lg object-cover sm:h-80"
-              width="640"
-              height="853"
-              loading="lazy"
+              src="/images/fence-pic/fence-1.webp"
+              alt="Fresh-cut Osage Orange hedge posts stacked at Williams Creek Farms"
+              class="col-span-2 h-48 w-full rounded-lg object-cover sm:h-56 lg:h-64"
+              width="1600"
+              height="1200"
             />
             <img
-              src="/images/posts/old-post-1962-2.webp"
-              alt="Weathered hedge fence post from 1962 still holding barbed wire"
-              class="h-64 w-full rounded-r-lg object-cover sm:h-80"
-              width="640"
-              height="853"
-              loading="lazy"
+              src="/images/fence-pic/fence-2.webp"
+              alt="Hedge fence posts ready for permanent fencing"
+              class="h-52 w-full rounded-lg object-cover sm:h-64"
+              width="1200"
+              height="1600"
             />
-          </div>
-          <div class="m-6 border-l-4 border-green-400 bg-green-50 p-4 rounded-r-lg">
-            <p class="font-medium text-green-800">
-              My grandfather used hedge fence posts back in 1962. Though weathered, they were still standing strong when we replaced them in 2018, 56 years later.
-            </p>
+            <img
+              src="/images/fence-pic/fence-3.webp"
+              alt="Close-up of Southwest Iowa hedge posts in the yard"
+              class="h-52 w-full rounded-lg object-cover sm:h-64"
+              width="1200"
+              height="1600"
+            />
           </div>
         </div>
       </div>
@@ -255,6 +251,39 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         <h3 class="mb-4 text-2xl font-bold text-amber-50">Volume Discount</h3>
         <div class="mb-2 text-6xl font-bold text-amber-100">10%</div>
         <p class="text-xl text-amber-100/95">discount on orders of more than 100 posts</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Proven durability (below volume discount, above CTA) -->
+  <section class="section-padding bg-green-900 text-white">
+    <div class="mx-auto max-w-3xl">
+      <div class="mb-6 text-center">
+        <h2 class="mb-1 text-2xl font-bold md:text-3xl">50+ Years Strong</h2>
+        <p class="text-green-100">Hedge posts have proven durability for generations</p>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <img
+          src="/images/posts/old-post-1962-1.webp"
+          alt="Hedge fence post set in 1962, still standing in a barbed wire fence"
+          class="h-64 w-full rounded-lg object-cover sm:h-80"
+          width="640"
+          height="853"
+          loading="lazy"
+        />
+        <img
+          src="/images/posts/old-post-1962-2.webp"
+          alt="Weathered hedge fence post from 1962 still holding barbed wire"
+          class="h-64 w-full rounded-lg object-cover sm:h-80"
+          width="640"
+          height="853"
+          loading="lazy"
+        />
+      </div>
+      <div class="mt-6 rounded-r-lg border-l-4 border-green-400 bg-green-50 p-4">
+        <p class="font-medium text-green-800">
+          My grandfather used hedge fence posts back in 1962. Though weathered, they were still standing strong when we replaced them in 2018, 56 years later.
+        </p>
       </div>
     </div>
   </section>
