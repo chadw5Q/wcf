@@ -89,6 +89,15 @@ const incomePath = stepPath(
   yIncome
 );
 
+const labelStep = Math.max(1, Math.ceil(pointCount / 6));
+const chartLabels = chartPoints
+  .map((p, i) => ({
+    ...p,
+    x: xAt(i, pointCount),
+    show: !(pointCount > 8) || i === 0 || i === pointCount - 1 || i % labelStep === 0,
+  }))
+  .filter((p) => p.show);
+
 const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURIComponent(defaults.to)}`;
 ---
 
@@ -355,21 +364,18 @@ const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURICompon
             <path d={incomePath} fill="none" stroke="#15803d" stroke-width="2.5" />
             <path d={postsPath} fill="none" stroke="#0f172a" stroke-width="2.5" />
 
-            {chartPoints.map((p, i) => {
-              const show =
-                pointCount <= 8 || i === 0 || i === pointCount - 1 || i % Math.ceil(pointCount / 6) === 0;
-              if (!show) return null;
-              return (
+            {
+              chartLabels.map((p) => (
                 <text
-                  x={xAt(i, pointCount)}
+                  x={p.x}
                   y={chartH - 12}
                   text-anchor="middle"
                   class="fill-slate-600 text-[10px]"
                 >
                   {p.label}
                 </text>
-              );
-            })}
+              ))
+            }
           </svg>
         </div>
       )
