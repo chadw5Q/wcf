@@ -1,55 +1,57 @@
 ---
 export const prerender = false;
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { dateKeyCentral } from '../../lib/reports';
+import { getAllOrders } from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { formatUsd } from '../../lib/format-order';
+import {
+  buildCumulativeSeries,
+  defaultReportRangeYmd,
+  filterOrdersByCentralDateRange,
+  formatAxisMoney,
+  isYtdRange,
+  niceAxisMax,
+  summarizeOrdersForReport,
+} from '../../lib/reports';
 
-/** UI preview only — numbers and chart are fake until you approve wiring real order data. */
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const allOrders = kv ? await getAllOrders(kv) : [];
 
-const todayYmd = dateKeyCentral(Date.now());
-const ytdYear = todayYmd.slice(0, 4);
-const ytdFrom = `${ytdYear}-01-01`;
+const defaults = defaultReportRangeYmd();
+const fromParam = Astro.url.searchParams.get('from')?.trim() || defaults.from;
+const toParam = Astro.url.searchParams.get('to')?.trim() || defaults.to;
+const rangeIsYtd = isYtdRange(fromParam, toParam);
 
-// Demo summary (matches sticky-note intent)
-const demo = {
-  totalPosts: 842,
-  totalIncome: 12840,
-  scheduledPosts: 310,
-  scheduledIncome: 4725,
-  fulfilledPosts: 532,
-  fulfilledIncome: 8115,
-};
+const inRange = kvMissing
+  ? []
+  : filterOrdersByCentralDateRange(allOrders, fromParam, toParam);
 
-function formatUsd(n: number): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-}
+const summary = summarizeOrdersForReport(inRange);
+const chartPoints = buildCumulativeSeries(inRange);
 
 function formatPosts(n: number): string {
   return `${n.toLocaleString('en-US')} posts`;
 }
-
-/** Fake cumulative daily series for chart preview (Jun–Aug style staircase). */
-const chartPoints = [
-  { label: 'Jun 1', posts: 0, income: 0 },
-  { label: 'Jun 12', posts: 80, income: 1200 },
-  { label: 'Jun 28', posts: 180, income: 2800 },
-  { label: 'Jul 5', posts: 280, income: 4300 },
-  { label: 'Jul 18', posts: 450, income: 6900 },
-  { label: 'Jul 30', posts: 620, income: 9500 },
-  { label: 'Aug 10', posts: 740, income: 11400 },
-  { label: 'Aug 22', posts: 842, income: 12840 },
-];
 
 const chartW = 720;
 const chartH = 280;
 const pad = { top: 24, right: 56, bottom: 40, left: 48 };
 const plotW = chartW - pad.left - pad.right;
 const plotH = chartH - pad.top - pad.bottom;
-const maxPosts = 900;
-const maxIncome = 14000;
 
-function xAt(i: number): number {
-  const n = chartPoints.length - 1;
-  return pad.left + (i / n) * plotW;
+const maxPostsRaw = chartPoints.length
+  ? Math.max(...chartPoints.map((p) => p.posts))
+  : 0;
+const maxIncomeRaw = chartPoints.length
+  ? Math.max(...chartPoints.map((p) => p.income))
+  : 0;
+const maxPosts = niceAxisMax(maxPostsRaw);
+const maxIncome = niceAxisMax(maxIncomeRaw);
+
+function xAt(i: number, n: number): number {
+  if (n <= 1) return pad.left + plotW / 2;
+  return pad.left + (i / (n - 1)) * plotW;
 }
 function yPosts(v: number): number {
   return pad.top + plotH - (v / maxPosts) * plotH;
@@ -62,9 +64,11 @@ function stepPath(
   values: number[],
   yFn: (v: number) => number
 ): string {
+  if (values.length === 0) return '';
   let d = '';
-  for (let i = 0; i < values.length; i++) {
-    const x = xAt(i);
+  const n = values.length;
+  for (let i = 0; i < n; i++) {
+    const x = xAt(i, n);
     const y = yFn(values[i]!);
     if (i === 0) {
       d += `M ${x} ${y}`;
@@ -75,6 +79,7 @@ function stepPath(
   return d;
 }
 
+const pointCount = chartPoints.length;
 const postsPath = stepPath(
   chartPoints.map((p) => p.posts),
   yPosts
@@ -83,76 +88,89 @@ const incomePath = stepPath(
   chartPoints.map((p) => p.income),
   yIncome
 );
+
+const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURIComponent(defaults.to)}`;
 ---
 
 <AdminLayout title="Reports — Admin">
-  <div
-    class="no-print mb-6 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950"
-    role="status"
-  >
-    <strong>UI preview.</strong> Summary numbers and the chart use demo data only. Date controls are
-    visual for review — real order totals are not connected yet. Tell me when you want the plumbing
-    wired up.
-  </div>
+  {
+    kvMissing && (
+      <div class="no-print mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+        <strong>ORDERS_KV is not bound.</strong> Reports are unavailable until KV is configured.
+      </div>
+    )
+  }
 
   <div class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900">Reports</h1>
     <p class="mt-1 text-sm text-slate-600">
-      Order posts and income by status. Dates use America/Chicago calendar days.
+      Order posts and income by status. Dates use America/Chicago calendar days. Income is order
+      totals after volume discount.
     </p>
   </div>
 
   <!-- Date range -->
   <div class="no-print mb-8 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-    <div class="flex flex-wrap items-end gap-3">
+    <form method="get" class="flex flex-wrap items-end gap-3">
       <div class="flex flex-wrap gap-2">
-        <button
-          type="button"
-          class="rounded bg-green-700 px-3 py-2 text-sm font-medium text-white"
-          aria-pressed="true"
+        <a
+          href={ytdHref}
+          class:list={[
+            'rounded px-3 py-2 text-sm font-medium',
+            rangeIsYtd
+              ? 'bg-green-700 text-white'
+              : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+          ]}
+          aria-current={rangeIsYtd ? 'page' : undefined}
         >
           This YTD
-        </button>
-        <button
-          type="button"
-          class="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          aria-pressed="false"
+        </a>
+        <span
+          class:list={[
+            'rounded px-3 py-2 text-sm font-medium',
+            !rangeIsYtd
+              ? 'bg-slate-800 text-white'
+              : 'border border-slate-300 bg-white text-slate-500',
+          ]}
         >
           Custom
-        </button>
+        </span>
       </div>
-      <div class="flex flex-wrap items-end gap-3">
-        <div>
-          <label for="from" class="mb-1 block text-xs font-medium text-slate-600">From</label>
-          <input
-            id="from"
-            name="from"
-            type="date"
-            value={ytdFrom}
-            class="min-h-11 rounded border border-slate-300 px-3 py-2 text-base text-slate-900"
-          />
-        </div>
-        <div>
-          <label for="to" class="mb-1 block text-xs font-medium text-slate-600">To</label>
-          <input
-            id="to"
-            name="to"
-            type="date"
-            value={todayYmd}
-            class="min-h-11 rounded border border-slate-300 px-3 py-2 text-base text-slate-900"
-          />
-        </div>
-        <button
-          type="button"
-          class="min-h-11 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Apply
-        </button>
+      <div>
+        <label for="from" class="mb-1 block text-xs font-medium text-slate-600">From</label>
+        <input
+          id="from"
+          name="from"
+          type="date"
+          required
+          value={fromParam}
+          class="min-h-11 rounded border border-slate-300 px-3 py-2 text-base text-slate-900"
+        />
       </div>
-    </div>
+      <div>
+        <label for="to" class="mb-1 block text-xs font-medium text-slate-600">To</label>
+        <input
+          id="to"
+          name="to"
+          type="date"
+          required
+          value={toParam}
+          class="min-h-11 rounded border border-slate-300 px-3 py-2 text-base text-slate-900"
+        />
+      </div>
+      <button
+        type="submit"
+        class="min-h-11 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+      >
+        Apply
+      </button>
+    </form>
     <p class="mt-3 text-xs text-slate-500">
-      Default: <span class="font-medium text-slate-700">{ytdFrom}</span> →
-      <span class="font-medium text-slate-700">{todayYmd}</span> (year to date)
+      Showing <span class="font-medium text-slate-700">{fromParam}</span> →
+      <span class="font-medium text-slate-700">{toParam}</span>
+      {rangeIsYtd ? ' (year to date)' : ''}
+      {' · '}
+      {inRange.length} order{inRange.length === 1 ? '' : 's'}
     </p>
   </div>
 
@@ -160,33 +178,41 @@ const incomePath = stepPath(
   <div class="mb-10 grid gap-4 sm:grid-cols-3">
     <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Total</div>
-      <div class="mt-3 text-2xl font-bold tabular-nums text-slate-900">{formatPosts(demo.totalPosts)}</div>
-      <div class="mt-1 text-xl font-semibold tabular-nums text-green-800">
-        {formatUsd(demo.totalIncome)}
+      <div class="mt-3 text-2xl font-bold tabular-nums text-slate-900">
+        {formatPosts(summary.total.posts)}
       </div>
-      <p class="mt-2 text-xs text-slate-500">All orders in range</p>
+      <div class="mt-1 text-xl font-semibold tabular-nums text-green-800">
+        {formatUsd(summary.total.income)}
+      </div>
+      <p class="mt-2 text-xs text-slate-500">
+        All orders in range ({summary.total.orderCount})
+      </p>
     </div>
 
     <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Scheduled</div>
       <div class="mt-3 text-2xl font-bold tabular-nums text-slate-900">
-        {formatPosts(demo.scheduledPosts)}
+        {formatPosts(summary.open.posts)}
       </div>
       <div class="mt-1 text-xl font-semibold tabular-nums text-green-800">
-        {formatUsd(demo.scheduledIncome)}
+        {formatUsd(summary.open.income)}
       </div>
-      <p class="mt-2 text-xs text-slate-500">Received / scheduled — not yet fulfilled</p>
+      <p class="mt-2 text-xs text-slate-500">
+        Pending / scheduled — not yet fulfilled ({summary.open.orderCount})
+      </p>
     </div>
 
     <div class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div class="text-sm font-semibold uppercase tracking-wide text-slate-500">Fulfilled</div>
       <div class="mt-3 text-2xl font-bold tabular-nums text-slate-900">
-        {formatPosts(demo.fulfilledPosts)}
+        {formatPosts(summary.fulfilled.posts)}
       </div>
       <div class="mt-1 text-xl font-semibold tabular-nums text-green-800">
-        {formatUsd(demo.fulfilledIncome)}
+        {formatUsd(summary.fulfilled.income)}
       </div>
-      <p class="mt-2 text-xs text-slate-500">Marked fulfilled</p>
+      <p class="mt-2 text-xs text-slate-500">
+        Marked fulfilled ({summary.fulfilled.orderCount})
+      </p>
     </div>
   </div>
 
@@ -206,145 +232,151 @@ const incomePath = stepPath(
       </div>
     </div>
 
-    <div class="w-full overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${chartW} ${chartH}`}
-        class="min-w-[20rem] w-full"
-        role="img"
-        aria-label="Demo cumulative step chart of posts and income over time"
-      >
-        {/* Grid */}
-        {
-          [0, 0.25, 0.5, 0.75, 1].map((t) => {
-            const y = pad.top + plotH * (1 - t);
-            return (
-              <line
-                x1={pad.left}
-                x2={pad.left + plotW}
-                y1={y}
-                y2={y}
-                stroke="#e2e8f0"
-                stroke-width="1"
-              />
-            );
-          })
-        }
+    {
+      chartPoints.length === 0 ? (
+        <p class="py-12 text-center text-sm text-slate-500">
+          No orders in this date range yet.
+        </p>
+      ) : (
+        <div class="w-full overflow-x-auto">
+          <svg
+            viewBox={`0 0 ${chartW} ${chartH}`}
+            class="min-w-[20rem] w-full"
+            role="img"
+            aria-label="Cumulative step chart of posts and income over time"
+          >
+            {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+              const y = pad.top + plotH * (1 - t);
+              return (
+                <line
+                  x1={pad.left}
+                  x2={pad.left + plotW}
+                  y1={y}
+                  y2={y}
+                  stroke="#e2e8f0"
+                  stroke-width="1"
+                />
+              );
+            })}
 
-        {/* Axes */}
-        <line
-          x1={pad.left}
-          x2={pad.left}
-          y1={pad.top}
-          y2={pad.top + plotH}
-          stroke="#94a3b8"
-          stroke-width="1.5"
-        />
-        <line
-          x1={pad.left + plotW}
-          x2={pad.left + plotW}
-          y1={pad.top}
-          y2={pad.top + plotH}
-          stroke="#94a3b8"
-          stroke-width="1.5"
-        />
-        <line
-          x1={pad.left}
-          x2={pad.left + plotW}
-          y1={pad.top + plotH}
-          y2={pad.top + plotH}
-          stroke="#94a3b8"
-          stroke-width="1.5"
-        />
+            <line
+              x1={pad.left}
+              x2={pad.left}
+              y1={pad.top}
+              y2={pad.top + plotH}
+              stroke="#94a3b8"
+              stroke-width="1.5"
+            />
+            <line
+              x1={pad.left + plotW}
+              x2={pad.left + plotW}
+              y1={pad.top}
+              y2={pad.top + plotH}
+              stroke="#94a3b8"
+              stroke-width="1.5"
+            />
+            <line
+              x1={pad.left}
+              x2={pad.left + plotW}
+              y1={pad.top + plotH}
+              y2={pad.top + plotH}
+              stroke="#94a3b8"
+              stroke-width="1.5"
+            />
 
-        {/* Left axis labels — posts */}
-        <text x={pad.left - 8} y={pad.top + 4} text-anchor="end" class="fill-slate-600 text-[10px]">
-          {maxPosts}
-        </text>
-        <text
-          x={pad.left - 8}
-          y={pad.top + plotH / 2}
-          text-anchor="end"
-          class="fill-slate-600 text-[10px]"
-        >
-          {maxPosts / 2}
-        </text>
-        <text
-          x={pad.left - 8}
-          y={pad.top + plotH}
-          text-anchor="end"
-          class="fill-slate-600 text-[10px]"
-        >
-          0
-        </text>
-        <text
-          x={14}
-          y={pad.top + plotH / 2}
-          text-anchor="middle"
-          transform={`rotate(-90 14 ${pad.top + plotH / 2})`}
-          class="fill-slate-700 text-[11px] font-medium"
-        >
-          # Posts
-        </text>
+            <text
+              x={pad.left - 8}
+              y={pad.top + 4}
+              text-anchor="end"
+              class="fill-slate-600 text-[10px]"
+            >
+              {maxPosts.toLocaleString('en-US')}
+            </text>
+            <text
+              x={pad.left - 8}
+              y={pad.top + plotH / 2}
+              text-anchor="end"
+              class="fill-slate-600 text-[10px]"
+            >
+              {Math.round(maxPosts / 2).toLocaleString('en-US')}
+            </text>
+            <text
+              x={pad.left - 8}
+              y={pad.top + plotH}
+              text-anchor="end"
+              class="fill-slate-600 text-[10px]"
+            >
+              0
+            </text>
+            <text
+              x={14}
+              y={pad.top + plotH / 2}
+              text-anchor="middle"
+              transform={`rotate(-90 14 ${pad.top + plotH / 2})`}
+              class="fill-slate-700 text-[11px] font-medium"
+            >
+              # Posts
+            </text>
 
-        {/* Right axis labels — income */}
-        <text
-          x={pad.left + plotW + 8}
-          y={pad.top + 4}
-          text-anchor="start"
-          class="fill-green-800 text-[10px]"
-        >
-          $14k
-        </text>
-        <text
-          x={pad.left + plotW + 8}
-          y={pad.top + plotH / 2}
-          text-anchor="start"
-          class="fill-green-800 text-[10px]"
-        >
-          $7k
-        </text>
-        <text
-          x={pad.left + plotW + 8}
-          y={pad.top + plotH}
-          text-anchor="start"
-          class="fill-green-800 text-[10px]"
-        >
-          $0
-        </text>
-        <text
-          x={chartW - 12}
-          y={pad.top + plotH / 2}
-          text-anchor="middle"
-          transform={`rotate(90 ${chartW - 12} ${pad.top + plotH / 2})`}
-          class="fill-green-800 text-[11px] font-medium"
-        >
-          $ Income
-        </text>
+            <text
+              x={pad.left + plotW + 8}
+              y={pad.top + 4}
+              text-anchor="start"
+              class="fill-green-800 text-[10px]"
+            >
+              {formatAxisMoney(maxIncome)}
+            </text>
+            <text
+              x={pad.left + plotW + 8}
+              y={pad.top + plotH / 2}
+              text-anchor="start"
+              class="fill-green-800 text-[10px]"
+            >
+              {formatAxisMoney(maxIncome / 2)}
+            </text>
+            <text
+              x={pad.left + plotW + 8}
+              y={pad.top + plotH}
+              text-anchor="start"
+              class="fill-green-800 text-[10px]"
+            >
+              $0
+            </text>
+            <text
+              x={chartW - 12}
+              y={pad.top + plotH / 2}
+              text-anchor="middle"
+              transform={`rotate(90 ${chartW - 12} ${pad.top + plotH / 2})`}
+              class="fill-green-800 text-[11px] font-medium"
+            >
+              $ Income
+            </text>
 
-        {/* Step lines */}
-        <path d={incomePath} fill="none" stroke="#15803d" stroke-width="2.5" />
-        <path d={postsPath} fill="none" stroke="#0f172a" stroke-width="2.5" />
+            <path d={incomePath} fill="none" stroke="#15803d" stroke-width="2.5" />
+            <path d={postsPath} fill="none" stroke="#0f172a" stroke-width="2.5" />
 
-        {/* X labels */}
-        {
-          chartPoints.map((p, i) =>
-            i % 2 === 0 || i === chartPoints.length - 1 ? (
-              <text
-                x={xAt(i)}
-                y={chartH - 12}
-                text-anchor="middle"
-                class="fill-slate-600 text-[10px]"
-              >
-                {p.label}
-              </text>
-            ) : null
-          )
-        }
-      </svg>
-    </div>
+            {chartPoints.map((p, i) => {
+              const show =
+                pointCount <= 8 || i === 0 || i === pointCount - 1 || i % Math.ceil(pointCount / 6) === 0;
+              if (!show) return null;
+              return (
+                <text
+                  x={xAt(i, pointCount)}
+                  y={chartH - 12}
+                  text-anchor="middle"
+                  class="fill-slate-600 text-[10px]"
+                >
+                  {p.label}
+                </text>
+              );
+            })}
+          </svg>
+        </div>
+      )
+    }
     <p class="mt-2 text-xs text-slate-500">
-      Dual-axis step chart: black = cumulative posts, green = cumulative income over the selected
-      range.
+      Dual-axis step chart by order date (Central): black = cumulative posts (excludes bow stave
+      logs), green = cumulative income.
     </p>
   </div>
 </AdminLayout>
