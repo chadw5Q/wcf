@@ -22,6 +22,16 @@ const qtyLabels: Record<string, string> = Object.fromEntries(
 const catalogPrices: Record<string, number> = Object.fromEntries(
   ORDER_QUANTITY_KEYS.map((k) => [k, skuMap[k]?.unitPrice ?? 0])
 );
+
+/** Display order for line-item cards (Corners before Lines). */
+const LINE_ITEM_DISPLAY_ORDER = [
+  'premiumCorner',
+  'premiumLine',
+  'regularCorner',
+  'regularLine',
+  'discountBin',
+  'bowStave',
+] as const satisfies readonly (typeof ORDER_QUANTITY_KEYS)[number][];
 ---
 
 <AdminLayout title="Create order — Admin">
@@ -104,7 +114,7 @@ const catalogPrices: Record<string, number> = Object.fromEntries(
       <legend class="mb-3 px-1 text-lg font-semibold text-slate-900">Line items</legend>
       <ul class="space-y-3">
         {
-          ORDER_QUANTITY_KEYS.map((key) => {
+          LINE_ITEM_DISPLAY_ORDER.map((key) => {
             const disabled = skuMap[key]?.soldOut ?? false;
             const unit = catalogPrices[key] ?? 0;
             return (

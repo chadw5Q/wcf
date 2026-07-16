@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { StoredOrder } from '../../../src/lib/order-types';
 import {
+  addDaysYmd,
   buildCumulativeSeries,
   countOrderPosts,
   defaultReportRangeYmd,
@@ -138,7 +139,7 @@ describe('reports aggregations', () => {
     expect(s.fulfilled.orderCount).toBe(1);
   });
 
-  it('buildCumulativeSeries accumulates by Central day', () => {
+  it('buildCumulativeSeries fills calendar days between first and last order', () => {
     const orders = [
       makeOrder({
         id: 'a',
@@ -188,11 +189,98 @@ describe('reports aggregations', () => {
     ];
 
     const series = buildCumulativeSeries(orders);
-    expect(series).toHaveLength(2);
+    expect(series).toHaveLength(15); // Jun 1 … Jun 15
+    expect(series[0]!.date).toBe('2026-06-01');
     expect(series[0]!.posts).toBe(15);
     expect(series[0]!.income).toBe(150);
-    expect(series[1]!.posts).toBe(35);
-    expect(series[1]!.income).toBe(350);
+    expect(series[1]!.posts).toBe(15); // hold through gap
+    expect(series[13]!.posts).toBe(15);
+    expect(series[14]!.date).toBe('2026-06-15');
+    expect(series[14]!.posts).toBe(35);
+    expect(series[14]!.income).toBe(350);
+  });
+
+  it('buildCumulativeSeries pads 5 days before/after within range', () => {
+    const orders = [
+      makeOrder({
+        id: 'a',
+        createdAt: '2026-07-10T17:00:00.000Z',
+        status: 'fulfilled',
+        discountedSubtotal: 100,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 10,
+            unitPrice: 10,
+            lineTotal: 100,
+          },
+        ],
+      }),
+      makeOrder({
+        id: 'b',
+        createdAt: '2026-07-15T17:00:00.000Z',
+        status: 'fulfilled',
+        discountedSubtotal: 200,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 20,
+            unitPrice: 10,
+            lineTotal: 200,
+          },
+        ],
+      }),
+    ];
+
+    const series = buildCumulativeSeries(orders, {
+      rangeFrom: '2026-01-01',
+      rangeTo: '2026-07-16',
+      padDays: 5,
+    });
+    // first Jul 10 − 5 = Jul 5; last Jul 15 + 5 = Jul 20, clipped to Jul 16
+    expect(series[0]!.date).toBe('2026-07-05');
+    expect(series[0]!.posts).toBe(0);
+    expect(series[0]!.income).toBe(0);
+    expect(series.find((p) => p.date === '2026-07-10')!.posts).toBe(10);
+    expect(series[series.length - 1]!.date).toBe('2026-07-16');
+    expect(series[series.length - 1]!.posts).toBe(30);
+    expect(series[series.length - 1]!.income).toBe(300);
+  });
+
+  it('buildCumulativeSeries padding does not extend past range start', () => {
+    const orders = [
+      makeOrder({
+        id: 'a',
+        createdAt: '2026-07-02T17:00:00.000Z',
+        status: 'fulfilled',
+        discountedSubtotal: 50,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 5,
+            unitPrice: 10,
+            lineTotal: 50,
+          },
+        ],
+      }),
+    ];
+
+    const series = buildCumulativeSeries(orders, {
+      rangeFrom: '2026-07-01',
+      rangeTo: '2026-07-10',
+      padDays: 5,
+    });
+    expect(series[0]!.date).toBe('2026-07-01'); // not Jun 27
+    expect(series[series.length - 1]!.date).toBe('2026-07-07'); // Jul 2 + 5
+  });
+
+  it('addDaysYmd shifts calendar days', () => {
+    expect(addDaysYmd('2026-07-10', -5)).toBe('2026-07-05');
+    expect(addDaysYmd('2026-07-15', 5)).toBe('2026-07-20');
+    expect(addDaysYmd('2026-01-01', -1)).toBe('2025-12-31');
   });
 
   it('filterOrdersByCentralDateRange respects inclusive bounds', () => {

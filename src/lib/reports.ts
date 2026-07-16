@@ -107,11 +107,48 @@ function shortChartLabel(ymd: string): string {
   }).format(approx);
 }
 
+/** Add (or subtract) whole calendar days from a YYYY-MM-DD string. */
+export function addDaysYmd(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + delta);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function eachDayInclusive(fromYmd: string, toYmd: string): string[] {
+  if (fromYmd > toYmd) return [];
+  const out: string[] = [];
+  let cur = fromYmd;
+  while (cur <= toYmd) {
+    out.push(cur);
+    cur = addDaysYmd(cur, 1);
+  }
+  return out;
+}
+
+export interface CumulativeSeriesOptions {
+  /** Inclusive report range start (YYYY-MM-DD). */
+  rangeFrom: string;
+  /** Inclusive report range end (YYYY-MM-DD). */
+  rangeTo: string;
+  /** Calendar days of padding before first / after last order (clipped to range). Default 5. */
+  padDays?: number;
+}
+
 /**
  * Cumulative posts + income by order createdAt day (Central), ascending.
- * Returns one point per day that has activity (staircase steps).
+ * Fills every calendar day from (firstOrder − padDays) through (lastOrder + padDays),
+ * clipped to the stated report range. Days without orders hold the prior cumulative
+ * (0 before the first order).
  */
-export function buildCumulativeSeries(orders: StoredOrder[]): CumulativePoint[] {
+export function buildCumulativeSeries(
+  orders: StoredOrder[],
+  options?: CumulativeSeriesOptions
+): CumulativePoint[] {
   const byDay = new Map<string, { posts: number; income: number }>();
 
   for (const o of orders) {
@@ -122,15 +159,36 @@ export function buildCumulativeSeries(orders: StoredOrder[]): CumulativePoint[] 
     byDay.set(day, cur);
   }
 
-  const days = [...byDay.keys()].sort();
+  const activityDays = [...byDay.keys()].sort();
+  if (activityDays.length === 0) return [];
+
+  const first = activityDays[0]!;
+  const last = activityDays[activityDays.length - 1]!;
+  const padDays = options?.padDays ?? 5;
+
+  let chartStart = first;
+  let chartEnd = last;
+  if (options) {
+    chartStart = addDaysYmd(first, -padDays);
+    chartEnd = addDaysYmd(last, padDays);
+    if (chartStart < options.rangeFrom) chartStart = options.rangeFrom;
+    if (chartEnd > options.rangeTo) chartEnd = options.rangeTo;
+    if (chartStart > chartEnd) {
+      chartStart = options.rangeFrom;
+      chartEnd = options.rangeTo;
+    }
+  }
+
   let posts = 0;
   let income = 0;
   const out: CumulativePoint[] = [];
 
-  for (const day of days) {
-    const dayTotals = byDay.get(day)!;
-    posts += dayTotals.posts;
-    income = Math.round((income + dayTotals.income) * 100) / 100;
+  for (const day of eachDayInclusive(chartStart, chartEnd)) {
+    const dayTotals = byDay.get(day);
+    if (dayTotals) {
+      posts += dayTotals.posts;
+      income = Math.round((income + dayTotals.income) * 100) / 100;
+    }
     out.push({
       date: day,
       label: shortChartLabel(day),

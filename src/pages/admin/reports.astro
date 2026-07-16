@@ -28,7 +28,11 @@ const inRange = kvMissing
   : filterOrdersByCentralDateRange(allOrders, fromParam, toParam);
 
 const summary = summarizeOrdersForReport(inRange);
-const chartPoints = buildCumulativeSeries(inRange);
+const chartPoints = buildCumulativeSeries(inRange, {
+  rangeFrom: fromParam,
+  rangeTo: toParam,
+  padDays: 5,
+});
 
 function formatPosts(n: number): string {
   return `${n.toLocaleString('en-US')} posts`;

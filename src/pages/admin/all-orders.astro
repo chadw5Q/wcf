@@ -32,23 +32,31 @@ const filtered =
     )
   }
 
-  <div class="no-print mb-6 flex flex-wrap items-end gap-4">
-    <div>
-      <label for="status-filter" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
-      <select
-        id="status-filter"
-        class="min-h-12 rounded border border-slate-300 bg-white px-3 py-2 text-base text-slate-900"
-      >
-        <option value="" selected={statusFilter === ''}>All</option>
-        <option value="pending" selected={statusFilter === 'pending'}>Pending</option>
-        <option value="scheduled" selected={statusFilter === 'scheduled'}>Scheduled</option>
-        <option value="fulfilled" selected={statusFilter === 'fulfilled'}>Fulfilled</option>
-      </select>
+  <div class="no-print mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-wrap items-end gap-4">
+      <div>
+        <label for="status-filter" class="mb-1 block text-sm font-medium text-slate-700">Status</label>
+        <select
+          id="status-filter"
+          class="min-h-12 rounded border border-slate-300 bg-white px-3 py-2 text-base text-slate-900"
+        >
+          <option value="" selected={statusFilter === ''}>All</option>
+          <option value="pending" selected={statusFilter === 'pending'}>Pending</option>
+          <option value="scheduled" selected={statusFilter === 'scheduled'}>Scheduled</option>
+          <option value="fulfilled" selected={statusFilter === 'fulfilled'}>Fulfilled</option>
+        </select>
+      </div>
+      <p class="text-sm text-slate-600">
+        {filtered.length} order{filtered.length === 1 ? '' : 's'}
+        {statusFilter ? ` (${statusFilter})` : ''}
+      </p>
     </div>
-    <p class="text-sm text-slate-600">
-      {filtered.length} order{filtered.length === 1 ? '' : 's'}
-      {statusFilter ? ` (${statusFilter})` : ''}
-    </p>
+    <a
+      href="/admin/create-order"
+      class="inline-flex min-h-12 items-center rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+    >
+      New Order
+    </a>
   </div>
 
   {/* Mobile cards */}
