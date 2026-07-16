@@ -4,7 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAllOrders } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
 import { formatCentralDateTime, formatUsd } from '../../lib/format-order';
-
+import { countOrderPosts } from '../../lib/reports';
 const kv = getOrdersKvFromLocals(Astro.locals);
 const kvMissing = !kv;
 const orders = kv ? await getAllOrders(kv) : [];
@@ -73,8 +73,13 @@ const filtered =
                   <p class="mt-0.5 text-sm tabular-nums text-slate-600">{o.customer.phone.trim()}</p>
                 ) : null}
               </div>
-              <p class="shrink-0 text-base font-semibold tabular-nums text-slate-900">
-                {formatUsd(o.discountedSubtotal)}
+              <p class="shrink-0 text-right">
+                <span class="block text-base font-semibold tabular-nums text-slate-900">
+                  {formatUsd(o.discountedSubtotal)}
+                </span>
+                <span class="mt-0.5 block text-sm tabular-nums text-slate-600">
+                  {countOrderPosts(o).toLocaleString('en-US')} posts
+                </span>
               </p>
             </div>
             <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
@@ -121,6 +126,7 @@ const filtered =
         <tr>
           <th class="px-4 py-3 font-medium">Placed (Central)</th>
           <th class="px-4 py-3 font-medium">Customer</th>
+          <th class="px-4 py-3 font-medium">Qty</th>
           <th class="px-4 py-3 font-medium">Total</th>
           <th class="px-4 py-3 font-medium">Deposit</th>
           <th class="px-4 py-3 font-medium">Status</th>
@@ -148,6 +154,9 @@ const filtered =
                     </>
                   ) : null}
                 </div>
+              </td>
+              <td class="px-4 py-3 tabular-nums text-slate-800">
+                {countOrderPosts(o).toLocaleString('en-US')}
               </td>
               <td class="px-4 py-3 font-medium tabular-nums">{formatUsd(o.discountedSubtotal)}</td>
               <td class="px-4 py-3 text-slate-700">
