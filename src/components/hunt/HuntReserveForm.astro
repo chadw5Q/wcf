@@ -126,6 +126,35 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
       <p class="text-sm font-semibold text-hunt-gold-light" id="hunt-summary-total"></p>
       <p class="mt-2 text-sm text-hunt-muted" id="hunt-summary-deposit"></p>
       <p class="text-sm text-hunt-muted" id="hunt-summary-balance"></p>
+      <p class="mt-2 text-sm text-hunt-gold-light" id="hunt-summary-pay"></p>
+    </div>
+
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Step 5</p>
+      <h2 class="mt-1 font-hunt-heading text-xl text-hunt-gold">How will you pay the deposit?</h2>
+      <div class="mt-4 grid gap-3">
+        <label class="flex cursor-pointer items-start gap-3 rounded border border-hunt-border bg-hunt-surface-2 p-4 has-[:checked]:border-hunt-gold has-[:checked]:ring-1 has-[:checked]:ring-hunt-gold">
+          <input type="radio" name="payRail" value="venmo" class="mt-1" checked />
+          <span>
+            <span class="block font-semibold text-hunt-cream">Venmo (preferred)</span>
+            <span class="mt-1 block text-sm text-hunt-muted">No processing fee — @cchadww</span>
+          </span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded border border-hunt-border bg-hunt-surface-2 p-4 has-[:checked]:border-hunt-gold has-[:checked]:ring-1 has-[:checked]:ring-hunt-gold">
+          <input type="radio" name="payRail" value="ach" class="mt-1" />
+          <span>
+            <span class="block font-semibold text-hunt-cream">Bank transfer (ACH)</span>
+            <span class="mt-1 block text-sm text-hunt-muted">~0.8% processing baked into the charge</span>
+          </span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded border border-hunt-border bg-hunt-surface-2 p-4 has-[:checked]:border-hunt-gold has-[:checked]:ring-1 has-[:checked]:ring-hunt-gold">
+          <input type="radio" name="payRail" value="card" class="mt-1" />
+          <span>
+            <span class="block font-semibold text-hunt-cream">Card</span>
+            <span class="mt-1 block text-sm text-hunt-muted">3% processing baked into the charge</span>
+          </span>
+        </label>
+      </div>
     </div>
 
     <div>
@@ -139,6 +168,7 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
         The $500/person deposit is non-refundable but transferable to any future hunt year.
         <br />
         Full balance is due July 1 of your hunt year and is fully refundable if you need to cancel.
+        Card and ACH totals include processing so we still receive the full deposit amount.
       </p>
     </div>
   </form>
@@ -149,6 +179,8 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
   const HUNT_DEPOSIT = 500;
   const MEAL_BASE = 1000;
   const MEAL_ADD = 250;
+  const CARD_FEE = 1.03;
+  const ACH_FEE = 1.008;
 
   function mealTotal(n) {
     if (n < 1) return 0;
@@ -164,6 +196,19 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
     return { hunt, meals, total, dep, bal };
   }
 
+  function selectedPayRail() {
+    const el = /** @type {HTMLInputElement | null} */ (
+      document.querySelector('input[name="payRail"]:checked')
+    );
+    return el?.value === 'ach' || el?.value === 'card' || el?.value === 'venmo' ? el.value : 'venmo';
+  }
+
+  function chargeDeposit(listDep, rail) {
+    if (rail === 'card') return Math.round(listDep * CARD_FEE * 100) / 100;
+    if (rail === 'ach') return Math.round(listDep * ACH_FEE * 100) / 100;
+    return listDep;
+  }
+
   const countInput = document.getElementById('hunt-hunter-count');
   const partyBtns = document.querySelectorAll('.hunt-party-btn');
   const blocks = document.querySelectorAll('.hunt-hunter-block');
@@ -174,6 +219,7 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
   const summaryTotal = document.getElementById('hunt-summary-total');
   const summaryDeposit = document.getElementById('hunt-summary-deposit');
   const summaryBalance = document.getElementById('hunt-summary-balance');
+  const summaryPay = document.getElementById('hunt-summary-pay');
   const form = document.getElementById('hunt-reserve-form');
   const errEl = document.getElementById('hunt-reserve-error');
   const submitBtn = document.getElementById('hunt-submit');
@@ -257,7 +303,9 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
 
   function updateSummary() {
     const meal = /** @type {HTMLInputElement} */ (mealEl)?.checked ?? false;
+    const rail = selectedPayRail();
     const { hunt, meals, total, dep, bal } = compute(partySize, meal);
+    const charged = chargeDeposit(dep, rail);
     if (summaryLines && summaryTotal && summaryDeposit && summaryBalance) {
       let html = `<p>Hunt: ${partySize} hunters × $${HUNT_LODGING.toLocaleString()} = $${hunt.toLocaleString()}</p>`;
       if (meal) {
@@ -265,11 +313,26 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
       }
       summaryLines.innerHTML = html;
       summaryTotal.textContent = `Total hunt cost: $${total.toLocaleString()}`;
-      summaryDeposit.textContent = `Due today (deposit): ${partySize} hunters × $${HUNT_DEPOSIT} = $${dep.toLocaleString()}`;
+      summaryDeposit.textContent = `Deposit (list): ${partySize} × $${HUNT_DEPOSIT} = $${dep.toLocaleString()}`;
       summaryBalance.textContent = `Balance due July 1: $${bal.toLocaleString()}`;
     }
+    if (summaryPay) {
+      if (rail === 'venmo') {
+        summaryPay.textContent = `Pay today via Venmo: $${dep.toLocaleString()} (no fee)`;
+      } else if (rail === 'ach') {
+        summaryPay.textContent = `Pay today via ACH: $${charged.toLocaleString()} (includes ~0.8% processing)`;
+      } else {
+        summaryPay.textContent = `Pay today via card: $${charged.toLocaleString()} (includes 3% processing)`;
+      }
+    }
     if (submitBtn) {
-      submitBtn.textContent = `Reserve My Spot — Pay $${dep.toLocaleString()} Deposit`;
+      if (rail === 'venmo') {
+        submitBtn.textContent = `Reserve My Spot — Pay $${dep.toLocaleString()} on Venmo`;
+      } else if (rail === 'ach') {
+        submitBtn.textContent = `Reserve My Spot — Pay $${charged.toLocaleString()} via ACH`;
+      } else {
+        submitBtn.textContent = `Reserve My Spot — Pay $${charged.toLocaleString()} by Card`;
+      }
     }
   }
 
@@ -284,6 +347,9 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
     updateSummary();
   });
   mealEl?.addEventListener('change', updateSummary);
+  document.querySelectorAll('input[name="payRail"]').forEach((el) => {
+    el.addEventListener('change', updateSummary);
+  });
 
   blocks.forEach((block) => {
     block.querySelectorAll('input[data-field],select[data-field]').forEach((el) => {
@@ -340,12 +406,14 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
     }
     const mealPackage = Boolean(mealEl?.checked);
     const notesRaw = notesEl?.value?.trim() ?? '';
+    const payRail = selectedPayRail();
     const body = {
       hunters,
       huntYear,
       preferredWeek: weekInp.value,
       mealPackage,
       notes: notesRaw.length ? notesRaw : null,
+      payRail,
     };
     submitBtn && (submitBtn.disabled = true);
     try {
@@ -356,7 +424,15 @@ const initialWeeks = weeksByYear[defaultYear] ?? [];
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showError(data.error || data.details || 'Could not start checkout. Try again.');
+        showError(
+          [data.error, data.details].filter(Boolean).join(' — ') ||
+            'Could not start checkout. Try again.'
+        );
+        return;
+      }
+      if (payRail === 'venmo' && data.venmoUrl && data.confirmUrl) {
+        window.open(data.venmoUrl, '_blank', 'noopener,noreferrer');
+        window.location.href = data.confirmUrl;
         return;
       }
       if (data.stripeUrl) {

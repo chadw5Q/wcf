@@ -1,0 +1,351 @@
+---
+export const prerender = false;
+import HuntLayout from '../../../layouts/HuntLayout.astro';
+import HuntLiabilityReleaseDialog from '../../../components/hunt/HuntLiabilityReleaseDialog.astro';
+import HuntPortalChrome from '../../../components/hunt/HuntPortalChrome.astro';
+import HuntPortalHuntCard from '../../../components/hunt/HuntPortalHuntCard.astro';
+import { isLeadHunter } from '../../../lib/hunt-hunter-shares';
+import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
+import {
+  huntPortalPaymentPath,
+  verifyHuntPortalToken,
+} from '../../../lib/hunt-portal-token';
+import { ensureHunterPayments, getReservation } from '../../../lib/hunt-reservations';
+import { getWeekLabel, parseHuntWeekCard } from '../../../lib/hunt-weeks';
+
+const rawTokenParam = Astro.params.token ?? '';
+let token = rawTokenParam;
+try {
+  token = decodeURIComponent(rawTokenParam);
+} catch {
+  token = rawTokenParam;
+}
+const payload = await verifyHuntPortalToken(token);
+const kv = getHuntKvFromLocals(Astro.locals);
+
+const reservation = payload && kv ? await getReservation(kv, payload.reservationId) : null;
+const hunter =
+  reservation && payload && payload.hunterIndex >= 0 && payload.hunterIndex < reservation.hunters.length
+    ? reservation.hunters[payload.hunterIndex]
+    : null;
+const pay = reservation && payload ? ensureHunterPayments(reservation)[payload.hunterIndex] : null;
+
+const guestName = hunter ? `${hunter.firstName} ${hunter.lastName}` : '';
+const weekLabel = reservation
+  ? (getWeekLabel(reservation.huntYear, reservation.preferredWeek) ?? reservation.preferredWeek)
+  : '';
+const huntLabel = reservation
+  ? `${reservation.huntYear} · ${weekLabel}${reservation.mealPackage && payload && isLeadHunter(payload.hunterIndex) ? ' · meal package (lead)' : ''}`
+  : '';
+const weekCard =
+  reservation && weekLabel ? parseHuntWeekCard(weekLabel, reservation.huntYear) : null;
+const today = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Chicago',
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+}).format(new Date());
+const paymentPath = huntPortalPaymentPath(token);
+
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `${digits.slice(1, 4)}.${digits.slice(4, 7)}.${digits.slice(7)}`;
+  }
+  return raw;
+}
+
+if (payload && reservation && hunter && pay?.waiverId) {
+  return Astro.redirect(paymentPath);
+}
+---
+
+<HuntLayout title={hunter ? `${guestName} — Guest Portal` : 'Guest Portal'} minimal>
+  {
+    !payload || !reservation || !hunter || !pay ? (
+      <section class="mx-auto max-w-[640px] px-4 py-20 text-center">
+        <h1 class="font-hunt-heading text-3xl text-hunt-cream">Link not valid</h1>
+        <p class="mt-4 text-hunt-muted">
+          This guest portal link is missing, expired, or the reservation could not be found. Call or
+          text Chad at{' '}
+          <a href="tel:+17122543999" class="text-hunt-gold underline">712-254-3999</a>.
+        </p>
+      </section>
+    ) : (
+      <div class="hunt-portal flex min-h-full flex-1 flex-col">
+        <HuntPortalChrome step="sign" />
+
+        <div class="mx-auto w-full max-w-[480px] flex-1 px-4 pb-4 pt-6">
+          <h1 class="font-hunt-heading text-[2.125rem] leading-tight text-[color:var(--portal-body)]">
+            Welcome, {hunter.firstName}
+          </h1>
+          <p class="mt-2 text-[1.05rem] leading-snug text-[color:var(--portal-body)]/90">
+            Sign your liability release below. Next you’ll choose how to pay your remaining balance.
+          </p>
+
+          {
+            weekCard && (
+              <HuntPortalHuntCard week={weekCard} facts={['Balance due July 1']} class="mt-6" />
+            )
+          }
+
+          <form id="portal-waiver-form" class="mt-8 space-y-8 pb-4" method="post" action="/api/hunt-waiver">
+            {/* 1 Confirm */}
+            <section>
+              <div class="mb-3 flex items-center gap-2">
+                <span class="portal-section-num" aria-hidden="true">1</span>
+                <h2 class="font-hunt-heading text-xl text-[color:var(--portal-gold)]">Confirm your details</h2>
+              </div>
+              <div class="portal-card space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <p class="portal-label">Date</p>
+                    <p class="mt-1 text-[color:var(--portal-body)]">{today}</p>
+                    <input type="hidden" id="release-date" name="releaseDate" value={today} />
+                    <input type="hidden" id="medical-date" name="medicalDate" value={today} />
+                  </div>
+                  <div>
+                    <p class="portal-label">Phone</p>
+                    <p class="mt-1 text-[color:var(--portal-body)]">{formatPhone(hunter.phone)}</p>
+                    <input type="hidden" id="waiver-phone" name="phone" value={hunter.phone} />
+                  </div>
+                </div>
+                <div>
+                  <label class="portal-label" for="waiver-address">Mailing address</label>
+                  <input
+                    id="waiver-address"
+                    name="address"
+                    required
+                    autocomplete="street-address"
+                    class="portal-input"
+                  />
+                </div>
+                <div>
+                  <label class="portal-label" for="minor-name">
+                    Name of minor <span class="normal-case tracking-normal text-[color:var(--portal-muted)]">(optional)</span>
+                  </label>
+                  <input id="minor-name" name="minorName" class="portal-input" />
+                </div>
+              </div>
+            </section>
+
+            {/* 2 Liability */}
+            <section>
+              <div class="mb-3 flex items-center gap-2">
+                <span class="portal-section-num" aria-hidden="true">2</span>
+                <h2 class="font-hunt-heading text-xl text-[color:var(--portal-gold)]">Liability release</h2>
+              </div>
+              <div class="portal-card space-y-3 text-[0.98rem] leading-relaxed text-[color:var(--portal-body)]/90">
+                <p>
+                  I, <strong class="text-[color:var(--portal-gold)]">{guestName}</strong>, understand
+                  hunting is dangerous and voluntarily assume all risk. I release and indemnify
+                  Williams Creek Farms LLC and its agents from claims arising from participation on
+                  the property, to the fullest extent permitted by Iowa law.
+                </p>
+                <button
+                  type="button"
+                  data-open-full-liability-release
+                  class="font-semibold text-[color:var(--portal-gold)] underline decoration-[color:var(--portal-gold)]/40 underline-offset-4"
+                >
+                  Read the full liability release
+                </button>
+              </div>
+            </section>
+
+            {/* 3 Medical */}
+            <section>
+              <div class="mb-3 flex items-center gap-2">
+                <span class="portal-section-num" aria-hidden="true">3</span>
+                <h2 class="font-hunt-heading text-xl text-[color:var(--portal-gold)]">Medical &amp; emergency contact</h2>
+              </div>
+              <div class="portal-card space-y-4">
+                <p class="text-[0.98rem] leading-relaxed text-[color:var(--portal-body)]/90">
+                  I authorize Williams Creek Farms LLC to arrange emergency transport and medical
+                  treatment if I am unable to consent, and I accept responsibility for related costs.
+                </p>
+                <div>
+                  <label class="portal-label" for="medical-notes">
+                    Allergies or medical conditions{' '}
+                    <span class="normal-case tracking-normal text-[color:var(--portal-muted)]">optional</span>
+                  </label>
+                  <textarea
+                    id="medical-notes"
+                    name="medicalNotes"
+                    class="portal-input portal-textarea"
+                    placeholder="Medications, allergies, conditions we should know."
+                  ></textarea>
+                </div>
+                <div>
+                  <label class="portal-label" for="emergency-name">Emergency contact — full name</label>
+                  <input id="emergency-name" name="emergencyContactName" required autocomplete="name" class="portal-input" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="portal-label" for="emergency-phone">Phone</label>
+                    <input
+                      id="emergency-phone"
+                      name="emergencyContactPhone"
+                      type="tel"
+                      required
+                      autocomplete="tel"
+                      inputmode="tel"
+                      class="portal-input"
+                    />
+                  </div>
+                  <div>
+                    <label class="portal-label" for="emergency-relationship">Relationship</label>
+                    <input id="emergency-relationship" name="emergencyContactRelationship" class="portal-input" />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 4 Signature */}
+            <section>
+              <div class="mb-3 flex items-center gap-2">
+                <span class="portal-section-num" aria-hidden="true">4</span>
+                <h2 class="font-hunt-heading text-xl text-[color:var(--portal-gold)]">Signature</h2>
+              </div>
+              <p class="mb-3 text-sm text-[color:var(--portal-muted)]">
+                One signature covers both the liability release and the medical authorization.
+              </p>
+              <div class="portal-card space-y-4 border-[color:var(--portal-gold)]/40">
+                <div>
+                  <label class="portal-label" for="release-signature">Type your full name</label>
+                  <input
+                    id="release-signature"
+                    name="releaseSignature"
+                    required
+                    autocomplete="name"
+                    class="portal-input portal-sig"
+                    placeholder={guestName}
+                  />
+                  <p class="mt-1.5 text-sm text-[color:var(--portal-muted)]">Your typed signature is legally binding.</p>
+                </div>
+                <label class="flex items-start gap-3 text-[0.95rem] leading-snug text-[color:var(--portal-body)]/90">
+                  <input id="release-agree" name="agreedToRelease" type="checkbox" required class="mt-1 h-5 w-5 shrink-0 accent-[color:var(--portal-gold)]" />
+                  <span>
+                    I have read and understand the{' '}
+                    <button
+                      type="button"
+                      data-open-full-liability-release
+                      class="font-semibold text-[color:var(--portal-gold)] underline decoration-[color:var(--portal-gold)]/40 underline-offset-2"
+                    >
+                      Release, Waiver of Liability, and Indemnity Agreement
+                    </button>
+                    {' '}and the Authorization for Medical Treatment, and I sign both voluntarily.
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <p id="waiver-error" class="hidden text-sm text-red-300" role="alert" aria-live="polite"></p>
+
+            <p class="pt-2 text-center text-sm text-[color:var(--portal-muted)]">
+              Not {guestName}? Don’t use this page — call or text Chad at{' '}
+              <a href="tel:+17122543999" class="text-[color:var(--portal-gold)] underline">712-254-3999</a>.
+            </p>
+
+            <div class="portal-sticky-cta">
+              <button id="waiver-submit" type="submit" class="portal-cta" disabled>
+                Sign and continue to payment
+              </button>
+              <p id="waiver-helper" class="mt-2 text-center text-sm text-[color:var(--portal-muted)]">
+                Type your name and check the box to continue
+              </p>
+            </div>
+          </form>
+
+          <HuntLiabilityReleaseDialog guestName={guestName} />
+        </div>
+      </div>
+    )
+  }
+</HuntLayout>
+
+{
+  payload && reservation && hunter && (
+    <script define:vars={{ paymentPath, reservationId: reservation.id, hunterIndex: payload.hunterIndex, huntLabel, guestName }}>
+      const form = document.getElementById('portal-waiver-form');
+      const submitBtn = document.getElementById('waiver-submit');
+      const helper = document.getElementById('waiver-helper');
+      const sig = document.getElementById('release-signature');
+      const agree = document.getElementById('release-agree');
+
+      function syncCta() {
+        const ready =
+          (sig instanceof HTMLInputElement && sig.value.trim().length > 1) &&
+          (agree instanceof HTMLInputElement && agree.checked);
+        if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = !ready;
+        if (helper) {
+          helper.textContent = ready
+            ? 'Step 1 of 3'
+            : 'Type your name and check the box to continue';
+        }
+      }
+      sig?.addEventListener('input', syncCta);
+      agree?.addEventListener('change', syncCta);
+      syncCta();
+
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById('waiver-error');
+        const field = (id) => document.getElementById(id)?.value?.trim() ?? '';
+        const signature = field('release-signature');
+        const body = {
+          guestSlug: 'portal',
+          huntLabel,
+          buckChoice: 'cull',
+          fullName: guestName,
+          releaseDate: field('release-date'),
+          minorName: field('minor-name') || null,
+          address: field('waiver-address'),
+          phone: field('waiver-phone'),
+          releaseSignature: signature,
+          agreedToRelease: document.getElementById('release-agree')?.checked === true,
+          medicalSignature: signature,
+          medicalDate: field('medical-date'),
+          emergencyContactName: field('emergency-name'),
+          emergencyContactPhone: field('emergency-phone'),
+          emergencyContactRelationship: field('emergency-relationship') || null,
+          medicalNotes: field('medical-notes') || null,
+          reservationId,
+          hunterIndex,
+        };
+        if (submitBtn instanceof HTMLButtonElement) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Submitting…';
+        }
+        try {
+          const res = await fetch('/api/hunt-waiver', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          if (res.ok) {
+            window.location.href = paymentPath;
+            return;
+          }
+          const data = await res.json().catch(() => ({}));
+          if (errorEl) {
+            errorEl.textContent = data.error || 'Could not submit waiver';
+            errorEl.classList.remove('hidden');
+          }
+        } catch {
+          if (errorEl) {
+            errorEl.textContent = 'Network error';
+            errorEl.classList.remove('hidden');
+          }
+        } finally {
+          if (submitBtn instanceof HTMLButtonElement) {
+            submitBtn.textContent = 'Sign and continue to payment';
+            syncCta();
+          }
+        }
+      });
+    </script>
+  )
+}

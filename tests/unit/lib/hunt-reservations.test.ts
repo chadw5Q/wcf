@@ -2,9 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   HUNT_RESERVATION_KEY_PREFIX,
   createDraftReservation,
+  deleteReservation,
   getReservation,
   parseReservationJson,
   putReservation,
+  removeHunterFromReservation,
   reservationKvKey,
   serializeReservation,
   validateReservation,
@@ -23,15 +25,16 @@ function sampleHunter(over: Partial<{ firstName: string }> = {}) {
 }
 
 function sampleReservation(over: Partial<HuntReservation> = {}): HuntReservation {
-  return {
+  const hunters = over.hunters ?? [sampleHunter(), sampleHunter({ firstName: 'Kim', email: 'kim@example.com' })];
+  const base: HuntReservation = {
     id: '11111111-1111-4111-8111-111111111111',
     createdAt: '2027-01-15T12:00:00.000Z',
     status: 'draft',
     huntYear: 2027,
     preferredWeek: 'w2',
     mealPackage: true,
-    hunters: [sampleHunter(), sampleHunter({ firstName: 'Kim', email: 'kim@example.com' })],
-    hunterCount: 2,
+    hunters,
+    hunterCount: hunters.length,
     huntCostPerPerson: 3000,
     mealPackageCost: 1000,
     totalHuntCost: 7000,
@@ -41,7 +44,26 @@ function sampleReservation(over: Partial<HuntReservation> = {}): HuntReservation
     stripeDepositSessionId: '',
     stripeBalanceSessionId: null,
     notes: null,
+    hunterPayments: hunters.map(() => ({
+      depositPaid: false,
+      depositPaidAt: null,
+      depositMethod: null,
+      depositRef: null,
+      balancePaid: false,
+      balancePaidAt: null,
+      balanceMethod: null,
+      balanceRef: null,
+      waiverId: null,
+      portalSentAt: null,
+    })),
+    events: [],
+    tagReceivedAt: null,
+  };
+  return {
+    ...base,
     ...over,
+    hunters: over.hunters ?? base.hunters,
+    hunterCount: over.hunterCount ?? (over.hunters ?? base.hunters).length,
   };
 }
 
@@ -242,5 +264,138 @@ describe('createDraftReservation', () => {
     const got = await getReservation(kv, r.id);
     expect(got?.notes).toBe('Test');
     expect(got?.status).toBe('draft');
+  });
+});
+
+describe('removeHunterFromReservation / deleteReservation', () => {
+  it('removes a hunter and recalculates party totals', () => {
+    const r = createDraftReservation({
+      huntYear: 2028,
+      preferredWeek: 'w1',
+      mealPackage: true,
+      hunters: [
+        sampleHunter(),
+        sampleHunter({ firstName: 'Alex', email: 'alex@example.com' }),
+      ],
+      huntCostPerPerson: 3000,
+      mealPackageCost: 1250,
+      totalHuntCost: 7250,
+      depositPerPerson: 500,
+      totalDeposit: 1000,
+      balanceDue: 6250,
+    });
+    const next = removeHunterFromReservation(r, 1);
+    expect(next).not.toBeNull();
+    expect(next!.hunterCount).toBe(1);
+    expect(next!.hunters).toHaveLength(1);
+    expect(next!.totalDeposit).toBe(500);
+    expect(next!.totalHuntCost).toBe(4000); // 3000 lodging + 1000 meals for 1
+    expect(next!.events.some((e) => e.kind === 'hunter_removed')).toBe(true);
+  });
+
+  it('returns null when removing the last hunter', () => {
+    const r = createDraftReservation({
+      huntYear: 2028,
+      preferredWeek: 'w1',
+      mealPackage: false,
+      hunters: [sampleHunter()],
+      huntCostPerPerson: 3000,
+      mealPackageCost: 0,
+      totalHuntCost: 3000,
+      depositPerPerson: 500,
+      totalDeposit: 500,
+      balanceDue: 2500,
+    });
+    expect(removeHunterFromReservation(r, 0)).toBeNull();
+  });
+
+  it('deletes a reservation from KV', async () => {
+    const kv = createMemoryKv();
+    const r = createDraftReservation({
+      huntYear: 2028,
+      preferredWeek: 'w1',
+      mealPackage: false,
+      hunters: [sampleHunter()],
+      huntCostPerPerson: 3000,
+      mealPackageCost: 0,
+      totalHuntCost: 3000,
+      depositPerPerson: 500,
+      totalDeposit: 500,
+      balanceDue: 2500,
+    });
+    await putReservation(kv, r);
+    expect(await deleteReservation(kv, r.id)).toBe(true);
+    expect(await getReservation(kv, r.id)).toBeNull();
+    expect(await deleteReservation(kv, r.id)).toBe(false);
+  });
+});
+
+describe('updatePartyDetails / updateHunterDetails / addHunterToReservation', () => {
+  function twoHunterParty() {
+    return createDraftReservation({
+      huntYear: 2028,
+      preferredWeek: 'w1',
+      mealPackage: true,
+      hunters: [
+        sampleHunter(),
+        sampleHunter({ firstName: 'Alex', email: 'alex@example.com' }),
+      ],
+      huntCostPerPerson: 3000,
+      mealPackageCost: 1250,
+      totalHuntCost: 7250,
+      depositPerPerson: 500,
+      totalDeposit: 1000,
+      balanceDue: 6250,
+    });
+  }
+
+  it('updates year, week, and meals', async () => {
+    const { updatePartyDetails } = await import('../../../src/lib/hunt-reservations');
+    const next = updatePartyDetails(twoHunterParty(), {
+      huntYear: 2029,
+      preferredWeek: 'w2',
+      mealPackage: false,
+    });
+    expect(next.huntYear).toBe(2029);
+    expect(next.preferredWeek).toBe('w2');
+    expect(next.mealPackage).toBe(false);
+    expect(next.totalHuntCost).toBe(6000);
+    expect(next.events.some((e) => e.kind === 'party_updated')).toBe(true);
+  });
+
+  it('updates hunter contact fields', async () => {
+    const { updateHunterDetails } = await import('../../../src/lib/hunt-reservations');
+    const next = updateHunterDetails(twoHunterParty(), 1, {
+      firstName: 'Alexandra',
+      email: 'alexandra@example.com',
+      state: 'ne',
+    });
+    expect(next.hunters[1]!.firstName).toBe('Alexandra');
+    expect(next.hunters[1]!.email).toBe('alexandra@example.com');
+    expect(next.hunters[1]!.state).toBe('NE');
+    expect(next.events.some((e) => e.kind === 'hunter_updated')).toBe(true);
+  });
+
+  it('adds a hunter and recalculates totals', async () => {
+    const { addHunterToReservation } = await import('../../../src/lib/hunt-reservations');
+    const next = addHunterToReservation(twoHunterParty(), {
+      firstName: 'Sam',
+      lastName: 'Lee',
+      email: 'sam@example.com',
+      phone: '7125559999',
+      state: 'IA',
+    });
+    expect(next.hunterCount).toBe(3);
+    expect(next.hunters).toHaveLength(3);
+    expect(next.hunterPayments).toHaveLength(3);
+    expect(next.totalDeposit).toBe(1500);
+    expect(next.totalHuntCost).toBe(10500); // 9000 lodging + 1500 meals
+    expect(next.events.some((e) => e.kind === 'hunter_added')).toBe(true);
+  });
+
+  it('rejects edits on fulfilled parties', async () => {
+    const { updatePartyDetails } = await import('../../../src/lib/hunt-reservations');
+    const r = { ...twoHunterParty(), status: 'fulfilled' as const };
+    expect(() => updatePartyDetails(r, { huntYear: 2030 })).toThrow(/fulfilled|cancelled/i);
   });
 });

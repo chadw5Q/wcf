@@ -6,21 +6,63 @@ export type HuntWeekSlot = {
   available: boolean;
 };
 
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  return x;
+}
+
+/** Last Sunday on or before Oct 31 (local calendar). */
+export function lastOctoberSunday(year: number): Date {
+  const oct31 = new Date(year, 9, 31);
+  return addDays(oct31, -oct31.getDay());
+}
+
+function formatMonthDay(d: Date): string {
+  return `${MONTH_SHORT[d.getMonth()]} ${d.getDate()}`;
+}
+
+/** e.g. "Oct 29–Nov 4" or "Oct 25–31". */
+export function formatHuntWeekDateRange(startSunday: Date): string {
+  const endSaturday = addDays(startSunday, 6);
+  if (startSunday.getMonth() === endSaturday.getMonth()) {
+    return `${MONTH_SHORT[startSunday.getMonth()]} ${startSunday.getDate()}–${endSaturday.getDate()}`;
+  }
+  return `${formatMonthDay(startSunday)}–${formatMonthDay(endSaturday)}`;
+}
+
 function octWeeks(year: number, w1Avail: boolean, w2Avail: boolean, w3Avail: boolean): HuntWeekSlot[] {
+  const w1 = lastOctoberSunday(year);
+  const w2 = addDays(w1, 7);
+  const w3 = addDays(w2, 7);
   return [
     {
       id: 'w1',
-      label: `Week 1 — (Last week of October, ${year}, Sunday–Saturday)`,
+      label: `Week 1 — ${formatHuntWeekDateRange(w1)} (Last week of October)`,
       available: w1Avail,
     },
     {
       id: 'w2',
-      label: `Week 2 — Nov 1–8 (First week of November — Prime Rut, ${year})`,
+      label: `Week 2 — ${formatHuntWeekDateRange(w2)} (First week of November — Prime Rut)`,
       available: w2Avail,
     },
     {
       id: 'w3',
-      label: `Week 3 — Nov 8–15 (Second week of November, ${year})`,
+      label: `Week 3 — ${formatHuntWeekDateRange(w3)} (Second week of November)`,
       available: w3Avail,
     },
   ];
@@ -81,6 +123,102 @@ export function getHuntWeeksForYear(year: number): HuntWeekSlot[] | undefined {
 export function getWeekLabel(year: number, weekId: string): string | undefined {
   const weeks = getHuntWeeksForYear(year);
   return weeks?.find((w) => w.id === weekId)?.label;
+}
+
+/** Sunday start of a hunt week, or null if year/week unknown. */
+export function getHuntWeekStartSunday(year: number, weekId: string): Date | null {
+  const weeks = getHuntWeeksForYear(year);
+  if (!weeks?.some((w) => w.id === weekId)) return null;
+
+  // Computed seasons (2028+) use the October-Sunday ladder.
+  if (year >= 2028) {
+    const w1 = lastOctoberSunday(year);
+    if (weekId === 'w1') return w1;
+    if (weekId === 'w2') return addDays(w1, 7);
+    if (weekId === 'w3') return addDays(w1, 14);
+    return null;
+  }
+
+  // Static legacy labels for 2026–2027 — Sundays from the published ranges.
+  const staticStarts: Record<number, Record<string, [number, number]>> = {
+    2026: { w1: [9, 25], w2: [10, 1], w3: [10, 8] },
+    2027: { w1: [9, 25], w2: [10, 1], w3: [10, 8] },
+  };
+  const md = staticStarts[year]?.[weekId];
+  if (!md) return null;
+  return new Date(year, md[0], md[1]);
+}
+
+const MONTH_LONG = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
+
+/** e.g. "November 12" */
+export function formatHuntSundayLong(startSunday: Date): string {
+  return `${MONTH_LONG[startSunday.getMonth()]} ${startSunday.getDate()}`;
+}
+
+/**
+ * Portal Done banner:
+ * "You're all set for your hunt on Nov 12–18, 2029. See you on Sunday, November 12 after 2pm CT"
+ */
+export function huntPortalAllSetMessage(year: number, weekId: string): string | null {
+  const start = getHuntWeekStartSunday(year, weekId);
+  if (!start) return null;
+  const range = `${formatHuntWeekDateRange(start)}, ${year}`;
+  const sunday = formatHuntSundayLong(start);
+  return `You're all set for your hunt on ${range}. See you on Sunday, ${sunday} after 2pm CT`;
+}
+
+/** Portal "Your hunt" card pieces parsed from a week label. */
+export type HuntWeekCardParts = {
+  /** e.g. "Week 2 · Nov 4 – 10, 2029" */
+  titleLine: string;
+  /** e.g. "First week of November" */
+  seasonNote: string | null;
+  /** e.g. "Prime Rut" */
+  tag: string | null;
+};
+
+/**
+ * Parse `Week 2 — Nov 4–10 (First week of November — Prime Rut)` into display parts.
+ */
+export function parseHuntWeekCard(weekLabel: string, huntYear: number): HuntWeekCardParts {
+  const paren = weekLabel.match(/\(([^)]+)\)\s*$/);
+  const inside = paren?.[1]?.trim() ?? '';
+  const withoutParen = weekLabel.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const [weekPartRaw, rangeRaw] = withoutParen.split(/\s+[—–-]\s+/, 2);
+  const weekPart = (weekPartRaw ?? withoutParen).trim();
+  let range = (rangeRaw ?? '').trim();
+  // "Nov 4–10" → "Nov 4 – 10"
+  range = range.replace(/(\d)\s*[–-]\s*(\d)/, '$1 – $2');
+  const titleLine = range
+    ? `${weekPart} · ${range}, ${huntYear}`
+    : `${weekPart}, ${huntYear}`;
+
+  let seasonNote: string | null = null;
+  let tag: string | null = null;
+  if (inside) {
+    const parts = inside.split(/\s+[—–-]\s+/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      seasonNote = parts.slice(0, -1).join(' — ');
+      tag = parts[parts.length - 1] ?? null;
+    } else {
+      seasonNote = inside;
+    }
+  }
+  return { titleLine, seasonNote, tag };
 }
 
 export function isPreferredWeekAvailable(year: number, weekId: string): boolean {

@@ -1,0 +1,154 @@
+---
+interface Props {
+  guestName: string;
+}
+
+const { guestName } = Astro.props;
+---
+
+<dialog
+  id="full-liability-release"
+  aria-labelledby="full-liability-release-title"
+  class="m-auto max-h-[90dvh] w-[min(92vw,760px)] rounded border border-hunt-border bg-hunt-surface p-0 text-hunt-cream backdrop:bg-black/75"
+>
+  <div class="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-hunt-border bg-hunt-surface px-5 py-4">
+    <h2 id="full-liability-release-title" class="font-hunt-heading text-xl text-hunt-gold">
+      Williams Creek Farms LLC Liability Release
+    </h2>
+    <form method="dialog">
+      <button
+        type="submit"
+        class="rounded border border-hunt-border px-3 py-2 text-sm font-semibold text-hunt-cream hover:border-hunt-gold hover:text-hunt-gold-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hunt-gold"
+        aria-label="Close full liability release"
+      >
+        Close
+      </button>
+    </form>
+  </div>
+
+  <div class="space-y-4 overflow-y-auto px-5 py-6 text-sm leading-relaxed text-hunt-cream/90">
+    <p>
+      A. I, <strong class="text-hunt-gold-light">{guestName}</strong>, HAVE ACCEPTED AND
+      UNDERSTAND THE FACT THAT IN AND OF ITSELF HUNTING IS A DANGEROUS ACTIVITY. THE VOLUNTARY
+      USE OF WEAPONS IS DANGEROUS AND SINCE I HAVE VOLUNTARILY CHOSEN TO HUNT AND/OR OBSERVE
+      HUNTING ON WILLIAMS CREEK FARMS PROPERTIES I UNDERSTAND THAT IT IS NECESSARY TO SIGN THIS
+      GENERAL RELEASE AND <strong>ASSUME ALL RISK</strong> REASONABLY OR OTHERWISE RELATED TO
+      <strong> CONSCIOUS CHOICE</strong> TO PARTICIPATE IN THIS ACTIVITY.
+    </p>
+    <p>
+      B. I, <strong class="text-hunt-gold-light">{guestName}</strong>, hereby acknowledge I have
+      voluntarily applied to participate in and/or observe the hunting activity with WILLIAMS
+      CREEK FARMS LLC, hereinafter referred to as RELEASEE.
+    </p>
+    <p>
+      C. As LAWFUL CONSIDERATION of being permitted to enter upon the premises upon which this
+      event is conducted or of being permitted to participate in or observe activities or
+      otherwise use the facilities, my heirs, distributes, legal representatives, next of kin,
+      and I agree to the provisions set forth below:
+    </p>
+    <p class="pl-5">
+      I. I, <strong class="text-hunt-gold-light">{guestName}</strong>, hereby release, waive,
+      discharge and agree not to sue, make a claim against the property of or otherwise prosecute
+      RELEASEES, one of its affiliate organizations, its officers, directors, shareholders,
+      agents and/or employees, for liability on account of damage to the property of or injury to
+      the persons or death of the undersigned, whether caused from the passive or active
+      negligence of RELEASEES or otherwise while the undersigned is participating in or observing
+      the sport or related activities being presented by RELEASEES.
+    </p>
+    <p class="pl-5">
+      II. I, <strong class="text-hunt-gold-light">{guestName}</strong>, hereby agree to Indemnify
+      and save and hold harmless the RELEASEES and each of them any loss, liability, damage, or
+      cost RELEASEES may incur due to the presence of or any act either intentional or
+      unintentional, of the Undersigned while the Undersigned participates in or observes the
+      sporting or related activities be presented by RELEASEES, whether caused by the passive or
+      active negligence or RELEASEES or otherwise. I, <strong class="text-hunt-gold-light">{guestName}</strong>,
+      agree that in case any conflict arises from any of the above situations and if
+      <strong class="text-hunt-gold-light"> {guestName}</strong> or my agents choose to file a
+      lawsuit, understanding that I have expressly waived this right in Section C (I), then I
+      understand that the laws of Iowa will be controlling.
+    </p>
+    <p class="pl-5">
+      III. I, <strong class="text-hunt-gold-light">{guestName}</strong>, expressly agree the
+      foregoing Release, Waiver, and Indemnity Agreement is intended to be as broad and inclusive
+      as is permitted by the laws of the state of Iowa. The undersigned further agrees if any
+      provision of this agreement is held to be invalid, nevertheless, the balance of the
+      agreement shall continue in full force and effect.
+    </p>
+    <p class="pl-5">
+      IV. I, <strong class="text-hunt-gold-light">{guestName}</strong>, warrant the following
+      statements are true and correct and understand RELEASEES have relied on them in entering
+      into the foregoing Release, Waiver, and Indemnity Agreement and is giving the Undersigned
+      permission to participate in and/or observe the sporting and other activities being
+      conducted by RELEASEES.
+    </p>
+    <p>
+      D. I, <strong class="text-hunt-gold-light">{guestName}</strong>, acknowledge no oral
+      presentation, statement, or inducements apart from the foregoing written agreement have
+      been made.
+    </p>
+    <p>
+      E. I, <strong class="text-hunt-gold-light">{guestName}</strong>, am fully aware of the risk
+      and hazards inherent in entering upon the premises where RELEASEES events are being
+      conducted and participating in and/or observing any events held upon said premises knowing
+      the present condition thereof.
+    </p>
+    <p>
+      F. I, <strong class="text-hunt-gold-light">{guestName}</strong>, acknowledge the risk and
+      hazards being assumed by the Undersigned may increase during the time the Undersigned is
+      participating in or observing the activities being conducted by RELEASEES.
+    </p>
+    <p>
+      G. I, <strong class="text-hunt-gold-light">{guestName}</strong>, AM AWARE THE PARTICIPATION
+      IN OR THE OBSERVATION OF THE SPORT OF HUNTING WITH WEAPONS AND RELATED ACTIVITIES IS A
+      HAZARDOUS ACTIVITY. THE UNDERSIGNED DOES VOLUNTARILY PARTICIPATE IN OR OBSERVE THESE
+      ACTIVITIES WITH THE KNOWLEDGE AND APPRECIATION OF THE DANGER INVOLVED. THE UNDERSIGNED
+      HEREBY AGREES TO ACCEPT ANY AND ALL RISK OF PROPERTY DAMAGE, PERSONAL INJURY, DEATH, OR
+      REASONABLE OR FORSEEABLE INCIDENT.
+    </p>
+    <p>
+      H. I, <strong class="text-hunt-gold-light">{guestName}</strong>, give consent to whatever
+      medical care might be provided or available on the premises and further agrees to conform
+      and comply with all of the rules and regulations promulgated at the event.
+    </p>
+    <p>
+      I. I, <strong class="text-hunt-gold-light">{guestName}</strong>, AGREE TO COMPENSATE OR
+      REIMBURSE RELEASEEES FOR ANY COST, EXPENSES, OR DAMAGES, INCLUDING ATTORNEY FEES RESLTING
+      FROM ANY CLAIM BROUGHT AGAINST RELEASEES FROM PROPERTY DAMAGE, PERSONAL INJURY, OR DEATH,
+      THAT ARISE AS A RESULT OF THE PASSIVE OR PARTICIPATING IN OR OBSERVING THE HUNTING AND
+      RELATED ACTIVITIES CONDUCTED BY RELEASEES.
+    </p>
+    <p>
+      J. I, <strong class="text-hunt-gold-light">{guestName}</strong>, HAVE CAREFULLY READ AND
+      FULLY UNDERSTAND THE COVENANT NOT TO SUE CONTAINED HEREIN, AND VOLUNTARILY SIGN THIS RELEASE,
+      WAIVER OF LIABILITY, AND INDEMNITY AGREEMENT.
+    </p>
+    <p>
+      Should any provision of this Agreement be held invalid, then the balance hereof shall remain
+      in full force and effect.
+    </p>
+    <p>
+      Notwithstanding anything to the contrary herein, nothing contained in this agreement shall
+      release RELEASEES from any intentional or willful act on its part, which directly causes
+      damage, injury or death to the undersigned.
+    </p>
+    <p>
+      I am over the age of eighteen (18) years or, I am signing this agreement on behalf of a
+      person under the age of eighteen (18) years, then I covenant I have all legal authority to
+      act on behalf of such person and I bind him or her to the terms of this agreement.
+    </p>
+  </div>
+
+  <form method="dialog" class="sticky bottom-0 border-t border-hunt-border bg-hunt-surface px-5 py-4">
+    <button type="submit" class="hunt-btn w-full">Close and return to waiver</button>
+  </form>
+</dialog>
+
+<script>
+  const releaseDialog = document.getElementById('full-liability-release');
+
+  if (releaseDialog instanceof HTMLDialogElement) {
+    document.querySelectorAll('[data-open-full-liability-release]').forEach((button) => {
+      button.addEventListener('click', () => releaseDialog.showModal());
+    });
+  }
+</script>

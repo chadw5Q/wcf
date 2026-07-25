@@ -1,0 +1,36 @@
+---
+import type { HuntWeekCardParts } from '../../lib/hunt-weeks';
+
+export interface Props {
+  week: HuntWeekCardParts;
+  /** Extra muted facts shown beside the season note (e.g. "Balance due July 1"). */
+  facts?: Array<string | null | undefined>;
+  class?: string;
+}
+
+const { week, facts = [], class: className } = Astro.props;
+const factLine = [week.seasonNote, ...facts].filter(Boolean).join('     ');
+---
+
+<div class:list={['portal-card border-[color:var(--portal-gold)]/35 bg-[color:var(--portal-gold)]/8', className]}>
+  <div class="flex items-baseline justify-between gap-3">
+    <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--portal-muted)]">
+      Your hunt
+    </p>
+    {
+      week.tag ? (
+        <p class="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--portal-gold)]">
+          {week.tag}
+        </p>
+      ) : null
+    }
+  </div>
+  <p class="mt-2 text-[1.35rem] leading-snug text-[color:var(--portal-body)]">
+    {week.titleLine}
+  </p>
+  {
+    factLine ? (
+      <p class="mt-2 whitespace-pre-wrap text-[0.95rem] text-[color:var(--portal-muted)]">{factLine}</p>
+    ) : null
+  }
+</div>

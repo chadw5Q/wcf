@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { checkoutChargeUsd, type HuntStripeRail } from '../../lib/hunt-fees';
 import { computeHuntOrderSummary, HUNT_LODGING_PER_PERSON } from '../../lib/hunt-pricing';
 import { getHuntKvFromLocals } from '../../lib/hunt-kv';
 import { parseHuntReserveRequestBody } from '../../lib/hunt-reserve-body';
@@ -16,6 +17,15 @@ function siteOrigin(request: Request): string {
   return 'http://localhost:4321';
 }
 
+type PayRail = 'venmo' | HuntStripeRail;
+
+function parsePayRail(raw: unknown): PayRail {
+  if (typeof raw !== 'object' || raw === null) return 'card';
+  const rail = (raw as Record<string, unknown>).payRail;
+  if (rail === 'venmo' || rail === 'ach' || rail === 'card') return rail;
+  return 'card';
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const kv = getHuntKvFromLocals(locals);
   if (!kv) {
@@ -23,16 +33,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
       JSON.stringify({
         error: 'HUNT_KV is not bound',
         details: 'Add the HUNT_KV namespace to wrangler.jsonc and redeploy (see README).',
-      }),
-      { status: 503, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  if (!getServerEnv('STRIPE_SECRET_KEY')?.trim()) {
-    return new Response(
-      JSON.stringify({
-        error: 'Stripe is not configured',
-        details: 'Set STRIPE_SECRET_KEY (Wrangler secret or .env).',
       }),
       { status: 503, headers: { 'Content-Type': 'application/json' } }
     );
@@ -46,6 +46,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  const payRail = parsePayRail(raw);
+  if (payRail !== 'venmo' && !getServerEnv('STRIPE_SECRET_KEY')?.trim()) {
+    return new Response(
+      JSON.stringify({
+        error: 'Stripe is not configured',
+        details: 'Set STRIPE_SECRET_KEY (Wrangler secret or .env).',
+      }),
+      { status: 503, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 
   const parsed = parseHuntReserveRequestBody(raw);
@@ -77,7 +88,35 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const origin = siteOrigin(request);
   const n = hunters.length;
-  const lineName = `${n} Hunt Deposits — Williams Creek Whitetails ${huntYear}`;
+  const listDeposit = summary.totalDeposit;
+  const lead = hunters[0]!;
+  const venmoNote = `WCW deposit — ${lead.lastName} — ${huntYear} — ${reservation.id.slice(0, 8)}`;
+
+  if (payRail === 'venmo') {
+    const venmoUrl =
+      `https://venmo.com/cchadww?txn=pay&amount=${listDeposit.toFixed(2)}&note=${encodeURIComponent(venmoNote)}`;
+    return new Response(
+      JSON.stringify({
+        reservationId: reservation.id,
+        payRail: 'venmo',
+        listDepositUsd: listDeposit,
+        venmoUrl,
+        confirmUrl: `${origin}/hunt/reserve/confirmed?reservation_id=${encodeURIComponent(reservation.id)}&pay=venmo`,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const chargePerHunter = checkoutChargeUsd(summary.depositPerPerson, payRail);
+  const lineName =
+    payRail === 'card'
+      ? `${n} Hunt Deposits (+3% card) — WCW ${huntYear}`
+      : `${n} Hunt Deposits (+ACH fee) — WCW ${huntYear}`;
+
+  const excluded =
+    payRail === 'ach'
+      ? ['card', 'cashapp', 'amazon_pay', 'klarna', 'affirm', 'afterpay_clearpay']
+      : ['us_bank_account'];
 
   try {
     const session = await createCheckoutSession(
@@ -85,17 +124,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
         {
           id: 'hunt-deposit',
           name: lineName,
-          price: 500,
+          price: chargePerHunter,
           quantity: n,
         },
       ],
       {
-        customerEmail: hunters[0]?.email,
+        customerEmail: lead.email,
+        excludedPaymentMethodTypes: excluded,
         metadata: {
           hunt_checkout_kind: 'deposit',
           reservation_id: reservation.id,
           hunt_year: String(huntYear),
           preferred_week: preferredWeek,
+          hunt_rail: payRail,
+          list_amount_usd: String(listDeposit),
         },
         successUrl: `${origin}/hunt/reserve/confirmed?session_id={CHECKOUT_SESSION_ID}`,
         cancelUrl: `${origin}/hunt/reserve`,
@@ -105,10 +147,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const withSession = { ...reservation, stripeDepositSessionId: session.id };
     await putReservation(kv, withSession);
 
-    return new Response(JSON.stringify({ reservationId: withSession.id, stripeUrl: session.url }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        reservationId: withSession.id,
+        payRail,
+        listDepositUsd: listDeposit,
+        chargeUsd: Math.round(chargePerHunter * n * 100) / 100,
+        stripeUrl: session.url,
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
   } catch (e) {
     console.error('[hunt-reserve] Stripe error', e);
     return new Response(

@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro';
 import { getHuntKvFromLocals } from '../../lib/hunt-kv';
 import {
+  appendHuntEvent,
+  ensureHunterPayments,
+  getReservation,
+  putReservation,
+} from '../../lib/hunt-reservations';
+import {
   createHuntWaiverRecord,
   HUNT_WAIVER_KV_PREFIX,
   parseHuntWaiverBody,
@@ -30,14 +36,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const record = createHuntWaiverRecord(parsed.value);
 
-  // HUNT_KV is optional (the binding is currently commented out in wrangler.jsonc);
-  // the emailed copy is the fallback record. Fail only when neither works.
   let stored = false;
   const kv = getHuntKvFromLocals(locals);
   if (kv) {
     try {
       await kv.put(`${HUNT_WAIVER_KV_PREFIX}${record.id}`, JSON.stringify(record));
       stored = true;
+
+      if (record.reservationId && record.hunterIndex != null) {
+        const res = await getReservation(kv, record.reservationId);
+        if (res && record.hunterIndex >= 0 && record.hunterIndex < res.hunters.length) {
+          const hunterPayments = ensureHunterPayments(res);
+          hunterPayments[record.hunterIndex] = {
+            ...hunterPayments[record.hunterIndex]!,
+            waiverId: record.id,
+          };
+          let next = appendHuntEvent(
+            { ...res, hunterPayments },
+            'waiver_signed',
+            `Waiver signed by ${record.fullName}`,
+            record.hunterIndex
+          );
+          await putReservation(kv, next);
+        }
+      }
     } catch (e) {
       console.error('[hunt-waiver] KV put failed', e);
     }

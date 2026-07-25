@@ -165,7 +165,7 @@ Admin **Integrations** (`/admin/integrations`) shows whether `HUNT_KV` is bound 
 
 **Hunt manual QA (Stripe test mode):** Log in at `/hunt/login` → reserve flow (`/hunt/reserve`) → complete Checkout → confirm `/api/webhooks/stripe-hunt` receives `checkout.session.completed` (deposit) → Resend deposit mail → final payment (`/hunt/final-payment`) → balance webhook → balance mail. Confirm `public/robots.txt` disallows `/hunt`, sitemap excludes `/hunt`, and view-source on `/hunt` shows `noindex,nofollow`.
 
-**Optional Playwright (`npm run test:e2e`):** `tests/e2e/hunt-flow.spec.ts` always checks that `POST /api/hunt-reserve` and `POST /api/hunt-balance` are **not** hunt-session gated. To also run the login → reserve UI step, export **`HUNT_E2E_PASSWORD`** to match **`HUNT_PASSWORD`** (or the dev default if unset locally).
+**Optional Playwright (`npm run test:e2e`):** `tests/e2e/hunt-flow.spec.ts` checks that hunt APIs are not session-gated, guest portal / Know Before You Go load without login, and (with default local password `HuntIowa2026` or `HUNT_E2E_PASSWORD`) the reserve form shows Venmo / ACH / card with baked fees. Venmo reserve API assertions skip when `HUNT_KV` is unbound (typical for plain `astro dev`).
 
 ### Vercel (Recommended)
 

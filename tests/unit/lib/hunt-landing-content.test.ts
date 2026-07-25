@@ -43,7 +43,7 @@ describe('hunt-landing-content', () => {
   });
 
   it('has four booking steps and four pricing rows', () => {
-    expect(bookingSteps).toHaveLength(4);
+    expect(bookingSteps).toHaveLength(5);
     expect(pricingRows).toHaveLength(4);
   });
 

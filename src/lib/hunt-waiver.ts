@@ -20,6 +20,13 @@ export type HuntWaiverRequestBody = {
   medicalDate: string;
   emergencyContactName: string;
   emergencyContactPhone: string;
+  /** Optional medical notes from portal redesign. */
+  medicalNotes?: string | null;
+  /** Optional emergency contact relationship. */
+  emergencyContactRelationship?: string | null;
+  /** Optional link to lodge reservation (portal flow). */
+  reservationId?: string | null;
+  hunterIndex?: number | null;
 };
 
 export type HuntWaiverRecord = HuntWaiverRequestBody & {
@@ -102,6 +109,22 @@ export function parseHuntWaiverBody(raw: unknown): ParseHuntWaiverBodyResult {
       medicalDate: values.medicalDate,
       emergencyContactName: values.emergencyContactName,
       emergencyContactPhone: values.emergencyContactPhone,
+      medicalNotes:
+        typeof o.medicalNotes === 'string' && o.medicalNotes.trim()
+          ? o.medicalNotes.trim().slice(0, MAX_FIELD_LEN)
+          : null,
+      emergencyContactRelationship:
+        typeof o.emergencyContactRelationship === 'string' && o.emergencyContactRelationship.trim()
+          ? o.emergencyContactRelationship.trim().slice(0, MAX_FIELD_LEN)
+          : null,
+      reservationId:
+        typeof o.reservationId === 'string' && o.reservationId.trim()
+          ? o.reservationId.trim()
+          : null,
+      hunterIndex:
+        typeof o.hunterIndex === 'number' && Number.isInteger(o.hunterIndex) && o.hunterIndex >= 0
+          ? o.hunterIndex
+          : null,
     },
   };
 }
@@ -124,6 +147,8 @@ export function buildHuntWaiverNotifyText(r: HuntWaiverRecord): string {
     '',
     `Hunt: ${r.huntLabel}`,
     `Guest page: ${r.guestSlug}`,
+    r.reservationId ? `Reservation: ${r.reservationId}` : null,
+    r.hunterIndex != null ? `Hunter index: ${r.hunterIndex}` : null,
     `Buck choice: ${buckChoiceLabel(r.buckChoice)}`,
     r.buckChoice === 'reserved'
       ? 'Payment: $3,000 via Venmo @cchadww — due August 1, 2026.'
@@ -142,12 +167,15 @@ export function buildHuntWaiverNotifyText(r: HuntWaiverRecord): string {
     `Signature (typed): ${r.medicalSignature}`,
     `Printed name: ${r.fullName}`,
     `Date: ${r.medicalDate}`,
-    `Emergency contact: ${r.emergencyContactName} — ${r.emergencyContactPhone}`,
+    `Emergency contact: ${r.emergencyContactName} — ${r.emergencyContactPhone}${
+      r.emergencyContactRelationship ? ` (${r.emergencyContactRelationship})` : ''
+    }`,
+    r.medicalNotes ? `Medical notes: ${r.medicalNotes}` : null,
     '',
     `Submitted at: ${r.submittedAt}`,
     `KV key: ${HUNT_WAIVER_KV_PREFIX}${r.id}`,
   ];
-  return lines.join('\n');
+  return lines.filter((l): l is string => l != null).join('\n');
 }
 
 /** Returns true when the email was accepted by Resend. */

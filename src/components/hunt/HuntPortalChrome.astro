@@ -1,0 +1,56 @@
+---
+export interface Props {
+  step: 'sign' | 'pay' | 'done';
+}
+
+const { step } = Astro.props;
+
+const steps = [
+  { id: 'sign' as const, label: 'Sign' },
+  { id: 'pay' as const, label: 'Pay' },
+  { id: 'done' as const, label: 'Done' },
+];
+
+const order = { sign: 0, pay: 1, done: 2 } as const;
+const current = order[step];
+---
+
+<header class="hunt-portal-header sticky top-0 z-40 border-b border-[color:var(--portal-border)] bg-[color:var(--portal-bg)]/95 backdrop-blur-sm">
+  <div class="mx-auto flex max-w-[480px] items-center justify-between gap-3 px-4 pb-2 pt-3">
+    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--portal-muted)]">
+      Williams Creek Whitetails
+    </p>
+    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--portal-muted)]">
+      Guest Portal
+    </p>
+  </div>
+  <nav class="mx-auto grid max-w-[480px] grid-cols-3 gap-2 px-4 pb-3" aria-label="Portal progress">
+    {
+      steps.map((s, i) => {
+        const state = i < current ? 'done' : i === current ? 'current' : 'upcoming';
+        return (
+          <div class="min-w-0" aria-current={state === 'current' ? 'step' : undefined}>
+            <div
+              class:list={[
+                'h-1 rounded-full',
+                state === 'current' && 'bg-[color:var(--portal-gold)]',
+                state === 'done' && 'bg-[color:var(--portal-gold)]/55',
+                state === 'upcoming' && 'bg-[color:var(--portal-gold)]/20',
+              ]}
+            />
+            <p
+              class:list={[
+                'mt-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.14em]',
+                state === 'current' && 'text-[color:var(--portal-gold)]',
+                state === 'done' && 'text-[color:var(--portal-gold)]/70',
+                state === 'upcoming' && 'text-[color:var(--portal-muted)]',
+              ]}
+            >
+              {s.label}
+            </p>
+          </div>
+        );
+      })
+    }
+  </nav>
+</header>

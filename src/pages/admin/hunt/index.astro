@@ -1,0 +1,133 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
+import { hunterBalanceShareUsd } from '../../../lib/hunt-hunter-shares';
+import { ensureHunterPayments, listAllReservations } from '../../../lib/hunt-reservations';
+import { getWeekLabel } from '../../../lib/hunt-weeks';
+
+const kv = getHuntKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const reservations = kv ? await listAllReservations(kv) : [];
+
+function leadName(r: (typeof reservations)[0]): string {
+  const h = r.hunters[0];
+  return h ? `${h.firstName} ${h.lastName}` : '—';
+}
+
+function outstanding(r: (typeof reservations)[0]): number {
+  const payments = ensureHunterPayments(r);
+  let n = 0;
+  for (let i = 0; i < r.hunters.length; i++) {
+    const p = payments[i]!;
+    if (!p.depositPaid) n += r.depositPerPerson;
+    if (!p.balancePaid) n += hunterBalanceShareUsd(r, i);
+  }
+  return Math.round(n * 100) / 100;
+}
+
+function money(n: number): string {
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+---
+
+<AdminLayout title="Hunt reservations — Admin">
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Hunt reservations</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Pipeline for deposits, tags, portals, waivers, and balances.
+      </p>
+    </div>
+  </div>
+
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+        <strong>HUNT_KV is not bound.</strong> Bind the namespace in wrangler.jsonc and redeploy.
+      </div>
+    )
+  }
+
+  <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+    <table class="min-w-full text-left text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
+        <tr>
+          <th class="px-4 py-3 font-medium">Lead</th>
+          <th class="px-4 py-3 font-medium">Year / week</th>
+          <th class="px-4 py-3 font-medium">Hunters</th>
+          <th class="px-4 py-3 font-medium">Status</th>
+          <th class="px-4 py-3 font-medium">Total</th>
+          <th class="px-4 py-3 font-medium">Outstanding</th>
+          <th class="px-4 py-3 font-medium"><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {
+          reservations.map((r) => (
+            <tr class="hover:bg-slate-50/80">
+              <td class="px-4 py-3 font-medium text-slate-900">{leadName(r)}</td>
+              <td class="px-4 py-3 tabular-nums text-slate-700">
+                {r.huntYear} · {getWeekLabel(r.huntYear, r.preferredWeek) ?? r.preferredWeek}
+              </td>
+              <td class="px-4 py-3 tabular-nums">{r.hunterCount}</td>
+              <td class="px-4 py-3">
+                <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium capitalize text-slate-800">
+                  {r.status.replace(/_/g, ' ')}
+                </span>
+              </td>
+              <td class="px-4 py-3 tabular-nums font-medium text-slate-900">{money(r.totalHuntCost)}</td>
+              <td class="px-4 py-3 tabular-nums text-slate-700">{money(outstanding(r))}</td>
+              <td class="px-4 py-3">
+                <div class="flex items-center justify-end gap-3">
+                  <a href={`/admin/hunt/${r.id}`} class="font-medium text-green-700 hover:text-green-900">
+                    Open
+                  </a>
+                  <button
+                    type="button"
+                    class="js-delete-reservation font-medium text-red-700 hover:text-red-900"
+                    data-id={r.id}
+                    data-lead={leadName(r)}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))
+        }
+      </tbody>
+    </table>
+    {
+      !kvMissing && reservations.length === 0 && (
+        <p class="px-4 py-8 text-center text-slate-500">No hunt reservations yet.</p>
+      )
+    }
+  </div>
+
+  <script>
+    document.querySelectorAll('.js-delete-reservation').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const id = el.dataset.id ?? '';
+        const lead = el.dataset.lead ?? 'this party';
+        if (!id) return;
+        if (!confirm(`Delete the ${lead} reservation?\n\nThis cannot be undone.`)) return;
+        el.disabled = true;
+        try {
+          const res = await fetch('/api/admin/hunt-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservationId: id }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Delete failed');
+          window.location.reload();
+        } catch (err) {
+          el.disabled = false;
+          alert(err instanceof Error ? err.message : 'Delete failed');
+        }
+      });
+    });
+  </script>
+</AdminLayout>

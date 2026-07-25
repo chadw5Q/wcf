@@ -114,6 +114,9 @@ export function requiresHuntSession(pathname: string): boolean {
   if (!p.startsWith('/hunt')) return false;
   if (p.length > 5 && p[5] !== '/') return false; // e.g. `/hunter`, not `/hunt` or `/hunt/...`
   if (p === '/hunt/login') return false;
+  // Tokenized guest portal + public Know Before You Go (linked from portal email)
+  if (p === '/hunt/know-before-you-go' || p.startsWith('/hunt/know-before-you-go/')) return false;
+  if (p === '/hunt/portal' || p.startsWith('/hunt/portal/')) return false;
   return true;
 }
 

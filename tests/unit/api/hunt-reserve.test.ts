@@ -68,7 +68,7 @@ describe('POST /api/hunt-reserve', () => {
     expect(createCheckoutSession).not.toHaveBeenCalled();
   });
 
-  it('returns 200 with reservationId and stripeUrl; checkout URLs match PRD', async () => {
+  it('returns 200 with reservationId and stripeUrl; card fee baked into unit price', async () => {
     const kv = memoryKv();
     const res = await POST({
       request: jsonRequest({
@@ -77,27 +77,53 @@ describe('POST /api/hunt-reserve', () => {
         preferredWeek: 'w2',
         mealPackage: true,
         notes: 'Corner bunk please',
+        payRail: 'card',
       }),
       locals: { runtime: { env: { HUNT_KV: kv } } },
     } as Parameters<typeof POST>[0]);
 
     expect(res.status).toBe(200);
-    const json = (await res.json()) as { reservationId: string; stripeUrl: string };
+    const json = (await res.json()) as { reservationId: string; stripeUrl: string; chargeUsd: number };
     expect(json.stripeUrl).toBe('https://checkout.stripe.test/pay');
     expect(json.reservationId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(json.chargeUsd).toBe(515);
 
     expect(createCheckoutSession).toHaveBeenCalledTimes(1);
-    const [, opts] = createCheckoutSession.mock.calls[0] as [
-      unknown,
+    const [items, opts] = createCheckoutSession.mock.calls[0] as [
+      Array<{ price: number; quantity: number }>,
       {
         successUrl: string;
         cancelUrl: string;
         metadata: Record<string, string>;
       },
     ];
+    expect(items[0]?.price).toBe(515);
+    expect(items[0]?.quantity).toBe(1);
     expect(opts.successUrl).toContain('/hunt/reserve/confirmed?session_id={CHECKOUT_SESSION_ID}');
     expect(opts.cancelUrl).toBe('http://localhost:4321/hunt/reserve');
     expect(opts.metadata.hunt_checkout_kind).toBe('deposit');
+    expect(opts.metadata.hunt_rail).toBe('card');
     expect(opts.metadata.reservation_id).toBe(json.reservationId);
+  });
+
+  it('venmo path skips Stripe and returns venmoUrl', async () => {
+    const kv = memoryKv();
+    const res = await POST({
+      request: jsonRequest({
+        hunters: [validHunter],
+        huntYear: 2028,
+        preferredWeek: 'w2',
+        mealPackage: false,
+        notes: null,
+        payRail: 'venmo',
+      }),
+      locals: { runtime: { env: { HUNT_KV: kv } } },
+    } as Parameters<typeof POST>[0]);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { venmoUrl: string; confirmUrl: string; payRail: string };
+    expect(json.payRail).toBe('venmo');
+    expect(json.venmoUrl).toContain('venmo.com/cchadww');
+    expect(json.confirmUrl).toContain('pay=venmo');
+    expect(createCheckoutSession).not.toHaveBeenCalled();
   });
 });

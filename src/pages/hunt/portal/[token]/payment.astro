@@ -1,0 +1,377 @@
+---
+export const prerender = false;
+import HuntLayout from '../../../../layouts/HuntLayout.astro';
+import HuntPortalChrome from '../../../../components/hunt/HuntPortalChrome.astro';
+import HuntPortalHuntCard from '../../../../components/hunt/HuntPortalHuntCard.astro';
+import { checkoutChargeUsd } from '../../../../lib/hunt-fees';
+import { hunterBalanceShareUsd, hunterDepositShareUsd, isLeadHunter } from '../../../../lib/hunt-hunter-shares';
+import { getHuntKvFromLocals } from '../../../../lib/hunt-kv';
+import {
+  huntPortalPath,
+  verifyHuntPortalToken,
+} from '../../../../lib/hunt-portal-token';
+import { ensureHunterPayments, getReservation } from '../../../../lib/hunt-reservations';
+import { reconcileHuntCheckoutFromSessionId } from '../../../../lib/hunt-reconcile-checkout';
+import { getWeekLabel, huntPortalAllSetMessage, parseHuntWeekCard } from '../../../../lib/hunt-weeks';
+
+const rawTokenParam = Astro.params.token ?? '';
+let token = rawTokenParam;
+try {
+  token = decodeURIComponent(rawTokenParam);
+} catch {
+  token = rawTokenParam;
+}
+const payload = await verifyHuntPortalToken(token);
+const kv = getHuntKvFromLocals(Astro.locals);
+
+const sessionId = Astro.url.searchParams.get('session_id');
+if (sessionId && kv) {
+  await reconcileHuntCheckoutFromSessionId(sessionId, kv);
+}
+
+const reservation = payload && kv ? await getReservation(kv, payload.reservationId) : null;
+const hunter =
+  reservation && payload && payload.hunterIndex >= 0 && payload.hunterIndex < reservation.hunters.length
+    ? reservation.hunters[payload.hunterIndex]
+    : null;
+const pay = reservation && payload ? ensureHunterPayments(reservation)[payload.hunterIndex] : null;
+
+const depositList = hunterDepositShareUsd();
+const balanceList =
+  reservation && payload ? hunterBalanceShareUsd(reservation, payload.hunterIndex) : 0;
+const depositCard = checkoutChargeUsd(depositList, 'card');
+const depositAch = checkoutChargeUsd(depositList, 'ach');
+const balanceCard = checkoutChargeUsd(balanceList, 'card');
+const balanceAch = checkoutChargeUsd(balanceList, 'ach');
+
+const venmoDepositNote = reservation && hunter
+  ? `WCW deposit — ${hunter.lastName} — ${reservation.huntYear}`
+  : 'WCW deposit';
+const venmoBalanceNote = reservation && hunter
+  ? `WCW balance — ${hunter.lastName} — ${reservation.huntYear}`
+  : 'WCW balance';
+const venmoDepositUrl =
+  `https://venmo.com/cchadww?txn=pay&amount=${depositList.toFixed(2)}&note=${encodeURIComponent(venmoDepositNote)}`;
+const venmoBalanceUrl =
+  `https://venmo.com/cchadww?txn=pay&amount=${balanceList.toFixed(2)}&note=${encodeURIComponent(venmoBalanceNote)}`;
+
+const guestName = hunter ? `${hunter.firstName} ${hunter.lastName}` : '';
+const weekLabel = reservation
+  ? (getWeekLabel(reservation.huntYear, reservation.preferredWeek) ?? reservation.preferredWeek)
+  : '';
+const weekCard =
+  reservation && weekLabel ? parseHuntWeekCard(weekLabel, reservation.huntYear) : null;
+const allSetMessage =
+  reservation
+    ? huntPortalAllSetMessage(reservation.huntYear, reservation.preferredWeek) ??
+      `You're all set for your hunt${weekCard ? ` on ${weekCard.titleLine}` : ''}.`
+    : null;
+const waiverPath = huntPortalPath(token);
+const paidFlash = Astro.url.searchParams.get('paid') === '1';
+
+function formatPaidDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Chicago',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(d);
+}
+const depositPaidDate = formatPaidDate(pay?.depositPaidAt ?? null);
+const balancePaidDate = formatPaidDate(pay?.balancePaidAt ?? null);
+
+const allPaid = Boolean(pay?.depositPaid && pay?.balancePaid);
+const payKind = !pay?.depositPaid ? 'deposit' : 'balance';
+const amountList = payKind === 'deposit' ? depositList : balanceList;
+const amountAch = payKind === 'deposit' ? depositAch : balanceAch;
+const amountCard = payKind === 'deposit' ? depositCard : balanceCard;
+const venmoUrl = payKind === 'deposit' ? venmoDepositUrl : venmoBalanceUrl;
+const includesMeals =
+  payKind === 'balance' &&
+  payload &&
+  reservation &&
+  isLeadHunter(payload.hunterIndex) &&
+  reservation.mealPackage;
+
+if (payload && reservation && hunter && pay && !pay.waiverId) {
+  return Astro.redirect(waiverPath);
+}
+
+function money(n: number): string {
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+---
+
+<HuntLayout title={hunter ? `${guestName} — Guest Portal` : 'Guest Portal'} minimal>
+  {
+    !payload || !reservation || !hunter || !pay ? (
+      <section class="mx-auto max-w-[640px] px-4 py-20 text-center">
+        <h1 class="font-hunt-heading text-3xl text-hunt-cream">Link not valid</h1>
+        <p class="mt-4 text-hunt-muted">
+          This guest portal link is missing, expired, or the reservation could not be found. Call or
+          text Chad at{' '}
+          <a href="tel:+17122543999" class="text-hunt-gold underline">712-254-3999</a>.
+        </p>
+      </section>
+    ) : allPaid ? (
+      <div class="hunt-portal flex min-h-full flex-1 flex-col">
+        <HuntPortalChrome step="done" />
+        <div class="mx-auto w-full max-w-[480px] flex-1 px-4 pb-10 pt-6">
+          <div class="portal-card border-[color:var(--portal-ok)]/40 bg-[color:var(--portal-ok)]/10">
+            <p class="text-[color:var(--portal-ok)] leading-snug">
+              {allSetMessage}
+            </p>
+          </div>
+          <h1 class="mt-6 font-hunt-heading text-[2.125rem] leading-tight text-[color:var(--portal-body)]">
+            Thank you, {hunter.firstName}
+          </h1>
+          <p class="mt-2 text-[1.05rem] text-[color:var(--portal-body)]/90">
+            Your release is signed and your payments are on file.
+          </p>
+
+          {
+            weekCard && (
+              <HuntPortalHuntCard week={weekCard} facts={['Arrive Sunday after 2pm CT']} class="mt-6" />
+            )
+          }
+
+          <ul class="mt-8 space-y-3">
+            <li class="portal-ok-row">
+              <span aria-hidden="true">✓</span>
+              <span>Release signed</span>
+            </li>
+            <li class="portal-ok-row">
+              <span aria-hidden="true">✓</span>
+              <span>
+                Deposit ${money(depositList)}
+                {depositPaidDate ? ` · ${depositPaidDate}` : ''}
+              </span>
+            </li>
+            <li class="portal-ok-row">
+              <span aria-hidden="true">✓</span>
+              <span>
+                Balance ${money(balanceList)}
+                {balancePaidDate ? ` · ${balancePaidDate}` : ''}
+              </span>
+            </li>
+          </ul>
+
+          <h2 class="mt-10 font-hunt-heading text-xl text-[color:var(--portal-gold)]">Before you arrive</h2>
+          <div class="mt-3 space-y-2">
+            <a
+              href="/hunt/know-before-you-go"
+              class="portal-card flex items-center justify-between gap-3 text-[color:var(--portal-body)] hover:border-[color:var(--portal-gold)]/50"
+            >
+              <span>Know Before You Go</span>
+              <span class="text-[color:var(--portal-gold)]" aria-hidden="true">→</span>
+            </a>
+            <a
+              href="/hunt/know-before-you-go.pdf"
+              download
+              class="portal-card flex items-center justify-between gap-3 text-[color:var(--portal-body)] hover:border-[color:var(--portal-gold)]/50"
+            >
+              <span>Download Know Before You Go PDF</span>
+              <span class="text-[color:var(--portal-gold)]" aria-hidden="true">→</span>
+            </a>
+          </div>
+
+          <p class="mt-10 text-center text-sm text-[color:var(--portal-muted)]">
+            Not {guestName}? Don’t use this page — call or text Chad at{' '}
+            <a href="tel:+17122543999" class="text-[color:var(--portal-gold)] underline">712-254-3999</a>.
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div class="hunt-portal flex min-h-full flex-1 flex-col">
+        <HuntPortalChrome step="pay" />
+        <div class="mx-auto w-full max-w-[480px] flex-1 px-4 pb-4 pt-6">
+          <h1 class="font-hunt-heading text-[2.125rem] leading-tight text-[color:var(--portal-body)]">
+            {payKind === 'deposit' ? 'Pay your deposit' : 'Pay your balance'}
+          </h1>
+          <p class="mt-2 text-[1.05rem] text-[color:var(--portal-body)]/90">
+            {payKind === 'deposit'
+              ? 'Choose how you’d like to pay — Venmo has no fee.'
+              : 'Balance is due July 1. Venmo has no fee.'}
+          </p>
+
+          {
+            weekCard && (
+              <HuntPortalHuntCard week={weekCard} facts={['Balance due July 1']} class="mt-6" />
+            )
+          }
+
+          {
+            paidFlash && (
+              <div class="portal-card mt-5 border-[color:var(--portal-gold)]/45 bg-[color:var(--portal-gold)]/10 text-sm">
+                Payment received — thank you. Status updates when Stripe confirms.
+              </div>
+            )
+          }
+
+          <ul class="mt-6 space-y-2">
+            <li class="portal-ok-row">
+              <span aria-hidden="true">✓</span>
+              <span>Release signed</span>
+            </li>
+            {
+              pay.depositPaid ? (
+                <li class="portal-ok-row">
+                  <span aria-hidden="true">✓</span>
+                  <span>
+                    Deposit ${money(depositList)} received
+                    {depositPaidDate ? ` · ${depositPaidDate}` : ''}
+                  </span>
+                </li>
+              ) : null
+            }
+          </ul>
+
+          <section class="portal-card mt-6">
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <p class="font-hunt-heading text-[2.5rem] leading-none tabular-nums text-[color:var(--portal-gold)]">
+                ${money(amountList)}
+              </p>
+              {
+                payKind === 'balance' ? (
+                  <span class="rounded-full border border-[color:var(--portal-gold)]/45 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--portal-gold)]">
+                    Due July 1
+                  </span>
+                ) : null
+              }
+            </div>
+            <p class="mt-3 text-sm text-[color:var(--portal-muted)]">
+              {payKind === 'deposit' ? 'your deposit · unpaid' : 'your share · unpaid'}
+              {includesMeals ? ' · includes meal package for the party' : ''}
+            </p>
+          </section>
+
+          <fieldset class="mt-5 space-y-3">
+            <legend class="sr-only">Payment method</legend>
+            <label class="portal-rail">
+              <input type="radio" name="pay-rail" value="venmo" checked data-amount={amountList.toFixed(2)} data-label="Venmo" />
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="font-semibold text-[color:var(--portal-body)]">Venmo</span>
+                  <span class="tabular-nums text-[color:var(--portal-gold)]">${money(amountList)}</span>
+                </span>
+                <span class="mt-0.5 block text-sm text-[color:var(--portal-muted)]">
+                  Best · no fee
+                </span>
+              </span>
+            </label>
+            <label class="portal-rail">
+              <input type="radio" name="pay-rail" value="ach" data-amount={amountAch.toFixed(2)} data-label="Bank ACH" />
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="font-semibold text-[color:var(--portal-body)]">Bank ACH</span>
+                  <span class="tabular-nums text-[color:var(--portal-gold)]">${money(amountAch)}</span>
+                </span>
+                <span class="mt-0.5 block text-sm text-[color:var(--portal-muted)]">
+                  includes 0.8% processing fee
+                </span>
+              </span>
+            </label>
+            <label class="portal-rail">
+              <input type="radio" name="pay-rail" value="card" data-amount={amountCard.toFixed(2)} data-label="Card" />
+              <span class="min-w-0 flex-1">
+                <span class="flex items-center justify-between gap-2">
+                  <span class="font-semibold text-[color:var(--portal-body)]">Card</span>
+                  <span class="tabular-nums text-[color:var(--portal-gold)]">${money(amountCard)}</span>
+                </span>
+                <span class="mt-0.5 block text-sm text-[color:var(--portal-muted)]">
+                  includes 3.0% processing fee
+                </span>
+              </span>
+            </label>
+          </fieldset>
+
+          <p class="mt-8 text-center text-sm text-[color:var(--portal-muted)]">
+            Not {guestName}? Don’t use this page — call or text Chad at{' '}
+            <a href="tel:+17122543999" class="text-[color:var(--portal-gold)] underline">712-254-3999</a>.
+          </p>
+
+          <div class="portal-sticky-cta">
+            <button
+              id="portal-pay-cta"
+              type="button"
+              class="portal-cta"
+              data-kind={payKind}
+              data-venmo-url={venmoUrl}
+            >
+              Pay ${money(amountList)} with Venmo
+            </button>
+            <p class="mt-2 text-center text-sm text-[color:var(--portal-muted)]">Step 2 of 3</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+</HuntLayout>
+
+{
+  payload && reservation && hunter && pay && !allPaid && (
+    <script define:vars={{ token }}>
+      const cta = document.getElementById('portal-pay-cta');
+      const radios = document.querySelectorAll('input[name="pay-rail"]');
+
+      function selected() {
+        return document.querySelector('input[name="pay-rail"]:checked');
+      }
+
+      function money(n) {
+        return Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      function syncCta() {
+        const el = selected();
+        if (!(cta instanceof HTMLButtonElement) || !(el instanceof HTMLInputElement)) return;
+        const amount = el.dataset.amount ?? '0';
+        const label = el.dataset.label ?? 'Venmo';
+        cta.textContent = `Pay $${money(amount)} with ${label}`;
+      }
+
+      radios.forEach((r) => r.addEventListener('change', syncCta));
+      syncCta();
+
+      cta?.addEventListener('click', async () => {
+        if (!(cta instanceof HTMLButtonElement) || cta.disabled) return;
+        const el = selected();
+        if (!(el instanceof HTMLInputElement)) return;
+        const rail = el.value;
+        const kind = cta.dataset.kind || 'deposit';
+
+        if (rail === 'venmo') {
+          const url = cta.dataset.venmoUrl;
+          if (url) window.open(url, '_blank', 'noopener,noreferrer');
+          return;
+        }
+
+        cta.disabled = true;
+        const previous = cta.textContent;
+        cta.textContent = 'Starting checkout…';
+        try {
+          const res = await fetch('/api/hunt-portal-checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, kind, rail }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.stripeUrl) {
+            window.location.href = data.stripeUrl;
+            return;
+          }
+          alert(data.error || data.details || 'Could not start checkout');
+        } catch {
+          alert('Network error starting checkout');
+        } finally {
+          cta.disabled = false;
+          cta.textContent = previous || 'Pay';
+          syncCta();
+        }
+      });
+    </script>
+  )
+}

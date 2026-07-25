@@ -79,6 +79,7 @@ export const pricingFootnote =
 export const bookingSteps = [
   'Place $500/person deposit',
   'We confirm your week',
+  'Let Chad know when you receive your tags for the year',
   'Full balance invoice sent June 1, due July 1',
   'Arrive and hunt',
 ] as const;

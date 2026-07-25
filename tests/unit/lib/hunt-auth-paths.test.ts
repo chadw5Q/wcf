@@ -16,6 +16,14 @@ describe('requiresHuntSession', () => {
     expect(requiresHuntSession('/hunt/final-payment/confirmed')).toBe(true);
   });
 
+  it('is false for guest portal and Know Before You Go', () => {
+    expect(requiresHuntSession('/hunt/portal')).toBe(false);
+    expect(requiresHuntSession('/hunt/portal/abc')).toBe(false);
+    expect(requiresHuntSession('/hunt/portal/abc/payment')).toBe(false);
+    expect(requiresHuntSession('/hunt/know-before-you-go')).toBe(false);
+    expect(requiresHuntSession('/hunt/know-before-you-go/')).toBe(false);
+  });
+
   it('is false outside /hunt', () => {
     expect(requiresHuntSession('/')).toBe(false);
     expect(requiresHuntSession('/admin')).toBe(false);

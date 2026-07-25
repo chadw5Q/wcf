@@ -4,6 +4,7 @@ import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
 import { reconcileHuntCheckoutFromSessionId } from '../../../lib/hunt-reconcile-checkout';
 
 const sessionId = Astro.url.searchParams.get('session_id');
+const payVenmo = Astro.url.searchParams.get('pay') === 'venmo';
 await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.locals));
 ---
 
@@ -24,19 +25,36 @@ await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.lo
       You're In. Welcome to Williams Creek Whitetails.
     </h1>
 
-    <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
-      Your deposit has been received. Chad will be in touch within 24 hours to confirm your week and answer any
-      questions. Text or call anytime: <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
-    </p>
+    {
+      payVenmo ? (
+        <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
+          Your reservation is saved. Complete the Venmo deposit to @cchadww if the app didn’t open.
+          Chad will confirm once the payment clears. Text or call anytime:{' '}
+          <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
+        </p>
+      ) : (
+        <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
+          Your deposit has been received. Chad will be in touch within 24 hours to confirm your week and answer any
+          questions. Text or call anytime:{' '}
+          <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
+        </p>
+      )
+    }
 
     <div class="mt-10 rounded border border-hunt-border bg-hunt-surface p-6 md:p-8">
       <p class="text-xs font-semibold uppercase tracking-wider text-hunt-gold">What happens next</p>
       <ol class="mt-4 list-decimal space-y-3 pl-5 text-hunt-cream/95">
         <li>Chad confirms your week reservation</li>
+        <li>Let Chad know when you receive your tags for the year</li>
         <li>Full balance invoice sent June 1</li>
         <li>Full balance due July 1</li>
         <li>Arrive Sunday after 2pm — the hunt begins</li>
       </ol>
+      <p class="mt-4 text-sm text-hunt-muted">
+        <a href="/hunt/know-before-you-go" class="text-hunt-gold underline">Know Before You Go</a>
+        {' · '}
+        <a href="/hunt/know-before-you-go.pdf" class="text-hunt-gold underline" download>Download PDF</a>
+      </p>
     </div>
 
     <p class="mt-8 text-center text-sm text-hunt-muted">

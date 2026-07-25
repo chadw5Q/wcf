@@ -26,6 +26,11 @@ export type CreateCheckoutSessionOptions = {
   successUrl?: string;
   /** Override cancel redirect. */
   cancelUrl?: string;
+  /**
+   * Exclude payment method types so ACH-only / card-only sessions can use different totals.
+   * Prefer Dashboard configs long-term; this avoids hard-coding an allow-list.
+   */
+  excludedPaymentMethodTypes?: string[];
 };
 
 export async function createCheckoutSession(
@@ -49,7 +54,6 @@ export async function createCheckoutSession(
   const cancelUrl = options?.cancelUrl ?? `${base}/order-now`;
 
   const session = await stripe.checkout.sessions.create({
-    payment_method_types: ['card'],
     line_items: items.map((item) => ({
       price_data: {
         currency: 'usd',
@@ -66,6 +70,9 @@ export async function createCheckoutSession(
     metadata,
     ...(options?.customerEmail?.trim()
       ? { customer_email: options.customerEmail.trim() }
+      : {}),
+    ...(options?.excludedPaymentMethodTypes?.length
+      ? { excluded_payment_method_types: options.excludedPaymentMethodTypes as Stripe.Checkout.SessionCreateParams.ExcludedPaymentMethodType[] }
       : {}),
   });
 

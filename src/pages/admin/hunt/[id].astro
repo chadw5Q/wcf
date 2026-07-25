@@ -1,0 +1,1261 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { hunterBalanceShareUsd, hunterDepositShareUsd } from '../../../lib/hunt-hunter-shares';
+import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
+import { createHuntPortalToken, huntPortalAbsoluteUrl } from '../../../lib/hunt-portal-token';
+import { siteBaseUrl } from '../../../lib/hunt-portal-email';
+import {
+  ensureHunterPayments,
+  getReservation,
+} from '../../../lib/hunt-reservations';
+import { buckChoiceLabel, HUNT_WAIVER_KV_PREFIX, type HuntBuckChoice } from '../../../lib/hunt-waiver';
+import { getHuntWeeksForYear, getWeekLabel, yearsWithWeekConfig } from '../../../lib/hunt-weeks';
+import { US_STATES } from '../../../lib/us-states';
+
+type AdminWaiverView = {
+  id: string;
+  fullName: string;
+  submittedAt: string;
+  address: string;
+  phone: string;
+  huntLabel: string;
+  buckChoice: HuntBuckChoice | null;
+  releaseDate: string;
+  minorName: string | null;
+  releaseSignature: string;
+  medicalSignature: string;
+  medicalDate: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+};
+const id = Astro.params.id ?? '';
+const kv = getHuntKvFromLocals(Astro.locals);
+const reservation = kv && id ? await getReservation(kv, id) : null;
+
+const editYears = [...new Set([...yearsWithWeekConfig(), ...(reservation ? [reservation.huntYear] : [])])].sort(
+  (a, b) => a - b
+);
+const weeksByYear: Record<number, Array<{ id: string; label: string }>> = {};
+for (const y of editYears) {
+  weeksByYear[y] = (getHuntWeeksForYear(y) ?? []).map((w) => ({ id: w.id, label: w.label }));
+}
+const partyEditable = reservation
+  ? reservation.status !== 'fulfilled' && reservation.status !== 'cancelled'
+  : false;
+
+const portalLinks: string[] = [];
+if (reservation) {
+  const base = siteBaseUrl();
+  for (let i = 0; i < reservation.hunters.length; i++) {
+    try {
+      const token = await createHuntPortalToken(reservation.id, i);
+      portalLinks.push(huntPortalAbsoluteUrl(base, token));
+    } catch {
+      portalLinks.push('');
+    }
+  }
+}
+
+const waivers: Array<AdminWaiverView | null> = [];
+if (kv && reservation) {
+  for (const p of ensureHunterPayments(reservation)) {
+    if (!p.waiverId) {
+      waivers.push(null);
+      continue;
+    }
+    const raw = await kv.get(`${HUNT_WAIVER_KV_PREFIX}${p.waiverId}`);
+    if (!raw) {
+      waivers.push({
+        id: p.waiverId,
+        fullName: '(missing record)',
+        submittedAt: '',
+        address: '',
+        phone: '',
+        huntLabel: '',
+        buckChoice: null,
+        releaseDate: '',
+        minorName: null,
+        releaseSignature: '',
+        medicalSignature: '',
+        medicalDate: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+      });
+      continue;
+    }
+    try {
+      const w = JSON.parse(raw) as Record<string, unknown>;
+      const buck =
+        w.buckChoice === 'cull' || w.buckChoice === 'reserved' ? (w.buckChoice as HuntBuckChoice) : null;
+      waivers.push({
+        id: typeof w.id === 'string' ? w.id : p.waiverId,
+        fullName: typeof w.fullName === 'string' ? w.fullName : '(unnamed)',
+        submittedAt: typeof w.submittedAt === 'string' ? w.submittedAt : '',
+        address: typeof w.address === 'string' ? w.address : '',
+        phone: typeof w.phone === 'string' ? w.phone : '',
+        huntLabel: typeof w.huntLabel === 'string' ? w.huntLabel : '',
+        buckChoice: buck,
+        releaseDate: typeof w.releaseDate === 'string' ? w.releaseDate : '',
+        minorName: typeof w.minorName === 'string' && w.minorName.trim() ? w.minorName : null,
+        releaseSignature: typeof w.releaseSignature === 'string' ? w.releaseSignature : '',
+        medicalSignature: typeof w.medicalSignature === 'string' ? w.medicalSignature : '',
+        medicalDate: typeof w.medicalDate === 'string' ? w.medicalDate : '',
+        emergencyContactName: typeof w.emergencyContactName === 'string' ? w.emergencyContactName : '',
+        emergencyContactPhone: typeof w.emergencyContactPhone === 'string' ? w.emergencyContactPhone : '',
+      });
+    } catch {
+      waivers.push({
+        id: p.waiverId,
+        fullName: '(unreadable)',
+        submittedAt: '',
+        address: '',
+        phone: '',
+        huntLabel: '',
+        buckChoice: null,
+        releaseDate: '',
+        minorName: null,
+        releaseSignature: '',
+        medicalSignature: '',
+        medicalDate: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+      });
+    }
+  }
+}
+
+const depositEach = hunterDepositShareUsd();
+const payments = reservation ? ensureHunterPayments(reservation) : [];
+const depositsPaid = payments.filter((p) => p.depositPaid).length;
+const waiversSigned = payments.filter((p) => p.waiverId).length;
+const hunterCount = reservation?.hunters.length ?? 0;
+const balanceOutstanding = reservation
+  ? Math.round(
+      payments.reduce((sum, p, i) => sum + (p.balancePaid ? 0 : hunterBalanceShareUsd(reservation, i)), 0) * 100
+    ) / 100
+  : 0;
+
+const weekLabel = reservation
+  ? (getWeekLabel(reservation.huntYear, reservation.preferredWeek) ?? reservation.preferredWeek)
+  : '';
+
+function shortDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: '2-digit' });
+}
+
+function statusBadgeLabel(status: string, tagReceivedAt: string | null): string {
+  if (tagReceivedAt) return 'Tag received';
+  return status.replace(/_/g, ' ');
+}
+
+function formatPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  return raw;
+}
+---
+
+<AdminLayout title={reservation ? `Hunt — ${reservation.id.slice(0, 8)}` : 'Hunt reservation'}>
+  <p class="mb-6 text-sm text-slate-600">
+    <a href="/admin/hunt" class="font-medium text-green-700 hover:text-green-900">← Hunt list</a>
+  </p>
+
+  {
+    !reservation ? (
+      <p class="text-slate-600">Reservation not found (or HUNT_KV unbound).</p>
+    ) : (
+      <div class="space-y-6">
+        {/* Header */}
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-3">
+              <h1 class="text-3xl font-bold tracking-tight text-slate-900">
+                {reservation.hunters[0]?.firstName} {reservation.hunters[0]?.lastName} party
+              </h1>
+              <span
+                class:list={[
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold capitalize',
+                  reservation.tagReceivedAt
+                    ? 'bg-emerald-50 text-emerald-800'
+                    : 'bg-amber-50 text-amber-900',
+                ]}
+              >
+                <span
+                  class:list={[
+                    'h-1.5 w-1.5 rounded-full',
+                    reservation.tagReceivedAt ? 'bg-emerald-600' : 'bg-amber-500',
+                  ]}
+                  aria-hidden="true"
+                />
+                {statusBadgeLabel(reservation.status, reservation.tagReceivedAt)}
+              </span>
+            </div>
+            <p class="mt-2 text-sm text-slate-600">
+              {weekLabel}
+              {reservation.mealPackage ? ' · Meals included' : ''}
+            </p>
+            <details class="mt-2">
+              <summary class="cursor-pointer text-xs font-medium text-slate-500 hover:text-slate-700">
+                Show record IDs
+              </summary>
+              <p class="mt-1">
+                <code class="text-xs text-slate-500">{reservation.id}</code>
+              </p>
+            </details>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            {
+              !reservation.tagReceivedAt && (
+                <button
+                  type="button"
+                  id="btn-tag"
+                  class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  data-id={reservation.id}
+                >
+                  Mark tags received
+                </button>
+              )
+            }
+            <button
+              type="button"
+              id="btn-send-all"
+              class="rounded-lg bg-green-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-green-800"
+              data-id={reservation.id}
+            >
+              Email all portal links
+            </button>
+          </div>
+        </div>
+
+        {/* Summary strip */}
+        <div class="grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm md:grid-cols-4">
+          <div class="border-b border-slate-100 px-5 py-4 md:border-b-0 md:border-r">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Hunters</p>
+            <p class="mt-1 text-2xl font-bold tabular-nums text-slate-900">{hunterCount}</p>
+          </div>
+          <div class="border-b border-slate-100 px-5 py-4 md:border-b-0 md:border-r">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Deposits</p>
+            <p
+              class:list={[
+                'mt-1 text-2xl font-bold tabular-nums',
+                depositsPaid === hunterCount ? 'text-emerald-700' : 'text-amber-800',
+              ]}
+            >
+              {depositsPaid} of {hunterCount} paid
+            </p>
+          </div>
+          <div class="border-b border-r-0 border-slate-100 px-5 py-4 sm:border-r md:border-b-0">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Balance due</p>
+            <p
+              class:list={[
+                'mt-1 text-2xl font-bold tabular-nums',
+                balanceOutstanding > 0 ? 'text-amber-800' : 'text-emerald-700',
+              ]}
+            >
+              ${balanceOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div class="px-5 py-4">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Waivers</p>
+            <p
+              class:list={[
+                'mt-1 text-2xl font-bold tabular-nums',
+                waiversSigned === hunterCount ? 'text-emerald-700' : 'text-amber-800',
+              ]}
+            >
+              {waiversSigned} of {hunterCount} signed
+            </p>
+          </div>
+        </div>
+
+        {/* Hunters */}
+        <section class="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div class="flex flex-wrap items-baseline justify-between gap-2 rounded-t-xl border-b border-slate-100 px-5 py-4">
+            <div class="flex items-baseline gap-2">
+              <h2 class="text-lg font-semibold text-slate-900">Hunters</h2>
+              <span class="text-sm text-slate-500">{hunterCount} in party</span>
+            </div>
+            {
+              partyEditable && (
+                <div class="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    id="btn-add-hunter"
+                    class="rounded-lg border border-green-700 bg-white px-3 py-1.5 text-sm font-semibold text-green-800 hover:bg-green-50"
+                    data-id={reservation.id}
+                  >
+                    Add hunter
+                  </button>
+                  <button
+                    type="button"
+                    id="btn-edit-party"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                  >
+                    Edit party
+                  </button>
+                </div>
+              )
+            }
+          </div>
+          <ul class="divide-y divide-slate-100">
+            {
+              reservation.hunters.map((h, i) => {
+                const p = payments[i]!;
+                const bal = hunterBalanceShareUsd(reservation, i);
+                const waiver = waivers[i];
+                const depositDate = shortDate(p.depositPaidAt);
+                const balanceDate = shortDate(p.balancePaidAt);
+                const waiverDate = shortDate(waiver?.submittedAt);
+                const hunterSteps = [
+                  {
+                    id: 'deposit',
+                    label: 'Deposit',
+                    done: p.depositPaid,
+                    title: p.depositPaid
+                      ? `Deposit $${depositEach.toFixed(2)} paid${depositDate ? ` ${depositDate}` : ''}`
+                      : `Deposit $${depositEach.toFixed(2)} unpaid`,
+                  },
+                  {
+                    id: 'tags',
+                    label: 'Tags',
+                    done: Boolean(reservation.tagReceivedAt),
+                    title: reservation.tagReceivedAt
+                      ? `Tags received${shortDate(reservation.tagReceivedAt) ? ` ${shortDate(reservation.tagReceivedAt)}` : ''}`
+                      : 'Tags not received',
+                  },
+                  {
+                    id: 'waiver',
+                    label: 'Waiver',
+                    done: Boolean(p.waiverId),
+                    title: p.waiverId
+                      ? `Waiver signed${waiverDate ? ` ${waiverDate}` : ''}`
+                      : 'Waiver not signed',
+                  },
+                  {
+                    id: 'balance',
+                    label: 'Balance',
+                    done: p.balancePaid,
+                    title: p.balancePaid
+                      ? `Balance $${bal.toFixed(2)} paid${balanceDate ? ` ${balanceDate}` : ''}`
+                      : `Balance due $${bal.toFixed(2)}`,
+                  },
+                ] as const;
+                const nextStep = hunterSteps.find((s) => !s.done);
+                const nextCue = !nextStep
+                  ? reservation.status === 'fulfilled'
+                    ? 'Complete'
+                    : 'Next: Mark party fulfilled'
+                  : nextStep.id === 'deposit'
+                    ? 'Next: Mark deposit paid'
+                    : nextStep.id === 'tags'
+                      ? 'Next: Mark tags received'
+                      : nextStep.id === 'waiver'
+                        ? 'Next: Email portal links'
+                        : 'Next: Mark balance paid';
+                const currentStepId = nextStep?.id ?? null;
+                return (
+                  <li class:list={[
+                    'relative z-0 flex flex-col gap-4 px-5 py-5 has-[details[open]]:z-30 lg:flex-row lg:items-center lg:justify-between',
+                    i === hunterCount - 1 && 'rounded-b-xl',
+                  ]}>
+                    <div class="min-w-0 flex-1">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p class="text-base font-semibold text-slate-900">
+                          {h.firstName} {h.lastName}
+                        </p>
+                        {i === 0 ? (
+                          <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                            Lead
+                          </span>
+                        ) : null}
+                      </div>
+                      <p class="mt-1 text-sm text-slate-600">
+                        {h.email}
+                        <span class="mx-1.5 text-slate-300">|</span>
+                        {formatPhone(h.phone)}
+                        <span class="mx-1.5 text-slate-300">|</span>
+                        {h.state}
+                      </p>
+
+                      {/* Linear progress: Deposit → Tags → Waiver → Balance */}
+                      <ol class="mt-4 flex max-w-lg items-start" aria-label={`Progress for ${h.firstName} ${h.lastName}`}>
+                        {hunterSteps.map((step, si) => {
+                          const isCurrent = step.id === currentStepId;
+                          const isDone = step.done;
+                          return (
+                            <li class:list={['flex min-w-0', si < hunterSteps.length - 1 ? 'flex-1' : '']}>
+                              <div class="flex min-w-0 flex-col items-center">
+                                <span
+                                  class:list={[
+                                    'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-bold',
+                                    isDone
+                                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                                      : isCurrent
+                                        ? 'border-amber-500 bg-amber-50 text-amber-800'
+                                        : 'border-slate-300 bg-white text-slate-400',
+                                  ]}
+                                  title={step.title}
+                                  aria-current={isCurrent ? 'step' : undefined}
+                                >
+                                  {isDone ? (
+                                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                      <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+                                    </svg>
+                                  ) : (
+                                    si + 1
+                                  )}
+                                </span>
+                                <span
+                                  class:list={[
+                                    'mt-1.5 text-center text-[11px] font-semibold leading-tight',
+                                    isDone ? 'text-emerald-800' : isCurrent ? 'text-amber-900' : 'text-slate-400',
+                                  ]}
+                                >
+                                  {step.label}
+                                </span>
+                              </div>
+                              {
+                                si < hunterSteps.length - 1 ? (
+                                  <div
+                                    class:list={[
+                                      'mx-2 mt-3 h-0.5 min-w-[1.5rem] flex-1',
+                                      isDone ? 'bg-emerald-500' : 'bg-slate-200',
+                                    ]}
+                                    aria-hidden="true"
+                                  />
+                                ) : null
+                              }
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      <p
+                        class:list={[
+                          'mt-2 text-sm font-medium',
+                          nextStep ? 'text-amber-900' : 'text-emerald-800',
+                        ]}
+                      >
+                        {nextCue}
+                      </p>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 lg:justify-end">
+                      {
+                        !p.depositPaid && (
+                          <button
+                            type="button"
+                            class="js-mark rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-50"
+                            data-id={reservation.id}
+                            data-idx={i}
+                            data-kind="deposit"
+                            data-method="venmo"
+                          >
+                            Mark <span class="uppercase">deposit</span> paid
+                          </button>
+                        )
+                      }
+                      {
+                        p.depositPaid && !p.balancePaid && (
+                          <button
+                            type="button"
+                            class="js-mark rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-50"
+                            data-id={reservation.id}
+                            data-idx={i}
+                            data-kind="balance"
+                            data-method="venmo"
+                          >
+                            Mark <span class="uppercase">balance</span> paid
+                          </button>
+                        )
+                      }
+                      <button
+                        type="button"
+                        class="js-send-one rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                        data-id={reservation.id}
+                        data-idx={i}
+                      >
+                        Email portal
+                      </button>
+                      {
+                        portalLinks[i] ? (
+                          <button
+                            type="button"
+                            class="js-copy inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            data-url={portalLinks[i]}
+                            aria-label={`Copy portal link for ${h.firstName}`}
+                            title="Copy portal link"
+                          >
+                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                          </button>
+                        ) : null
+                      }
+                      <details class="js-hunter-menu relative">
+                        <summary class="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                          <span class="sr-only">More actions for {h.firstName}</span>
+                          <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                          </svg>
+                        </summary>
+                        <div class="absolute bottom-full right-0 z-30 mb-1 w-56 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+                          {
+                            waiver ? (
+                              <button
+                                type="button"
+                                class="js-view-waiver w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                                data-id={waiver.id}
+                                data-name={waiver.fullName}
+                                data-submitted={waiver.submittedAt}
+                                data-hunt={waiver.huntLabel}
+                                data-buck={waiver.buckChoice ? buckChoiceLabel(waiver.buckChoice) : ''}
+                                data-release-date={waiver.releaseDate}
+                                data-minor={waiver.minorName ?? ''}
+                                data-address={waiver.address}
+                                data-phone={waiver.phone}
+                                data-release-sig={waiver.releaseSignature}
+                                data-medical-sig={waiver.medicalSignature}
+                                data-medical-date={waiver.medicalDate}
+                                data-emergency-name={waiver.emergencyContactName}
+                                data-emergency-phone={waiver.emergencyContactPhone}
+                              >
+                                View waiver…
+                              </button>
+                            ) : (
+                              <p class="px-3 py-2 text-xs text-slate-500">No waiver on file</p>
+                            )
+                          }
+                          {
+                            p.depositMethod ? (
+                              <p class="px-3 py-2 text-xs text-slate-600">
+                                Deposit via {p.depositMethod}
+                                {p.depositRef ? ` · ${p.depositRef}` : ''}
+                              </p>
+                            ) : null
+                          }
+                          {
+                            p.balanceMethod ? (
+                              <p class="px-3 py-2 text-xs text-slate-600">
+                                Balance via {p.balanceMethod}
+                                {p.balanceRef ? ` · ${p.balanceRef}` : ''}
+                              </p>
+                            ) : null
+                          }
+                          <div class="my-1 border-t border-slate-100"></div>
+                          {
+                            partyEditable ? (
+                              <button
+                                type="button"
+                                class="js-edit-hunter w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                                data-id={reservation.id}
+                                data-idx={i}
+                                data-first={h.firstName}
+                                data-last={h.lastName}
+                                data-email={h.email}
+                                data-phone={h.phone}
+                                data-state={h.state}
+                                data-address={waiver?.address ?? ''}
+                              >
+                                Edit hunter…
+                              </button>
+                            ) : null
+                          }
+                          {
+                            reservation.status !== 'fulfilled' && reservation.status !== 'cancelled' ? (
+                              <button
+                                type="button"
+                                class="js-party-status w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                                data-id={reservation.id}
+                                data-action="fulfill"
+                              >
+                                Mark party fulfilled
+                              </button>
+                            ) : null
+                          }
+                          {
+                            reservation.status !== 'cancelled' && reservation.status !== 'fulfilled' ? (
+                              <button
+                                type="button"
+                                class="js-party-status w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-800 hover:bg-slate-50"
+                                data-id={reservation.id}
+                                data-action="cancel"
+                              >
+                                Cancel party
+                              </button>
+                            ) : null
+                          }
+                          {
+                            reservation.status === 'fulfilled' ? (
+                              <p class="px-3 py-2 text-xs text-emerald-700">Party is fulfilled</p>
+                            ) : null
+                          }
+                          {
+                            reservation.status === 'cancelled' ? (
+                              <p class="px-3 py-2 text-xs text-red-700">Party is cancelled</p>
+                            ) : null
+                          }
+                          <button
+                            type="button"
+                            class="js-remove-hunter mt-1 w-full rounded-md px-3 py-2 text-left text-sm font-medium text-red-700 hover:bg-red-50"
+                            data-id={reservation.id}
+                            data-idx={i}
+                            data-name={`${h.firstName} ${h.lastName}`}
+                            data-last={hunterCount <= 1 ? '1' : '0'}
+                          >
+                            {hunterCount <= 1 ? 'Delete party…' : 'Remove hunter…'}
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </li>
+                );
+              })
+            }
+          </ul>
+        </section>
+
+        <dialog id="waiver-view-dialog" class="w-[min(32rem,calc(100vw-2rem))] rounded-xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40">
+          <div class="max-h-[min(85vh,40rem)] overflow-y-auto p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="text-lg font-semibold text-slate-900">Signed waiver</h3>
+                <p id="waiver-view-submitted" class="mt-1 text-sm text-slate-500"></p>
+              </div>
+              <button type="button" id="waiver-view-close" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Close
+              </button>
+            </div>
+            <dl class="mt-5 space-y-4 text-sm">
+              <div>
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Name</dt>
+                <dd id="waiver-view-name" class="mt-1 font-medium text-slate-900"></dd>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Hunt</dt>
+                  <dd id="waiver-view-hunt" class="mt-1 text-slate-800"></dd>
+                </div>
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Buck choice</dt>
+                  <dd id="waiver-view-buck" class="mt-1 text-slate-800"></dd>
+                </div>
+              </div>
+              <div>
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Address</dt>
+                <dd id="waiver-view-address" class="mt-1 whitespace-pre-wrap text-slate-800"></dd>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Phone</dt>
+                  <dd id="waiver-view-phone" class="mt-1 text-slate-800"></dd>
+                </div>
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Release date</dt>
+                  <dd id="waiver-view-release-date" class="mt-1 text-slate-800"></dd>
+                </div>
+              </div>
+              <div>
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Minor name</dt>
+                <dd id="waiver-view-minor" class="mt-1 text-slate-800"></dd>
+              </div>
+              <div class="border-t border-slate-100 pt-4">
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Liability signature</dt>
+                <dd id="waiver-view-release-sig" class="mt-1 font-serif text-base italic text-slate-900"></dd>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Medical signature</dt>
+                  <dd id="waiver-view-medical-sig" class="mt-1 font-serif text-base italic text-slate-900"></dd>
+                </div>
+                <div>
+                  <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Medical date</dt>
+                  <dd id="waiver-view-medical-date" class="mt-1 text-slate-800"></dd>
+                </div>
+              </div>
+              <div class="border-t border-slate-100 pt-4">
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Emergency contact</dt>
+                <dd id="waiver-view-emergency" class="mt-1 text-slate-800"></dd>
+              </div>
+              <div>
+                <dt class="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Waiver ID</dt>
+                <dd id="waiver-view-id" class="mt-1 font-mono text-xs text-slate-500"></dd>
+              </div>
+            </dl>
+          </div>
+        </dialog>
+
+        {
+          partyEditable && (
+            <>
+              <dialog id="party-edit-dialog" class="w-[min(36rem,calc(100vw-2rem))] rounded-xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40">
+                <form id="party-edit-form" class="p-5" data-id={reservation.id}>
+                  <h3 class="text-lg font-semibold text-slate-900">Edit party</h3>
+                  <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="party-year">Year</label>
+                      <select id="party-year" name="huntYear" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+                        {editYears.map((y) => (
+                          <option value={y} selected={y === reservation.huntYear}>{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div class="flex items-end pb-2">
+                      <label class="flex items-center gap-2 text-sm text-slate-800">
+                        <input id="party-meals" name="mealPackage" type="checkbox" checked={reservation.mealPackage} class="rounded border-slate-300" />
+                        Meal package
+                      </label>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="party-week">Week</label>
+                      <select id="party-week" name="preferredWeek" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" required>
+                        {(weeksByYear[reservation.huntYear] ?? []).map((w) => (
+                          <option value={w.id} selected={w.id === reservation.preferredWeek}>{w.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="party-notes">Notes</label>
+                      <textarea id="party-notes" name="notes" rows="2" class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{reservation.notes ?? ''}</textarea>
+                    </div>
+                  </div>
+                  <p id="party-edit-error" class="mt-3 hidden text-sm text-red-700"></p>
+                  <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="party-edit-cancel" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                      Save party
+                    </button>
+                  </div>
+                </form>
+              </dialog>
+
+              <dialog id="hunter-edit-dialog" class="w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40">
+                <form id="hunter-edit-form" class="p-5">
+                  <h3 class="text-lg font-semibold text-slate-900">Edit hunter</h3>
+                  <input type="hidden" id="hunter-edit-idx" />
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-first">First name</label>
+                      <input id="hunter-edit-first" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-last">Last name</label>
+                      <input id="hunter-edit-last" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-email">Email</label>
+                      <input id="hunter-edit-email" type="email" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-address">Address (from waiver)</label>
+                      <textarea
+                        id="hunter-edit-address"
+                        rows="2"
+                        readonly
+                        class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                        placeholder="Not captured yet — appears after they sign the waiver"
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-phone">Phone</label>
+                      <input id="hunter-edit-phone" type="tel" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-edit-state">State</label>
+                      <select id="hunter-edit-state" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        {US_STATES.map((s) => (
+                          <option value={s.code}>{s.code} — {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p id="hunter-edit-error" class="mt-3 hidden text-sm text-red-700"></p>
+                  <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="hunter-edit-cancel" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">Save hunter</button>
+                  </div>
+                </form>
+              </dialog>
+
+              <dialog id="hunter-add-dialog" class="w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40">
+                <form id="hunter-add-form" class="p-5">
+                  <h3 class="text-lg font-semibold text-slate-900">Add hunter</h3>
+                  <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-add-first">First name</label>
+                      <input id="hunter-add-first" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-add-last">Last name</label>
+                      <input id="hunter-add-last" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div class="sm:col-span-2">
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-add-email">Email</label>
+                      <input id="hunter-add-email" type="email" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-add-phone">Phone</label>
+                      <input id="hunter-add-phone" type="tel" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label class="text-xs font-semibold uppercase tracking-wider text-slate-500" for="hunter-add-state">State</label>
+                      <select id="hunter-add-state" required class="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+                        {US_STATES.map((s) => (
+                          <option value={s.code} selected={s.code === 'IA'}>{s.code} — {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p id="hunter-add-error" class="mt-3 hidden text-sm text-red-700"></p>
+                  <div class="mt-4 flex justify-end gap-2">
+                    <button type="button" id="hunter-add-cancel" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Cancel</button>
+                    <button type="submit" class="rounded-lg bg-green-700 px-3 py-2 text-sm font-semibold text-white">Add hunter</button>
+                  </div>
+                </form>
+              </dialog>
+            </>
+          )
+        }
+
+        {/* Event log */}
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-lg font-semibold text-slate-900">Event log</h2>
+          <ul class="mt-3 max-h-80 space-y-2 overflow-y-auto text-sm text-slate-700">
+            {
+              (reservation.events ?? [])
+                .slice()
+                .reverse()
+                .map((ev) => (
+                  <li class="border-b border-slate-100 pb-2">
+                    <span class="tabular-nums text-slate-500">
+                      {new Date(ev.at).toLocaleString()}
+                    </span>
+                    {' · '}
+                    <strong>{ev.kind}</strong>
+                    {ev.hunterIndex != null ? ` [hunter ${ev.hunterIndex}]` : ''}
+                    {' — '}
+                    {ev.detail}
+                  </li>
+                ))
+            }
+          </ul>
+          <div class="mt-4 flex flex-wrap gap-2">
+            <input
+              id="note-input"
+              type="text"
+              placeholder="Add a note…"
+              class="min-w-[16rem] flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              id="btn-note"
+              class="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-900"
+              data-id={reservation.id}
+            >
+              Save note
+            </button>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  <script define:vars={{ weeksByYear, reservationId: reservation?.id ?? '' }}>
+    window.__huntAdmin = { weeksByYear, reservationId };
+  </script>
+
+  <script>
+    async function postJson(url: string, body: unknown) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.details || 'Request failed');
+      return data;
+    }
+
+    function closeHunterMenus(except?: Element | null) {
+      document.querySelectorAll('details.js-hunter-menu[open]').forEach((el) => {
+        if (except && el === except) return;
+        el.removeAttribute('open');
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      if (!(target instanceof Node)) return;
+      const inMenu = target instanceof Element ? target.closest('details.js-hunter-menu') : null;
+      if (!inMenu) closeHunterMenus();
+    });
+
+    document.querySelectorAll('details.js-hunter-menu').forEach((el) => {
+      el.addEventListener('toggle', () => {
+        if (el instanceof HTMLDetailsElement && el.open) closeHunterMenus(el);
+      });
+    });
+
+    document.querySelectorAll('details.js-hunter-menu button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const menu = btn.closest('details.js-hunter-menu');
+        if (menu) menu.removeAttribute('open');
+      });
+    });
+
+    document.getElementById('btn-tag')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      if (btn.disabled) return;
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Saving…';
+      try {
+        await postJson('/api/admin/hunt-mark', { reservationId: btn.dataset.id, action: 'tag_received' });
+        window.location.reload();
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = prev || 'Mark tags received';
+        alert(err instanceof Error ? err.message : 'Failed');
+      }
+    });
+
+    document.getElementById('btn-send-all')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      if (btn.disabled) return;
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.classList.add('opacity-70');
+      btn.textContent = 'Sending…';
+      try {
+        await postJson('/api/admin/hunt-send-portal', { reservationId: btn.dataset.id });
+        btn.textContent = 'Sent ✓';
+        setTimeout(() => window.location.reload(), 700);
+      } catch (err) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70');
+        btn.textContent = prev || 'Email all portal links';
+        alert(err instanceof Error ? err.message : 'Failed');
+      }
+    });
+
+    document.getElementById('btn-note')?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const note = (document.getElementById('note-input') as HTMLInputElement | null)?.value ?? '';
+      try {
+        await postJson('/api/admin/hunt-mark', { reservationId: btn.dataset.id, action: 'note', note });
+        window.location.reload();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : 'Failed');
+      }
+    });
+
+    document.querySelectorAll('.js-mark').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement) || el.disabled) return;
+        const today = new Date().toLocaleDateString('en-CA');
+        const paidAt = prompt(`Date the ${el.dataset.kind} was received (YYYY-MM-DD):`, today);
+        if (paidAt === null) return;
+        try {
+          await postJson('/api/admin/hunt-mark', {
+            reservationId: el.dataset.id,
+            hunterIndex: Number(el.dataset.idx),
+            kind: el.dataset.kind,
+            method: el.dataset.method,
+            paidAt: paidAt.trim() || undefined,
+          });
+          window.location.reload();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : 'Failed');
+        }
+      });
+    });
+
+    document.querySelectorAll('.js-send-one').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement) || el.disabled) return;
+        const prev = el.textContent;
+        el.disabled = true;
+        el.classList.add('opacity-70');
+        el.textContent = 'Sending…';
+        try {
+          await postJson('/api/admin/hunt-send-portal', {
+            reservationId: el.dataset.id,
+            hunterIndex: Number(el.dataset.idx),
+          });
+          el.textContent = 'Sent ✓';
+          setTimeout(() => window.location.reload(), 700);
+        } catch (err) {
+          el.disabled = false;
+          el.classList.remove('opacity-70');
+          el.textContent = prev || 'Email portal';
+          alert(err instanceof Error ? err.message : 'Failed');
+        }
+      });
+    });
+
+    document.querySelectorAll('.js-copy').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const url = el.dataset.url ?? '';
+        try {
+          await navigator.clipboard.writeText(url);
+          el.title = 'Copied';
+        } catch {
+          prompt('Copy portal link:', url);
+        }
+      });
+    });
+
+    document.querySelectorAll('.js-party-status').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const action = el.dataset.action;
+        const label = action === 'fulfill' ? 'mark this party fulfilled' : 'cancel this party';
+        if (!confirm(`Are you sure you want to ${label}?`)) return;
+        try {
+          await postJson('/api/admin/hunt-mark', {
+            reservationId: el.dataset.id,
+            action,
+          });
+          window.location.reload();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : 'Failed');
+        }
+      });
+    });
+
+    document.querySelectorAll('.js-remove-hunter').forEach((el) => {
+      el.addEventListener('click', async () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const name = el.dataset.name ?? 'this hunter';
+        const last = el.dataset.last === '1';
+        const msg = last
+          ? `Delete the entire ${name} party? This cannot be undone.`
+          : `Remove ${name} from this party? Totals will be recalculated.`;
+        if (!confirm(msg)) return;
+        try {
+          const body: Record<string, unknown> = { reservationId: el.dataset.id };
+          if (!last) body.hunterIndex = Number(el.dataset.idx);
+          const res = await fetch('/api/admin/hunt-delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Remove failed');
+          if (data.deleted === 'reservation') {
+            window.location.href = '/admin/hunt';
+            return;
+          }
+          window.location.reload();
+        } catch (err) {
+          alert(err instanceof Error ? err.message : 'Remove failed');
+        }
+      });
+    });
+
+    const huntAdmin = (window as unknown as { __huntAdmin?: { weeksByYear: Record<string, Array<{ id: string; label: string }>>; reservationId: string } }).__huntAdmin;
+    const weeksByYear = huntAdmin?.weeksByYear ?? {};
+    const reservationId = huntAdmin?.reservationId ?? '';
+
+    function fillWeekSelect(year: string, selectedWeek?: string) {
+      const weekSel = document.getElementById('party-week');
+      if (!(weekSel instanceof HTMLSelectElement)) return;
+      const weeks = weeksByYear[year] ?? weeksByYear[Number(year)] ?? [];
+      weekSel.innerHTML = '';
+      for (const w of weeks) {
+        const opt = document.createElement('option');
+        opt.value = w.id;
+        opt.textContent = w.label;
+        if (selectedWeek ? w.id === selectedWeek : weekSel.options.length === 0) opt.selected = true;
+        weekSel.appendChild(opt);
+      }
+    }
+
+    const yearSel = document.getElementById('party-year');
+    yearSel?.addEventListener('change', () => {
+      if (yearSel instanceof HTMLSelectElement) fillWeekSelect(yearSel.value);
+    });
+
+    document.getElementById('party-edit-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLFormElement;
+      const errEl = document.getElementById('party-edit-error');
+      const yearEl = document.getElementById('party-year') as HTMLSelectElement | null;
+      const weekEl = document.getElementById('party-week') as HTMLSelectElement | null;
+      const mealsEl = document.getElementById('party-meals') as HTMLInputElement | null;
+      const notesEl = document.getElementById('party-notes') as HTMLTextAreaElement | null;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn instanceof HTMLButtonElement) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving…';
+      }
+      try {
+        await postJson('/api/admin/hunt-update', {
+          reservationId: form.dataset.id || reservationId,
+          action: 'party',
+          huntYear: Number(yearEl?.value),
+          preferredWeek: weekEl?.value,
+          mealPackage: mealsEl?.checked === true,
+          notes: notesEl?.value ?? '',
+        });
+        window.location.reload();
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = err instanceof Error ? err.message : 'Save failed';
+          errEl.classList.remove('hidden');
+        } else {
+          alert(err instanceof Error ? err.message : 'Save failed');
+        }
+        if (submitBtn instanceof HTMLButtonElement) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save party';
+        }
+      }
+    });
+
+    const partyDialog = document.getElementById('party-edit-dialog');
+    document.getElementById('btn-edit-party')?.addEventListener('click', () => {
+      document.getElementById('party-edit-error')?.classList.add('hidden');
+      if (partyDialog instanceof HTMLDialogElement) partyDialog.showModal();
+    });
+    document.getElementById('party-edit-cancel')?.addEventListener('click', () => {
+      if (partyDialog instanceof HTMLDialogElement) partyDialog.close();
+    });
+
+    const editDialog = document.getElementById('hunter-edit-dialog');
+    const addDialog = document.getElementById('hunter-add-dialog');
+    const waiverDialog = document.getElementById('waiver-view-dialog');
+
+    function setText(id: string, value: string) {
+      const node = document.getElementById(id);
+      if (node) node.textContent = value || '—';
+    }
+
+    document.querySelectorAll('.js-view-waiver').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const submitted = el.dataset.submitted
+          ? `Submitted ${new Date(el.dataset.submitted).toLocaleString()}`
+          : '';
+        setText('waiver-view-submitted', submitted);
+        setText('waiver-view-name', el.dataset.name ?? '');
+        setText('waiver-view-hunt', el.dataset.hunt ?? '');
+        setText('waiver-view-buck', el.dataset.buck ?? '');
+        setText('waiver-view-address', el.dataset.address ?? '');
+        setText('waiver-view-phone', el.dataset.phone ?? '');
+        setText('waiver-view-release-date', el.dataset.releaseDate ?? '');
+        setText('waiver-view-minor', el.dataset.minor || '(none)');
+        setText('waiver-view-release-sig', el.dataset.releaseSig ?? '');
+        setText('waiver-view-medical-sig', el.dataset.medicalSig ?? '');
+        setText('waiver-view-medical-date', el.dataset.medicalDate ?? '');
+        const emergency =
+          [el.dataset.emergencyName, el.dataset.emergencyPhone].filter(Boolean).join(' — ') || '';
+        setText('waiver-view-emergency', emergency);
+        setText('waiver-view-id', el.dataset.id ?? '');
+        closeHunterMenus();
+        if (waiverDialog instanceof HTMLDialogElement) waiverDialog.showModal();
+      });
+    });
+
+    document.getElementById('waiver-view-close')?.addEventListener('click', () => {
+      if (waiverDialog instanceof HTMLDialogElement) waiverDialog.close();
+    });
+
+    document.querySelectorAll('.js-edit-hunter').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (!(el instanceof HTMLButtonElement)) return;
+        const idx = document.getElementById('hunter-edit-idx') as HTMLInputElement | null;
+        const first = document.getElementById('hunter-edit-first') as HTMLInputElement | null;
+        const last = document.getElementById('hunter-edit-last') as HTMLInputElement | null;
+        const email = document.getElementById('hunter-edit-email') as HTMLInputElement | null;
+        const phone = document.getElementById('hunter-edit-phone') as HTMLInputElement | null;
+        const state = document.getElementById('hunter-edit-state') as HTMLSelectElement | null;
+        const address = document.getElementById('hunter-edit-address') as HTMLTextAreaElement | null;
+        if (idx) idx.value = el.dataset.idx ?? '0';
+        if (first) first.value = el.dataset.first ?? '';
+        if (last) last.value = el.dataset.last ?? '';
+        if (email) email.value = el.dataset.email ?? '';
+        if (phone) phone.value = el.dataset.phone ?? '';
+        if (state) state.value = (el.dataset.state ?? 'IA').toUpperCase();
+        if (address) address.value = el.dataset.address ?? '';
+        document.getElementById('hunter-edit-error')?.classList.add('hidden');
+        if (editDialog instanceof HTMLDialogElement) editDialog.showModal();
+      });
+    });
+
+    document.getElementById('hunter-edit-cancel')?.addEventListener('click', () => {
+      if (editDialog instanceof HTMLDialogElement) editDialog.close();
+    });
+
+    document.getElementById('hunter-edit-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('hunter-edit-error');
+      const idx = Number((document.getElementById('hunter-edit-idx') as HTMLInputElement | null)?.value ?? -1);
+      try {
+        await postJson('/api/admin/hunt-update', {
+          reservationId,
+          action: 'hunter',
+          hunterIndex: idx,
+          firstName: (document.getElementById('hunter-edit-first') as HTMLInputElement)?.value,
+          lastName: (document.getElementById('hunter-edit-last') as HTMLInputElement)?.value,
+          email: (document.getElementById('hunter-edit-email') as HTMLInputElement)?.value,
+          phone: (document.getElementById('hunter-edit-phone') as HTMLInputElement)?.value,
+          state: (document.getElementById('hunter-edit-state') as HTMLSelectElement)?.value,
+        });
+        window.location.reload();
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = err instanceof Error ? err.message : 'Save failed';
+          errEl.classList.remove('hidden');
+        } else {
+          alert(err instanceof Error ? err.message : 'Save failed');
+        }
+      }
+    });
+
+    document.getElementById('btn-add-hunter')?.addEventListener('click', () => {
+      (document.getElementById('hunter-add-form') as HTMLFormElement | null)?.reset();
+      const state = document.getElementById('hunter-add-state') as HTMLSelectElement | null;
+      if (state) state.value = 'IA';
+      document.getElementById('hunter-add-error')?.classList.add('hidden');
+      if (addDialog instanceof HTMLDialogElement) addDialog.showModal();
+    });
+
+    document.getElementById('hunter-add-cancel')?.addEventListener('click', () => {
+      if (addDialog instanceof HTMLDialogElement) addDialog.close();
+    });
+
+    document.getElementById('hunter-add-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById('hunter-add-error');
+      try {
+        await postJson('/api/admin/hunt-update', {
+          reservationId,
+          action: 'add_hunter',
+          firstName: (document.getElementById('hunter-add-first') as HTMLInputElement)?.value,
+          lastName: (document.getElementById('hunter-add-last') as HTMLInputElement)?.value,
+          email: (document.getElementById('hunter-add-email') as HTMLInputElement)?.value,
+          phone: (document.getElementById('hunter-add-phone') as HTMLInputElement)?.value,
+          state: (document.getElementById('hunter-add-state') as HTMLSelectElement)?.value,
+        });
+        window.location.reload();
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = err instanceof Error ? err.message : 'Add failed';
+          errEl.classList.remove('hidden');
+        } else {
+          alert(err instanceof Error ? err.message : 'Add failed');
+        }
+      }
+    });
+  </script>
+</AdminLayout>

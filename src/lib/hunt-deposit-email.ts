@@ -53,6 +53,7 @@ export function buildHuntDepositEmailHtml(r: HuntReservation): string {
     <p><strong class="gold">What&apos;s next</strong></p>
     <ol>
       <li>Chad will confirm your week reservation.</li>
+      <li>Let Chad know when you receive your tags for the year.</li>
       <li>Full balance invoice sent June 1.</li>
       <li>Full balance due July 1 — then arrive Sunday after 2pm for the hunt.</li>
     </ol>
