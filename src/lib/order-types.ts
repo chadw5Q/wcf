@@ -56,4 +56,18 @@ export interface StoredOrder {
   deliverySlot: string | null;
   status: OrderStatus;
   revisionLog?: OrderRevisionEntry[];
+  /** Queued / sent post-purchase review ask (first-party reviews). */
+  reviewRequest?: OrderReviewRequest;
+}
+
+/** Lifecycle of the automated review email ask (Ask 1). */
+export interface OrderReviewRequest {
+  /** ISO date the ask becomes due. Set when status flips to fulfilled. */
+  queuedFor: string;
+  sentAt?: string;
+  nudgedAt?: string;
+  /** Set when a review is submitted against this order. */
+  respondedAt?: string;
+  suppressedAt?: string;
+  suppressedReason?: 'buyer_opt_out' | 'admin' | 'bounced';
 }

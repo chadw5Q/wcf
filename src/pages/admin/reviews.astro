@@ -1,0 +1,211 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { reviewPhotoPublicUrl } from '../../lib/review-photo';
+import { getAllReviews } from '../../lib/reviews';
+import { getReviewsKvFromLocals } from '../../lib/reviews-kv';
+
+const kv = getReviewsKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const reviews = kv ? await getAllReviews(kv) : [];
+const filter = Astro.url.searchParams.get('state') || 'new';
+const filtered =
+  filter === 'all'
+    ? reviews
+    : reviews.filter((r) => r.state === filter || (filter === 'new' && r.photoState === 'pending'));
+
+function stars(n: number): string {
+  return '★'.repeat(n) + '☆'.repeat(5 - n);
+}
+---
+
+<AdminLayout title="Reviews — Admin">
+  <p class="mb-4 text-sm text-slate-600">
+    <a href="/admin" class="font-medium text-green-700 hover:text-green-900">← Admin home</a>
+  </p>
+
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>REVIEWS_KV is not bound.</strong> Add it to wrangler.jsonc and deploy.
+      </div>
+    )
+  }
+
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Reviews</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Publish every verified review. Feature up to three for the homepage.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {['new', 'published', 'hidden', 'all'].map((s) => (
+        <a
+          href={`/admin/reviews?state=${s}`}
+          class:list={[
+            'rounded-lg border px-3 py-1.5 text-sm font-medium',
+            filter === s
+              ? 'border-green-700 bg-green-700 text-white'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+          ]}
+        >
+          {s}
+        </a>
+      ))}
+    </div>
+  </div>
+
+  <div class="mb-8 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+    <h2 class="text-sm font-semibold text-slate-800">Mint review link (Phase 1 testing)</h2>
+    <p class="mt-1 text-xs text-slate-500">Requires REVIEW_TOKEN_SECRET. Does not send email.</p>
+    <form id="mint-form" class="mt-3 flex flex-wrap items-end gap-2">
+      <div class="min-w-[16rem] flex-1">
+        <label for="mint-order" class="text-xs font-medium text-slate-600">Order ID</label>
+        <input id="mint-order" required class="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm" />
+      </div>
+      <button type="submit" class="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white">Mint link</button>
+    </form>
+    <p id="mint-out" class="mt-2 hidden break-all text-sm text-green-800"></p>
+    <p id="mint-err" class="mt-2 hidden text-sm text-red-700"></p>
+  </div>
+
+  {
+    filtered.length === 0 ? (
+      <p class="text-slate-600">No reviews in this view.</p>
+    ) : (
+      <ul class="space-y-4">
+        {filtered.map((r) => (
+          <li class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" data-id={r.id}>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p class="text-amber-500" aria-label={`${r.rating} stars`}>{stars(r.rating)}</p>
+                <p class="mt-1 font-semibold text-slate-900">
+                  {r.displayName}
+                  {r.location ? <span class="font-normal text-slate-500"> · {r.location}</span> : null}
+                </p>
+                <p class="mt-0.5 text-xs text-slate-500">
+                  {r.state}
+                  {r.featured ? ' · featured' : ''}
+                  {r.photoState !== 'none' ? ` · photo ${r.photoState}` : ''}
+                  {' · '}
+                  {new Date(r.createdAt).toLocaleString()}
+                  {' · order '}
+                  <a class="underline" href={`/admin/orders/${r.orderId}`}>{r.orderId.slice(0, 8)}…</a>
+                </p>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                {r.state !== 'published' && (
+                  <button type="button" class="js-mod rounded border border-green-700 px-3 py-1.5 text-sm font-medium text-green-800" data-action="publish">
+                    Publish
+                  </button>
+                )}
+                {r.state === 'published' && !r.featured && (
+                  <button type="button" class="js-mod rounded border border-slate-300 px-3 py-1.5 text-sm font-medium" data-action="feature">
+                    Feature
+                  </button>
+                )}
+                {r.featured && (
+                  <button type="button" class="js-mod rounded border border-slate-300 px-3 py-1.5 text-sm font-medium" data-action="unfeature">
+                    Unfeature
+                  </button>
+                )}
+                {r.state !== 'hidden' && (
+                  <button type="button" class="js-mod rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700" data-action="hide">
+                    Hide…
+                  </button>
+                )}
+                {r.photoState === 'pending' && (
+                  <>
+                    <button type="button" class="js-mod rounded border border-green-700 px-3 py-1.5 text-sm font-medium text-green-800" data-action="approve_photo">
+                      Approve photo
+                    </button>
+                    <button type="button" class="js-mod rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700" data-action="reject_photo">
+                      Reject photo
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            {r.comment ? <p class="mt-3 text-slate-800">“{r.comment}”</p> : <p class="mt-3 text-sm text-slate-400">No comment</p>}
+            {r.photoKey && r.photoState !== 'rejected' ? (
+              <img
+                src={reviewPhotoPublicUrl(r.photoKey)}
+                alt="Customer review photo"
+                class="mt-3 max-h-64 rounded-lg border border-slate-200 object-contain"
+                loading="lazy"
+              />
+            ) : null}
+            <p class="mt-2 text-xs text-slate-500">SKUs: {r.productSkus.join(', ') || '(none)'}</p>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</AdminLayout>
+
+<script>
+  document.getElementById('mint-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const orderId = (document.getElementById('mint-order') as HTMLInputElement | null)?.value?.trim();
+    const out = document.getElementById('mint-out');
+    const err = document.getElementById('mint-err');
+    out?.classList.add('hidden');
+    err?.classList.add('hidden');
+    try {
+      const res = await fetch('/api/admin/review-mint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Mint failed');
+      if (out) {
+        out.textContent = data.url;
+        out.classList.remove('hidden');
+      }
+    } catch (ex) {
+      if (err) {
+        err.textContent = ex instanceof Error ? ex.message : 'Mint failed';
+        err.classList.remove('hidden');
+      }
+    }
+  });
+
+  document.querySelectorAll('.js-mod').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!(btn instanceof HTMLButtonElement)) return;
+      const li = btn.closest('li');
+      const reviewId = li?.getAttribute('data-id');
+      const action = btn.dataset.action;
+      if (!reviewId || !action) return;
+      const body: Record<string, unknown> = { reviewId, action };
+      if (action === 'hide') {
+        const reason = window.prompt(
+          'Hide reason: spam | personal_info | abusive | not_a_customer',
+          'spam'
+        );
+        if (!reason) return;
+        body.reason = reason.trim();
+      }
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/admin/review-moderate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Action failed');
+          btn.disabled = false;
+          return;
+        }
+        window.location.reload();
+      } catch {
+        alert('Network error');
+        btn.disabled = false;
+      }
+    });
+  });
+</script>

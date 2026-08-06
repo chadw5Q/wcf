@@ -159,6 +159,22 @@ Williams Creek Whitetails (`/hunt`) stores reservation JSON in a **separate** KV
 
 Admin **Integrations** (`/admin/integrations`) shows whether `HUNT_KV` is bound in the deployed Worker.
 
+### First-party reviews (`REVIEWS_KV` + `REVIEW_PHOTOS`)
+
+Buyer reviews live in a **separate** KV namespace (`REVIEWS_KV`) and photos in R2 bucket `wcf-review-photos` (`REVIEW_PHOTOS`). Both are already listed in `wrangler.jsonc`.
+
+1. Set the HMAC secret used for one-click review links:
+
+   ```bash
+   npx wrangler secret put REVIEW_TOKEN_SECRET
+   ```
+
+2. Redeploy so bindings and the secret are live.
+
+3. Smoke-test Phase 1 (before any cron/email automation): Admin → **Reviews** → mint a link for a real order ID → open the link (optionally `?r=5`) → submit with a phone photo → publish from `/admin/reviews`. You should get an ntfy push titled like `New review: 5 stars from …`.
+
+Phase 2 (Ask 1 email + cron) also needs `CRON_SHARED_SECRET`. Do not enable automated sends until capture and moderation work end to end with a manually minted token.
+
 **Hunt deposit flow (Stripe + Resend):** `/hunt/reserve` posts to `POST /api/hunt-reserve`, which creates a Checkout Session and redirects the hunter to Stripe. Configure a **second** webhook endpoint in Stripe for hunt deposits only: subscriber URL `https://<your-site>/api/webhooks/stripe-hunt`, event `checkout.session.completed`, and store the signing secret as **`STRIPE_WEBHOOK_SECRET_HUNT`** (`npx wrangler secret put STRIPE_WEBHOOK_SECRET_HUNT`). Optional **`HUNT_NOTIFY_EMAIL`** receives an internal heads-up when a deposit clears (uses the same Resend credentials as orders).
 
 **Hunt balance (Phase 6):** `/hunt/final-payment` posts to `POST /api/hunt-balance`. The same Stripe webhook (`/api/webhooks/stripe-hunt`) handles **both** deposit and balance sessions; distinguish them in the Stripe Dashboard via Checkout Session metadata (`hunt_checkout_kind`: `deposit` vs `balance`).

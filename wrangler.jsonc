@@ -17,6 +17,10 @@
 		{
 			"binding": "HUNT_KV",
 			"id": "11324daad03742deb774382d0ee4b740"
+		},
+		{
+			"binding": "REVIEWS_KV",
+			"id": "60828d2380454002979ca5d5ba07b3f7"
 		}
 	],
 	// Create in dashboard: npx wrangler r2 bucket create wcf-product-images
@@ -24,6 +28,10 @@
 		{
 			"binding": "PRODUCT_IMAGES",
 			"bucket_name": "wcf-product-images"
+		},
+		{
+			"binding": "REVIEW_PHOTOS",
+			"bucket_name": "wcf-review-photos"
 		}
 	],
 	// Non-secret config (available as env in the Worker).

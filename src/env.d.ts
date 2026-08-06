@@ -23,6 +23,10 @@ interface ImportMetaEnv {
   readonly NTFY_ACCESS_TOKEN?: string;
   readonly NTFY_TOKEN?: string;
   readonly NTFY_DISABLE?: string;
+  /** HMAC secret for first-party review email links. */
+  readonly REVIEW_TOKEN_SECRET?: string;
+  /** Shared secret for review cron worker → /api/cron/review-requests. */
+  readonly CRON_SHARED_SECRET?: string;
 }
 
 interface ImportMeta {
@@ -35,7 +39,9 @@ declare namespace App {
       env: {
         ORDERS_KV?: KVNamespace;
         HUNT_KV?: KVNamespace;
+        REVIEWS_KV?: KVNamespace;
         PRODUCT_IMAGES?: R2Bucket;
+        REVIEW_PHOTOS?: R2Bucket;
         ASSETS?: Fetcher;
       } & Record<string, unknown>;
       cf?: IncomingRequestCfProperties;

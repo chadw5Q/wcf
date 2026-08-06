@@ -85,6 +85,10 @@ export function describeNtfyEndpoint(workerEnv?: Record<string, unknown>): NtfyE
 export type PublishNtfyOptions = {
   title: string;
   message: string;
+  /** Optional click-through URL (ntfy `Click` header). */
+  click?: string;
+  /** Optional comma-separated emoji tags (ntfy `Tags` header). */
+  tags?: string;
   /**
    * Pass `locals.runtime?.env` from API routes on Cloudflare so NTFY_* Wrangler vars are read from
    * the same bindings object as ORDERS_KV (module `getEnv()` alone can miss vars in some builds).
@@ -115,6 +119,12 @@ export async function publishNtfyNotification(options: PublishNtfyOptions): Prom
   });
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (options.click?.trim()) {
+    headers.set('Click', options.click.trim());
+  }
+  if (options.tags?.trim()) {
+    headers.set('Tags', options.tags.trim());
   }
 
   try {
