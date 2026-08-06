@@ -26,6 +26,7 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
       src="/images/hedge002.webp"
       alt=""
       fetchpriority="high"
+      decoding="async"
       class="absolute inset-0 h-full w-full object-cover object-center"
       width="540"
       height="540"
@@ -86,25 +87,36 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         <div class="overflow-hidden rounded-2xl bg-black/30 shadow-xl ring-1 ring-white/15">
           <div class="grid grid-cols-2 gap-1.5 p-1.5">
             <img
-              src="/images/fence-pic/fence-1.webp"
+              src="/images/fence-pic/fence-1-960.webp"
+              srcset="/images/fence-pic/fence-1-640.webp 640w, /images/fence-pic/fence-1-960.webp 960w, /images/fence-pic/fence-1-1200.webp 1200w"
+              sizes="(min-width: 1024px) 36vw, calc(100vw - 2rem)"
               alt="Fresh-cut Osage Orange hedge posts stacked at Williams Creek Farms"
               class="col-span-2 h-48 w-full rounded-lg object-cover sm:h-56 lg:h-64"
-              width="1600"
-              height="1200"
+              width="960"
+              height="720"
+              decoding="async"
             />
             <img
-              src="/images/fence-pic/fence-2.webp"
+              src="/images/fence-pic/fence-2-800.webp"
+              srcset="/images/fence-pic/fence-2-480.webp 480w, /images/fence-pic/fence-2-800.webp 800w"
+              sizes="(min-width: 1024px) 18vw, calc(50vw - 1.25rem)"
               alt="Hedge fence posts ready for permanent fencing"
               class="h-52 w-full rounded-lg object-cover sm:h-64"
-              width="1200"
-              height="1600"
+              width="800"
+              height="1067"
+              loading="lazy"
+              decoding="async"
             />
             <img
-              src="/images/fence-pic/fence-3.webp"
+              src="/images/fence-pic/fence-3-800.webp"
+              srcset="/images/fence-pic/fence-3-480.webp 480w, /images/fence-pic/fence-3-800.webp 800w"
+              sizes="(min-width: 1024px) 18vw, calc(50vw - 1.25rem)"
               alt="Close-up of Southwest Iowa hedge posts in the yard"
               class="h-52 w-full rounded-lg object-cover sm:h-64"
-              width="1200"
-              height="1600"
+              width="800"
+              height="1067"
+              loading="lazy"
+              decoding="async"
             />
           </div>
         </div>
@@ -376,24 +388,32 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         <!-- Strengths -->
         <div class="rounded-xl border border-green-200 bg-green-50 p-6 shadow-md">
           <h3 class="mb-4 font-bold text-green-900">What buyers notice most</h3>
-          <dl class="space-y-3 text-sm">
-            <div class="flex items-baseline justify-between gap-3">
-              <dt class="text-green-900">Load ready on time</dt>
-              <dd class="font-bold text-green-700">9 of 11</dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3">
-              <dt class="text-green-900">Communication</dt>
-              <dd class="font-bold text-green-700">9 of 11</dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3">
-              <dt class="text-green-900">Fair pricing</dt>
-              <dd class="font-bold text-green-700">4 of 11</dd>
-            </div>
-            <div class="flex items-baseline justify-between gap-3">
-              <dt class="text-green-900">Posts as described</dt>
-              <dd class="font-bold text-green-700">4 of 11</dd>
-            </div>
-          </dl>
+          <ul class="space-y-3 text-sm text-green-900">
+            <li class="flex items-start gap-2.5">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+              </svg>
+              <span>Load ready on time</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+              </svg>
+              <span>Clear communication</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+              </svg>
+              <span>Fair pricing</span>
+            </li>
+            <li class="flex items-start gap-2.5">
+              <svg class="mt-0.5 h-4 w-4 shrink-0 text-green-600" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />
+              </svg>
+              <span>Posts as described</span>
+            </li>
+          </ul>
           <p class="mt-4 border-t border-green-200 pt-3 text-xs text-green-800/80">
             Strengths buyers tagged on their own, unprompted.
           </p>
