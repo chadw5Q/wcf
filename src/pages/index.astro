@@ -57,6 +57,31 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
               Order Now
             </a>
           </div>
+
+          <!-- Social proof: Marketplace rating -->
+          <div class="mt-8 space-y-2 text-sm">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <div class="flex items-center gap-1.5">
+                <span class="flex" aria-hidden="true">
+                  {Array.from({ length: 5 }).map(() => (
+                    <svg class="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.3 4a1 1 0 00.95.69h4.2c.97 0 1.37 1.24.59 1.81l-3.4 2.47a1 1 0 00-.36 1.12l1.3 4c.3.92-.75 1.69-1.54 1.12l-3.39-2.47a1 1 0 00-1.18 0l-3.39 2.47c-.79.57-1.84-.2-1.54-1.12l1.3-4a1 1 0 00-.36-1.12L2.02 9.43c-.78-.57-.38-1.81.59-1.81h4.2a1 1 0 00.95-.69l1.3-4z" />
+                    </svg>
+                  ))}
+                </span>
+                <span class="font-semibold text-white">5.0</span>
+                <span class="sr-only">Rated 5.0 out of 5 by Marketplace buyers</span>
+              </div>
+              <span class="text-gray-200">Rated by Marketplace buyers</span>
+              <span class="hidden text-gray-500 sm:inline" aria-hidden="true">&bull;</span>
+              <span class="rounded-full bg-white/10 px-3 py-1 font-medium text-green-200 ring-1 ring-white/20">
+                Highly rated seller
+              </span>
+            </div>
+            <p class="text-gray-300">
+              9 of 11 buyers called out punctuality and communication.
+            </p>
+          </div>
         </div>
         <div class="overflow-hidden rounded-2xl bg-black/30 shadow-xl ring-1 ring-white/15">
           <div class="grid grid-cols-2 gap-1.5 p-1.5">
@@ -285,6 +310,99 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
           My grandfather used hedge fence posts back in 1962. Though weathered, they were still standing strong when we replaced them in 2018, 56 years later.
         </p>
       </div>
+    </div>
+  </section>
+
+  <!-- Buyer proof (between durability proof and CTA) -->
+  <section class="section-padding bg-gray-50">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-12 text-center">
+        <div class="mb-3 flex items-center justify-center gap-1.5">
+          <span class="flex" aria-hidden="true">
+            {Array.from({ length: 5 }).map(() => (
+              <svg class="h-6 w-6 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.3 4a1 1 0 00.95.69h4.2c.97 0 1.37 1.24.59 1.81l-3.4 2.47a1 1 0 00-.36 1.12l1.3 4c.3.92-.75 1.69-1.54 1.12l-3.39-2.47a1 1 0 00-1.18 0l-3.39 2.47c-.79.57-1.84-.2-1.54-1.12l1.3-4a1 1 0 00-.36-1.12L2.02 9.43c-.78-.57-.38-1.81.59-1.81h4.2a1 1 0 00.95-.69l1.3-4z" />
+              </svg>
+            ))}
+          </span>
+          <span class="text-lg font-bold text-gray-900">5.0</span>
+          <span class="text-gray-500">(11 ratings)</span>
+        </div>
+        <h2 class="mb-3 text-3xl font-bold text-gray-900 md:text-4xl">
+          Worth the Drive
+        </h2>
+        <p class="mx-auto max-w-2xl text-xl text-gray-600">
+          Buyers haul these posts home from three states. We load every order on to your trailer at the farm with our skidloader.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <!-- Quote: David -->
+        <figure class="rounded-xl border border-gray-200 bg-white p-6 shadow-md">
+          <span class="mb-3 flex" aria-hidden="true">
+            {Array.from({ length: 5 }).map(() => (
+              <svg class="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.3 4a1 1 0 00.95.69h4.2c.97 0 1.37 1.24.59 1.81l-3.4 2.47a1 1 0 00-.36 1.12l1.3 4c.3.92-.75 1.69-1.54 1.12l-3.39-2.47a1 1 0 00-1.18 0l-3.39 2.47c-.79.57-1.84-.2-1.54-1.12l1.3-4a1 1 0 00-.36-1.12L2.02 9.43c-.78-.57-.38-1.81.59-1.81h4.2a1 1 0 00.95-.69l1.3-4z" />
+              </svg>
+            ))}
+          </span>
+          <blockquote class="text-lg font-medium text-gray-800">
+            &ldquo;Will definitely be going back. Worth the drive.&rdquo;
+          </blockquote>
+          <figcaption class="mt-5 border-t border-gray-100 pt-4 text-sm">
+            <span class="font-semibold text-gray-900">David P.</span>
+            <span class="block text-gray-500">Sheridan, MO</span>
+          </figcaption>
+        </figure>
+
+        <!-- Quote: Craig -->
+        <figure class="rounded-xl border border-gray-200 bg-white p-6 shadow-md">
+          <span class="mb-3 flex" aria-hidden="true">
+            {Array.from({ length: 5 }).map(() => (
+              <svg class="h-4 w-4 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.05 2.93c.3-.92 1.6-.92 1.9 0l1.3 4a1 1 0 00.95.69h4.2c.97 0 1.37 1.24.59 1.81l-3.4 2.47a1 1 0 00-.36 1.12l1.3 4c.3.92-.75 1.69-1.54 1.12l-3.39-2.47a1 1 0 00-1.18 0l-3.39 2.47c-.79.57-1.84-.2-1.54-1.12l1.3-4a1 1 0 00-.36-1.12L2.02 9.43c-.78-.57-.38-1.81.59-1.81h4.2a1 1 0 00.95-.69l1.3-4z" />
+              </svg>
+            ))}
+          </span>
+          <blockquote class="text-lg font-medium text-gray-800">
+            &ldquo;Great person to deal with!&rdquo;
+          </blockquote>
+          <figcaption class="mt-5 border-t border-gray-100 pt-4 text-sm">
+            <span class="font-semibold text-gray-900">Craig</span>
+            <span class="block text-gray-500">Noted punctuality, communication, and pricing</span>
+          </figcaption>
+        </figure>
+
+        <!-- Strengths -->
+        <div class="rounded-xl border border-green-200 bg-green-50 p-6 shadow-md">
+          <h3 class="mb-4 font-bold text-green-900">What buyers notice most</h3>
+          <dl class="space-y-3 text-sm">
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="text-green-900">Load ready on time</dt>
+              <dd class="font-bold text-green-700">9 of 11</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="text-green-900">Communication</dt>
+              <dd class="font-bold text-green-700">9 of 11</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="text-green-900">Fair pricing</dt>
+              <dd class="font-bold text-green-700">4 of 11</dd>
+            </div>
+            <div class="flex items-baseline justify-between gap-3">
+              <dt class="text-green-900">Posts as described</dt>
+              <dd class="font-bold text-green-700">4 of 11</dd>
+            </div>
+          </dl>
+          <p class="mt-4 border-t border-green-200 pt-3 text-xs text-green-800/80">
+            Strengths buyers tagged on their own, unprompted.
+          </p>
+        </div>
+      </div>
+
+      <p class="mt-10 text-center text-sm text-gray-500">
+        Ratings and comments from buyers on Facebook Marketplace, 2021 through 2024.
+      </p>
     </div>
   </section>
 
