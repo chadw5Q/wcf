@@ -8,6 +8,7 @@
     "preview": "astro preview",
     "deploy": "astro build && wrangler deploy",
     "deploy:cal-webhook": "wrangler deploy --config workers/cal-ntfy-worker/wrangler.toml",
+    "deploy:review-cron": "wrangler deploy --config workers/review-cron-worker/wrangler.toml",
     "astro": "astro",
     "test": "vitest run && playwright test",
     "test:unit": "vitest run",

@@ -6,6 +6,7 @@ import type {
   StoredOrder,
 } from './order-types';
 import type { OrderCheckoutKey, OrderSkuRow } from './products-config';
+import { attachReviewRequestOnFulfilled } from './review-queue';
 
 export type { StoredOrder, OrderStatus, OrderFieldName, OrderRevisionEntry } from './order-types';
 
@@ -213,6 +214,10 @@ export function createWalkInStoredOrder(
   order.status = status;
   order.deliverySlot = input.deliverySlot?.trim() ? input.deliverySlot.trim() : null;
 
+  if (status === 'fulfilled') {
+    attachReviewRequestOnFulfilled(order, new Date(createdAt));
+  }
+
   pushRevision(order, {
     at: createdAt,
     action: 'meta',
@@ -221,6 +226,9 @@ export function createWalkInStoredOrder(
       source: 'admin_walk_in',
       status: order.status,
       depositAmount: order.depositAmount,
+      ...(order.reviewRequest?.queuedFor
+        ? { reviewRequestQueuedFor: order.reviewRequest.queuedFor }
+        : {}),
     },
   });
 
@@ -402,11 +410,13 @@ export async function getOrdersByDateRange(
 /** Apply status / delivery slot changes and append `revisionLog` when something changed. Returns whether the order mutated. */
 export function applyOrderMetaPatch(
   order: StoredOrder,
-  patch: { status?: OrderStatus; deliverySlot?: string | null }
+  patch: { status?: OrderStatus; deliverySlot?: string | null },
+  now: Date = new Date()
 ): boolean {
-  const now = new Date().toISOString();
+  const nowIso = now.toISOString();
   const details: Record<string, unknown> = {};
   let changed = false;
+  let becameFulfilled = false;
 
   if (patch.status !== undefined) {
     if (!['pending', 'scheduled', 'fulfilled'].includes(patch.status)) {
@@ -414,6 +424,7 @@ export function applyOrderMetaPatch(
     }
     if (patch.status !== order.status) {
       details.status = { from: order.status, to: patch.status };
+      becameFulfilled = patch.status === 'fulfilled';
       order.status = patch.status;
       changed = true;
     }
@@ -428,6 +439,13 @@ export function applyOrderMetaPatch(
     }
   }
 
+  if (becameFulfilled) {
+    if (attachReviewRequestOnFulfilled(order, now)) {
+      details.reviewRequestQueuedFor = order.reviewRequest?.queuedFor;
+      changed = true;
+    }
+  }
+
   if (changed) {
     const parts: string[] = [];
     if (details.status) {
@@ -435,8 +453,9 @@ export function applyOrderMetaPatch(
       parts.push(`Status: ${st.from} → ${st.to}`);
     }
     if (details.deliverySlot) parts.push('Delivery / pickup slot updated');
+    if (details.reviewRequestQueuedFor) parts.push('Review ask queued');
     pushRevision(order, {
-      at: now,
+      at: nowIso,
       action: 'meta',
       summary: parts.join('. ') || 'Metadata updated',
       details,

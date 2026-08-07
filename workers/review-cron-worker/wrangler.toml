@@ -1,0 +1,16 @@
+# Standalone worker (not the Astro site). Deploy separately.
+# Triggers daily at 14:00 UTC ≈ 9am Central (CDT).
+name = "review-cron-worker"
+main = "review-cron-worker.js"
+compatibility_date = "2026-04-02"
+
+[vars]
+SITE_URL = "https://williamscreekfarms.com"
+# Optional override of the Astro cron endpoint:
+# REVIEW_CRON_URL = "https://williamscreekfarms.com/api/cron/review-requests"
+
+[triggers]
+crons = ["0 14 * * *"]
+
+# Secrets (wrangler secret put <NAME> --config workers/review-cron-worker/wrangler.toml):
+#   CRON_SHARED_SECRET — must match the main site Worker secret of the same name

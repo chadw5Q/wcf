@@ -173,7 +173,15 @@ Buyer reviews live in a **separate** KV namespace (`REVIEWS_KV`) and photos in R
 
 3. Smoke-test Phase 1 (before any cron/email automation): Admin → **Reviews** → mint a link for a real order ID → open the link (optionally `?r=5`) → submit with a phone photo → publish from `/admin/reviews`. You should get an ntfy push titled like `New review: 5 stars from …`.
 
-Phase 2 (Ask 1 email + cron) also needs `CRON_SHARED_SECRET`. Do not enable automated sends until capture and moderation work end to end with a manually minted token.
+Phase 2 (Ask 1 email + cron) also needs `CRON_SHARED_SECRET` on the **main** Worker and the cron worker:
+
+```bash
+npx wrangler secret put CRON_SHARED_SECRET
+npx wrangler secret put CRON_SHARED_SECRET --config workers/review-cron-worker/wrangler.toml
+npm run deploy:review-cron
+```
+
+`REVIEW_FEATURE_START` is hardcoded to `2026-08-06T00:00:00.000Z` — only orders fulfilled on/after that date are queued. Cron runs daily at 14:00 UTC (~9am Central). Do not enable the cron until capture and moderation work end to end with a manually minted token.
 
 **Hunt deposit flow (Stripe + Resend):** `/hunt/reserve` posts to `POST /api/hunt-reserve`, which creates a Checkout Session and redirects the hunter to Stripe. Configure a **second** webhook endpoint in Stripe for hunt deposits only: subscriber URL `https://<your-site>/api/webhooks/stripe-hunt`, event `checkout.session.completed`, and store the signing secret as **`STRIPE_WEBHOOK_SECRET_HUNT`** (`npx wrangler secret put STRIPE_WEBHOOK_SECRET_HUNT`). Optional **`HUNT_NOTIFY_EMAIL`** receives an internal heads-up when a deposit clears (uses the same Resend credentials as orders).
 
