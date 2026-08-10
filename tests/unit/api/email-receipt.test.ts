@@ -46,7 +46,7 @@ const fulfilledOrder: StoredOrder = {
     },
   ],
   subtotal: 250,
-  volumeDiscount: { applied: false, rate: 0.1, amount: 0 },
+  volumeDiscount: { applied: false, rate: 0.1, amount: 0, mode: 'auto' },
   discountedSubtotal: 250,
   deposit: { selected: true, rate: 0.1, amount: 25 },
   orderTotal: 250,

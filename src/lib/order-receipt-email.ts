@@ -1,6 +1,18 @@
-import type { StoredOrder } from './order-types';
+import type { StoredOrder, VolumeDiscount } from './order-types';
 import { formatCentralDateTime, formatUsd } from './format-order';
 import { getServerEnv } from './server-env';
+
+function receiptDiscountLabel(vd: VolumeDiscount): string | null {
+  if (!vd?.applied || !(vd.amount > 0)) return null;
+  const mode = vd.mode ?? 'auto';
+  if (mode === 'auto') return 'Volume discount (10%)';
+  if (mode === 'percent') {
+    const pct = Math.round((vd.rate || 0) * 1000) / 10;
+    const label = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+    return `Discount (${label}%)`;
+  }
+  return 'Discount';
+}
 
 export function escapeHtmlText(value: string): string {
   return value
@@ -52,9 +64,11 @@ export function buildOrderReceiptHtml(order: StoredOrder): string {
     ? `<p><strong>Delivery / pickup:</strong> ${escapeHtmlText(order.deliverySlot.trim())}</p>`
     : '';
 
-  const discountBlock = order.volumeDiscount.applied
-    ? `<p><strong>Volume discount (10%):</strong> −${escapeHtmlText(formatUsd(order.volumeDiscount.amount))}</p>`
-    : '';
+  const discountLabel = receiptDiscountLabel(order.volumeDiscount);
+  const discountBlock =
+    discountLabel
+      ? `<p><strong>${escapeHtmlText(discountLabel)}:</strong> −${escapeHtmlText(formatUsd(order.volumeDiscount.amount))}</p>`
+      : '';
 
   const depositBlock = order.deposit.selected
     ? `<p><strong>Deposit:</strong> ${escapeHtmlText(formatUsd(order.depositAmount))}</p>

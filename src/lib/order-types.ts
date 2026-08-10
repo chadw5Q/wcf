@@ -1,5 +1,20 @@
 export type OrderStatus = 'pending' | 'scheduled' | 'fulfilled';
 
+/** How the order-level discount was determined (admin can override auto volume rule). */
+export type DiscountMode = 'auto' | 'percent' | 'fixed' | 'none';
+
+export interface VolumeDiscount {
+  applied: boolean;
+  /** Dollars off subtotal (always the resolved amount). */
+  amount: number;
+  mode: DiscountMode;
+  /**
+   * Fraction of subtotal when mode is `auto` or `percent` (e.g. 0.1 = 10%).
+   * 0 for `fixed` / `none`.
+   */
+  rate: number;
+}
+
 export type OrderFieldName =
   | 'premiumLine'
   | 'premiumCorner'
@@ -38,11 +53,7 @@ export interface StoredOrder {
   };
   items: OrderLineItem[];
   subtotal: number;
-  volumeDiscount: {
-    applied: boolean;
-    rate: 0.1;
-    amount: number;
-  };
+  volumeDiscount: VolumeDiscount;
   discountedSubtotal: number;
   deposit: {
     selected: boolean;

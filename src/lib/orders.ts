@@ -1,18 +1,29 @@
 import type {
+  DiscountMode,
   OrderFieldName,
   OrderLineItem,
   OrderRevisionEntry,
   OrderStatus,
   StoredOrder,
+  VolumeDiscount,
 } from './order-types';
 import type { OrderCheckoutKey, OrderSkuRow } from './products-config';
 import { attachReviewRequestOnFulfilled } from './review-queue';
 
-export type { StoredOrder, OrderStatus, OrderFieldName, OrderRevisionEntry } from './order-types';
+export type {
+  StoredOrder,
+  OrderStatus,
+  OrderFieldName,
+  OrderRevisionEntry,
+  DiscountMode,
+  VolumeDiscount,
+} from './order-types';
 
 const INDEX_KEY = 'order_index';
 const MAX_INDEX_IDS = 5000;
 const MAX_REVISION_LOG = 100;
+const AUTO_VOLUME_RATE = 0.1;
+const AUTO_VOLUME_MIN_POSTS = 100;
 
 const LINE_KEYS: OrderFieldName[] = [
   'premiumLine',
@@ -33,6 +44,15 @@ export interface BuildOrderInput {
   quantities: Record<string, unknown>;
 }
 
+/** Admin discount override (optional on rebuild; defaults to auto volume rule). */
+export type DiscountOverrideInput = {
+  mode: DiscountMode;
+  /** Whole percent 0–100 when mode is `percent` (e.g. 15 = 15%). */
+  percent?: number;
+  /** Dollar amount when mode is `fixed`. */
+  fixedAmount?: number;
+};
+
 /**
  * Admin rebuild input.
  * When `depositAmount` is provided, it sets the deposit in dollars (0 = no deposit)
@@ -47,6 +67,8 @@ export interface AdminOrderRebuildInput {
   quantities: Record<string, unknown>;
   /** Explicit deposit in USD. Clamped to [0, order total] on rebuild. */
   depositAmount?: number;
+  /** Order-level discount mode. Defaults to `auto` when omitted. */
+  discount?: DiscountOverrideInput;
 }
 
 type OrderComputedBody = Pick<
@@ -65,8 +87,93 @@ type OrderComputedBody = Pick<
 
 export type OrderSkuMap = Record<OrderCheckoutKey, OrderSkuRow>;
 
+export function isDiscountMode(s: unknown): s is DiscountMode {
+  return s === 'auto' || s === 'percent' || s === 'fixed' || s === 'none';
+}
+
+/** Normalize legacy KV records that lack `mode`. */
+export function normalizeVolumeDiscount(raw: Partial<VolumeDiscount> | undefined | null): VolumeDiscount {
+  if (!raw || typeof raw !== 'object') {
+    return { applied: false, amount: 0, mode: 'none', rate: 0 };
+  }
+  const amount = Math.round(Math.max(0, Number(raw.amount) || 0) * 100) / 100;
+  const rate = Number(raw.rate);
+  let mode: DiscountMode;
+  if (isDiscountMode(raw.mode)) {
+    mode = raw.mode;
+  } else {
+    // Legacy KV records had no mode — treat as automatic volume rule.
+    mode = 'auto';
+  }
+  const applied = amount > 0;
+  return {
+    applied,
+    amount,
+    mode,
+    rate: Number.isFinite(rate) ? rate : mode === 'auto' && applied ? AUTO_VOLUME_RATE : 0,
+  };
+}
+
+/**
+ * Resolve order-level discount from subtotal + post count + optional admin override.
+ * Public checkout always uses `auto` (omit override).
+ */
+export function resolveOrderDiscount(
+  subtotal: number,
+  postCount: number,
+  override?: DiscountOverrideInput | null
+): VolumeDiscount {
+  const mode: DiscountMode = override?.mode ?? 'auto';
+  const sub = Math.round(Math.max(0, subtotal) * 100) / 100;
+
+  if (mode === 'none') {
+    return { applied: false, amount: 0, mode: 'none', rate: 0 };
+  }
+
+  if (mode === 'percent') {
+    const pct = Math.max(0, Math.min(100, Number(override?.percent) || 0));
+    const rate = Math.round(pct) / 100;
+    const amount = Math.round(sub * rate * 100) / 100;
+    return { applied: amount > 0, amount, mode: 'percent', rate };
+  }
+
+  if (mode === 'fixed') {
+    const fixed = Math.max(0, Number(override?.fixedAmount) || 0);
+    const amount = Math.round(Math.min(fixed, sub) * 100) / 100;
+    return { applied: amount > 0, amount, mode: 'fixed', rate: 0 };
+  }
+
+  // auto
+  const volumeApplied = postCount >= AUTO_VOLUME_MIN_POSTS;
+  const amount = volumeApplied ? Math.round(sub * AUTO_VOLUME_RATE * 100) / 100 : 0;
+  return {
+    applied: amount > 0,
+    amount,
+    mode: 'auto',
+    rate: AUTO_VOLUME_RATE,
+  };
+}
+
+/** Customer/admin-facing discount line label, or null when nothing to show. */
+export function volumeDiscountLabel(vd: VolumeDiscount): string | null {
+  const n = normalizeVolumeDiscount(vd);
+  if (!n.applied || n.amount <= 0) return null;
+  if (n.mode === 'auto') return 'Volume discount (10%)';
+  if (n.mode === 'percent') {
+    const pct = Math.round(n.rate * 1000) / 10; // one decimal if needed
+    const label = Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
+    return `Discount (${label}%)`;
+  }
+  if (n.mode === 'fixed') return 'Discount';
+  return 'Discount';
+}
+
 /** Shared pricing / line items for new orders and admin rebuilds. */
-export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): OrderComputedBody {
+export function computeOrderBody(
+  input: BuildOrderInput,
+  skuMap: OrderSkuMap,
+  discount?: DiscountOverrideInput | null
+): OrderComputedBody {
   const q = {
     premiumLine: Math.max(0, Math.floor(Number(input.quantities.premiumLine) || 0)),
     premiumCorner: Math.max(0, Math.floor(Number(input.quantities.premiumCorner) || 0)),
@@ -109,9 +216,9 @@ export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): O
 
   const postCount =
     q.premiumLine + q.premiumCorner + q.regularLine + q.regularCorner + q.discountBin;
-  const volumeApplied = postCount >= 100;
-  const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
-  const discountedSubtotal = Math.round((subtotal - discountAmount) * 100) / 100;
+  const roundedSub = Math.round(subtotal * 100) / 100;
+  const volumeDiscount = resolveOrderDiscount(roundedSub, postCount, discount ?? { mode: 'auto' });
+  const discountedSubtotal = Math.round((roundedSub - volumeDiscount.amount) * 100) / 100;
 
   const depositAmount =
     input.depositSelected && discountedSubtotal > 0
@@ -130,12 +237,8 @@ export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): O
       phone: String(input.phone || '').trim(),
     },
     items,
-    subtotal: Math.round(subtotal * 100) / 100,
-    volumeDiscount: {
-      applied: volumeApplied,
-      rate: 0.1,
-      amount: discountAmount,
-    },
+    subtotal: roundedSub,
+    volumeDiscount,
     discountedSubtotal,
     deposit: {
       selected: input.depositSelected,
@@ -149,14 +252,15 @@ export function computeOrderBody(input: BuildOrderInput, skuMap: OrderSkuMap): O
   };
 }
 
-/** Server-side totals: >= 100 posts (excluding bow stave) → 10% off subtotal. */
+/** Server-side totals: >= 100 posts (excluding bow stave) → 10% off subtotal (auto mode). */
 export function buildStoredOrder(
   input: BuildOrderInput,
   id: string,
   createdAt: string,
-  skuMap: OrderSkuMap
+  skuMap: OrderSkuMap,
+  discount?: DiscountOverrideInput | null
 ): StoredOrder {
-  const body = computeOrderBody(input, skuMap);
+  const body = computeOrderBody(input, skuMap, discount ?? { mode: 'auto' });
   return {
     id,
     createdAt,
@@ -194,7 +298,8 @@ export function createWalkInStoredOrder(
     },
     id,
     createdAt,
-    skuMap
+    skuMap,
+    input.discount ?? { mode: 'auto' }
   );
 
   const depositAmount =
@@ -262,7 +367,7 @@ export function rebuildStoredOrder(
     quantities: input.quantities,
   };
 
-  const body = computeOrderBody(buildInput, skuMap);
+  const body = computeOrderBody(buildInput, skuMap, input.discount ?? { mode: 'auto' });
 
   if (input.depositAmount !== undefined) {
     const depositAmount =
@@ -357,12 +462,17 @@ function normalizeStoredOrderStatus(order: StoredOrder): void {
   }
 }
 
+function normalizeStoredOrderDiscount(order: StoredOrder): void {
+  order.volumeDiscount = normalizeVolumeDiscount(order.volumeDiscount);
+}
+
 export async function getOrder(kv: KVNamespace, id: string): Promise<StoredOrder | null> {
   const raw = await kv.get(id);
   if (!raw) return null;
   try {
     const order = JSON.parse(raw) as StoredOrder;
     normalizeStoredOrderStatus(order);
+    normalizeStoredOrderDiscount(order);
     return order;
   } catch {
     return null;
@@ -558,6 +668,19 @@ export function adminRebuildMatchesExisting(existing: StoredOrder, input: AdminO
     if ((want > 0) !== existing.deposit.selected) return false;
   }
 
+  const existingVd = normalizeVolumeDiscount(existing.volumeDiscount);
+  const wantDiscount: DiscountOverrideInput = input.discount ?? { mode: 'auto' };
+  if (wantDiscount.mode !== existingVd.mode) return false;
+  if (wantDiscount.mode === 'percent') {
+    const pct = Math.round(Math.max(0, Math.min(100, Number(wantDiscount.percent) || 0)));
+    const existingPct = Math.round(existingVd.rate * 100);
+    if (pct !== existingPct) return false;
+  }
+  if (wantDiscount.mode === 'fixed') {
+    const fixed = Math.round(Math.max(0, Number(wantDiscount.fixedAmount) || 0) * 100) / 100;
+    if (fixed !== existingVd.amount) return false;
+  }
+
   return true;
 }
 
@@ -595,6 +718,32 @@ export function parseAdminRebuildPayload(r: Record<string, unknown>): AdminOrder
       throw new Error('Deposit amount must be a number greater than or equal to 0');
     }
     out.depositAmount = Math.round(n * 100) / 100;
+  }
+
+  if ('discount' in r && r.discount != null) {
+    if (typeof r.discount !== 'object' || Array.isArray(r.discount)) {
+      throw new Error('Invalid discount');
+    }
+    const d = r.discount as Record<string, unknown>;
+    if (!isDiscountMode(d.mode)) {
+      throw new Error('Discount mode must be auto, percent, fixed, or none');
+    }
+    const discount: DiscountOverrideInput = { mode: d.mode };
+    if (d.mode === 'percent') {
+      const pct = Number(d.percent);
+      if (!Number.isFinite(pct) || pct < 0 || pct > 100) {
+        throw new Error('Discount percent must be between 0 and 100');
+      }
+      discount.percent = Math.round(pct * 100) / 100;
+    }
+    if (d.mode === 'fixed') {
+      const fixed = Number(d.fixedAmount);
+      if (!Number.isFinite(fixed) || fixed < 0) {
+        throw new Error('Discount amount must be a number greater than or equal to 0');
+      }
+      discount.fixedAmount = Math.round(fixed * 100) / 100;
+    }
+    out.discount = discount;
   }
 
   return out;

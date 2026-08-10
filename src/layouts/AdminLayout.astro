@@ -36,11 +36,59 @@ const { title } = Astro.props;
         <nav class="flex flex-wrap items-center gap-4 text-sm">
           <a href="/" class="text-slate-600 hover:text-green-700">Home</a>
           <a href="/admin" class="text-slate-600 hover:text-green-700">Dashboard</a>
-          <a href="/admin/products" class="text-slate-600 hover:text-green-700">Products</a>
-          <a href="/admin/all-orders" class="text-slate-600 hover:text-green-700">Orders</a>
+
+          <div class="admin-nav-dropdown relative" data-admin-dropdown>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 text-slate-600 hover:text-green-700"
+              aria-expanded="false"
+              aria-controls="admin-hedge-panel"
+              data-admin-dropdown-trigger
+            >
+              Hedge
+              <span class="text-[0.65rem] leading-none text-slate-400" aria-hidden="true">▾</span>
+            </button>
+            <!--
+              Panel sits flush under the button (no margin gap). Visual spacing is
+              padding-top so the pointer never leaves the hover target on the way down.
+            -->
+            <div
+              id="admin-hedge-panel"
+              data-admin-dropdown-panel
+              role="group"
+              aria-label="Hedge"
+              class="admin-nav-dropdown-panel absolute left-0 top-full z-50 hidden min-w-[10rem] pt-1"
+            >
+              <div class="rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                <a
+                  href="/admin/all-orders"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Orders
+                </a>
+                <a
+                  href="/admin/products"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Products
+                </a>
+                <a
+                  href="/admin/reviews"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Reviews
+                </a>
+                <a
+                  href="/admin/reports"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Reports
+                </a>
+              </div>
+            </div>
+          </div>
+
           <a href="/admin/hunt" class="text-slate-600 hover:text-green-700">Hunt</a>
-          <a href="/admin/reviews" class="text-slate-600 hover:text-green-700">Reviews</a>
-          <a href="/admin/reports" class="text-slate-600 hover:text-green-700">Reports</a>
           <a href="/admin/integrations" class="text-slate-600 hover:text-green-700">Integrations</a>
           <form method="post" action="/api/admin/logout" class="inline">
             <button
@@ -56,5 +104,43 @@ const { title } = Astro.props;
     <main class="mx-auto max-w-6xl px-4 py-8">
       <slot />
     </main>
+    <style>
+      /* Desktop: open on hover / keyboard focus without needing a click */
+      @media (hover: hover) and (pointer: fine) {
+        .admin-nav-dropdown:hover > .admin-nav-dropdown-panel,
+        .admin-nav-dropdown:focus-within > .admin-nav-dropdown-panel {
+          display: block;
+        }
+      }
+      .admin-nav-dropdown.is-open > .admin-nav-dropdown-panel {
+        display: block;
+      }
+    </style>
+    <script>
+      document.querySelectorAll('[data-admin-dropdown]').forEach((root) => {
+        const trigger = root.querySelector('[data-admin-dropdown-trigger]');
+        const panel = root.querySelector('[data-admin-dropdown-panel]');
+        if (!(trigger instanceof HTMLButtonElement) || !(panel instanceof HTMLElement)) return;
+
+        const setOpen = (open) => {
+          root.classList.toggle('is-open', open);
+          trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        trigger.addEventListener('click', (e) => {
+          e.preventDefault();
+          setOpen(!root.classList.contains('is-open'));
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!(e.target instanceof Node) || root.contains(e.target)) return;
+          setOpen(false);
+        });
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') setOpen(false);
+        });
+      });
+    </script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 ---
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { getOrder } from '../../../lib/orders';
+import { getOrder, normalizeVolumeDiscount, volumeDiscountLabel } from '../../../lib/orders';
 import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 import { formatCentralDateTime, formatUsd } from '../../../lib/format-order';
 import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
@@ -14,6 +14,13 @@ const kvMissing = !kv;
 const order = kv && id ? await getOrder(kv, id) : null;
 const productsConfig = await getProductsConfig(kv);
 const skuMap = orderSkusToMap(productsConfig.orderSkus);
+const orderDiscount = order ? normalizeVolumeDiscount(order.volumeDiscount) : null;
+const orderDiscountLabel = orderDiscount ? volumeDiscountLabel(orderDiscount) : null;
+const editDiscountPercent =
+  orderDiscount?.mode === 'percent' ? Math.round(orderDiscount.rate * 1000) / 10 : 10;
+const editDiscountFixed =
+  orderDiscount?.mode === 'fixed' ? orderDiscount.amount : 0;
+const editDiscountMode = orderDiscount?.mode ?? 'auto';
 
 function initialQuantities(o: StoredOrder): Record<string, number> {
   const m: Record<string, number> = {};
@@ -232,9 +239,9 @@ const revisionNewestFirst = order
                       <span class="tabular-nums">{formatUsd(order.subtotal)}</span>
                     </li>
                     {
-                      order.volumeDiscount.applied && (
+                      orderDiscountLabel && order.volumeDiscount.applied && (
                         <li class="flex justify-between gap-4 text-green-800">
-                          <span>Volume discount (10%)</span>
+                          <span>{orderDiscountLabel}</span>
                           <span class="tabular-nums">−{formatUsd(order.volumeDiscount.amount)}</span>
                         </li>
                       )
@@ -457,8 +464,53 @@ const revisionNewestFirst = order
                     <span>Subtotal</span>
                     <span class="tabular-nums" data-est="subtotal">{formatUsd(order.subtotal)}</span>
                   </li>
+                  <li class="space-y-2 border-t border-slate-100 pt-3">
+                    <p class="font-medium text-slate-800">Discount</p>
+                    <div class="space-y-2" id="discount-controls">
+                      <label class="flex items-center gap-2">
+                        <input type="radio" name="discountMode" value="auto" checked={editDiscountMode === 'auto'} />
+                        <span>Standard (10% if 100+ posts)</span>
+                      </label>
+                      <label class="flex flex-wrap items-center gap-2">
+                        <input type="radio" name="discountMode" value="percent" checked={editDiscountMode === 'percent'} />
+                        <span>Percent</span>
+                        <input
+                          id="discountPercent"
+                          name="discountPercent"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                          inputmode="decimal"
+                          value={editDiscountPercent}
+                          class="min-h-10 w-20 rounded border border-slate-300 px-2 py-1 tabular-nums"
+                        />
+                        <span>%</span>
+                      </label>
+                      <label class="flex flex-wrap items-center gap-2">
+                        <input type="radio" name="discountMode" value="fixed" checked={editDiscountMode === 'fixed'} />
+                        <span>Dollars</span>
+                        <input
+                          id="discountFixed"
+                          name="discountFixed"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputmode="decimal"
+                          value={editDiscountFixed}
+                          class="min-h-10 w-24 rounded border border-slate-300 px-2 py-1 tabular-nums"
+                        />
+                      </label>
+                      <label class="flex items-center gap-2">
+                        <input type="radio" name="discountMode" value="none" checked={editDiscountMode === 'none'} />
+                        <span>None</span>
+                      </label>
+                    </div>
+                  </li>
                   <li class="flex justify-between gap-4 text-green-800" data-est-row="discount">
-                    <span>Volume discount (10%)</span>
+                    <span data-est="discount-label">
+                      {orderDiscountLabel ?? 'Discount'}
+                    </span>
                     <span class="tabular-nums" data-est="discount">
                       {order.volumeDiscount.applied
                         ? `−${formatUsd(order.volumeDiscount.amount)}`
@@ -609,6 +661,62 @@ const revisionNewestFirst = order
             }
           }
 
+          function readDiscountOverride(): {
+            mode: 'auto' | 'percent' | 'fixed' | 'none';
+            percent?: number;
+            fixedAmount?: number;
+          } {
+            if (!(form instanceof HTMLFormElement)) return { mode: 'auto' };
+            const modeEl = form.querySelector('input[name="discountMode"]:checked');
+            const mode =
+              modeEl instanceof HTMLInputElement &&
+              (modeEl.value === 'auto' ||
+                modeEl.value === 'percent' ||
+                modeEl.value === 'fixed' ||
+                modeEl.value === 'none')
+                ? modeEl.value
+                : 'auto';
+            if (mode === 'percent') {
+              const el = document.getElementById('discountPercent');
+              const percent =
+                el instanceof HTMLInputElement ? Math.max(0, Math.min(100, Number(el.value) || 0)) : 0;
+              return { mode, percent };
+            }
+            if (mode === 'fixed') {
+              const el = document.getElementById('discountFixed');
+              const fixedAmount =
+                el instanceof HTMLInputElement ? Math.max(0, Number(el.value) || 0) : 0;
+              return { mode, fixedAmount };
+            }
+            return { mode };
+          }
+
+          function resolveClientDiscount(
+            subtotal: number,
+            postCount: number,
+            override: ReturnType<typeof readDiscountOverride>
+          ): { amount: number; label: string | null; applied: boolean } {
+            const sub = Math.round(Math.max(0, subtotal) * 100) / 100;
+            if (override.mode === 'none') return { amount: 0, label: null, applied: false };
+            if (override.mode === 'percent') {
+              const pct = Math.max(0, Math.min(100, Number(override.percent) || 0));
+              const amount = Math.round(sub * (pct / 100) * 100) / 100;
+              const label = amount > 0 ? `Discount (${pct}%)` : null;
+              return { amount, label, applied: amount > 0 };
+            }
+            if (override.mode === 'fixed') {
+              const amount = Math.round(Math.min(Math.max(0, Number(override.fixedAmount) || 0), sub) * 100) / 100;
+              return { amount, label: amount > 0 ? 'Discount' : null, applied: amount > 0 };
+            }
+            const applied = postCount >= 100;
+            const amount = applied ? Math.round(sub * 0.1 * 100) / 100 : 0;
+            return {
+              amount,
+              label: amount > 0 ? 'Volume discount (10%)' : null,
+              applied: amount > 0,
+            };
+          }
+
           function updateEstimates() {
             if (!(form instanceof HTMLFormElement)) return;
             const prices = getCatalogPrices();
@@ -631,9 +739,8 @@ const revisionNewestFirst = order
             }
 
             subtotal = Math.round(subtotal * 100) / 100;
-            const volumeApplied = postCount >= 100;
-            const discountAmount = volumeApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
-            const total = Math.round((subtotal - discountAmount) * 100) / 100;
+            const discount = resolveClientDiscount(subtotal, postCount, readDiscountOverride());
+            const total = Math.round((subtotal - discount.amount) * 100) / 100;
 
             const depositEl = document.getElementById('depositAmount');
             let depositRaw =
@@ -647,13 +754,14 @@ const revisionNewestFirst = order
               if (el) el.textContent = text;
             };
             set('subtotal', formatUsd(subtotal));
-            set('discount', volumeApplied ? `−${formatUsd(discountAmount)}` : '—');
+            set('discount', discount.applied ? `−${formatUsd(discount.amount)}` : '—');
+            set('discount-label', discount.label ?? 'Discount');
             set('total', formatUsd(total));
             set('balance', formatUsd(balance));
 
             const discountRow = document.querySelector('[data-est-row="discount"]');
             if (discountRow instanceof HTMLElement) {
-              discountRow.classList.toggle('opacity-40', !volumeApplied);
+              discountRow.classList.toggle('opacity-40', !discount.applied);
             }
           }
 
@@ -784,8 +892,19 @@ const revisionNewestFirst = order
             const t = e.target;
             if (
               t instanceof HTMLInputElement &&
-              (t.matches('[data-qty-input]') || t.id === 'depositAmount')
+              (t.matches('[data-qty-input]') ||
+                t.id === 'depositAmount' ||
+                t.id === 'discountPercent' ||
+                t.id === 'discountFixed' ||
+                t.name === 'discountMode')
             ) {
+              updateEstimates();
+            }
+          });
+
+          form?.addEventListener('change', (e) => {
+            const t = e.target;
+            if (t instanceof HTMLInputElement && t.name === 'discountMode') {
               updateEstimates();
             }
           });
@@ -838,6 +957,7 @@ const revisionNewestFirst = order
                 notes: notes.trim() || null,
                 quantities,
                 depositAmount: Math.round(depositAmount * 100) / 100,
+                discount: readDiscountOverride(),
               },
             };
 
