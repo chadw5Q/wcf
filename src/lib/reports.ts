@@ -55,6 +55,7 @@ export interface ReportSummary {
   /** Pending + scheduled (received / not yet fulfilled). */
   open: ReportBucket;
   fulfilled: ReportBucket;
+  canceled: ReportBucket;
 }
 
 function emptyBucket(): ReportBucket {
@@ -71,18 +72,21 @@ export function summarizeOrdersForReport(orders: StoredOrder[]): ReportSummary {
   const total = emptyBucket();
   const open = emptyBucket();
   const fulfilled = emptyBucket();
+  const canceled = emptyBucket();
 
   for (const o of orders) {
     addOrderToBucket(total, o);
     if (o.status === 'fulfilled') {
       addOrderToBucket(fulfilled, o);
+    } else if (o.status === 'canceled') {
+      addOrderToBucket(canceled, o);
     } else {
       // pending + scheduled (+ any legacy unexpected status)
       addOrderToBucket(open, o);
     }
   }
 
-  return { total, open, fulfilled };
+  return { total, open, fulfilled, canceled };
 }
 
 export interface CumulativePoint {

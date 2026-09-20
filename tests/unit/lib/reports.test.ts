@@ -31,7 +31,7 @@ function makeOrder(over: Partial<StoredOrder> & Pick<StoredOrder, 'id' | 'create
       },
     ],
     subtotal: 150,
-    volumeDiscount: { applied: false, rate: 0.1, amount: 0 },
+    volumeDiscount: { applied: false, rate: 0.1, amount: 0, mode: 'auto' },
     discountedSubtotal: 150,
     deposit: { selected: false, rate: 0.1, amount: 0 },
     orderTotal: 150,
@@ -78,7 +78,7 @@ describe('reports aggregations', () => {
     expect(countOrderPosts(o)).toBe(20);
   });
 
-  it('summarizeOrdersForReport splits open vs fulfilled', () => {
+  it('summarizeOrdersForReport splits open, fulfilled, and canceled', () => {
     const orders = [
       makeOrder({
         id: 'a',
@@ -125,18 +125,36 @@ describe('reports aggregations', () => {
           },
         ],
       }),
+      makeOrder({
+        id: 'd',
+        createdAt: '2026-02-04T18:00:00.000Z',
+        status: 'canceled',
+        discountedSubtotal: 50,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 5,
+            unitPrice: 10,
+            lineTotal: 50,
+          },
+        ],
+      }),
     ];
 
     const s = summarizeOrdersForReport(orders);
-    expect(s.total.posts).toBe(60);
-    expect(s.total.income).toBe(600);
-    expect(s.total.orderCount).toBe(3);
+    expect(s.total.posts).toBe(65);
+    expect(s.total.income).toBe(650);
+    expect(s.total.orderCount).toBe(4);
     expect(s.open.posts).toBe(30);
     expect(s.open.income).toBe(300);
     expect(s.open.orderCount).toBe(2);
     expect(s.fulfilled.posts).toBe(30);
     expect(s.fulfilled.income).toBe(300);
     expect(s.fulfilled.orderCount).toBe(1);
+    expect(s.canceled.posts).toBe(5);
+    expect(s.canceled.income).toBe(50);
+    expect(s.canceled.orderCount).toBe(1);
   });
 
   it('buildCumulativeSeries fills calendar days between first and last order', () => {
