@@ -11,7 +11,7 @@ const orders = kv ? await getAllOrders(kv) : [];
 
 const statusFilter = Astro.url.searchParams.get('status') || '';
 const filtered =
-  statusFilter && ['pending', 'scheduled', 'fulfilled'].includes(statusFilter)
+  statusFilter && ['pending', 'scheduled', 'fulfilled', 'canceled'].includes(statusFilter)
     ? orders.filter((o) => o.status === statusFilter)
     : orders;
 ---
@@ -44,6 +44,7 @@ const filtered =
           <option value="pending" selected={statusFilter === 'pending'}>Pending</option>
           <option value="scheduled" selected={statusFilter === 'scheduled'}>Scheduled</option>
           <option value="fulfilled" selected={statusFilter === 'fulfilled'}>Fulfilled</option>
+          <option value="canceled" selected={statusFilter === 'canceled'}>Canceled</option>
         </select>
       </div>
       <p class="text-sm text-slate-600">

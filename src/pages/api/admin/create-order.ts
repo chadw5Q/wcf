@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import type { OrderStatus } from '../../../lib/order-types';
+import { ORDER_STATUSES } from '../../../lib/order-types';
 import {
   createWalkInStoredOrder,
   parseAdminRebuildPayload,
@@ -14,7 +15,7 @@ import { getServerEnv } from '../../../lib/server-env';
 export const prerender = false;
 
 function isOrderStatus(s: string): s is OrderStatus {
-  return s === 'pending' || s === 'scheduled' || s === 'fulfilled';
+  return (ORDER_STATUSES as readonly string[]).includes(s);
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {

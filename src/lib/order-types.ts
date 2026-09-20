@@ -1,4 +1,6 @@
-export type OrderStatus = 'pending' | 'scheduled' | 'fulfilled';
+export type OrderStatus = 'pending' | 'scheduled' | 'fulfilled' | 'canceled';
+
+export const ORDER_STATUSES: OrderStatus[] = ['pending', 'scheduled', 'fulfilled', 'canceled'];
 
 /** How the order-level discount was determined (admin can override auto volume rule). */
 export type DiscountMode = 'auto' | 'percent' | 'fixed' | 'none';

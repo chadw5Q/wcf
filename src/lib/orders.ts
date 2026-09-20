@@ -7,6 +7,7 @@ import type {
   StoredOrder,
   VolumeDiscount,
 } from './order-types';
+import { ORDER_STATUSES } from './order-types';
 import type { OrderCheckoutKey, OrderSkuRow } from './products-config';
 import { attachReviewRequestOnFulfilled } from './review-queue';
 
@@ -18,6 +19,7 @@ export type {
   DiscountMode,
   VolumeDiscount,
 } from './order-types';
+export { ORDER_STATUSES } from './order-types';
 
 const INDEX_KEY = 'order_index';
 const MAX_INDEX_IDS = 5000;
@@ -313,7 +315,7 @@ export function createWalkInStoredOrder(
   order.balanceDue = Math.round((order.discountedSubtotal - depositAmount) * 100) / 100;
 
   const status: OrderStatus = input.status ?? 'fulfilled';
-  if (!['pending', 'scheduled', 'fulfilled'].includes(status)) {
+  if (!ORDER_STATUSES.includes(status)) {
     throw new Error('Invalid status');
   }
   order.status = status;
@@ -529,7 +531,7 @@ export function applyOrderMetaPatch(
   let becameFulfilled = false;
 
   if (patch.status !== undefined) {
-    if (!['pending', 'scheduled', 'fulfilled'].includes(patch.status)) {
+    if (!ORDER_STATUSES.includes(patch.status)) {
       throw new Error('Invalid status');
     }
     if (patch.status !== order.status) {
