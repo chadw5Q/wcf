@@ -1,7 +1,7 @@
 ---
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { hunterBalanceShareUsd, hunterDepositShareUsd } from '../../../lib/hunt-hunter-shares';
+import { hunterBalanceShareUsd, hunterDepositShareUsd, hunterPaysNothing } from '../../../lib/hunt-hunter-shares';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
 import { createHuntPortalToken, huntPortalAbsoluteUrl } from '../../../lib/hunt-portal-token';
 import { siteBaseUrl } from '../../../lib/hunt-portal-email';
@@ -125,7 +125,6 @@ if (kv && reservation) {
   }
 }
 
-const depositEach = hunterDepositShareUsd();
 const payments = reservation ? ensureHunterPayments(reservation) : [];
 const depositsPaid = payments.filter((p) => p.depositPaid).length;
 const waiversSigned = payments.filter((p) => p.waiverId).length;
@@ -311,6 +310,8 @@ function formatPhone(raw: string): string {
               reservation.hunters.map((h, i) => {
                 const p = payments[i]!;
                 const bal = hunterBalanceShareUsd(reservation, i);
+                const depositEach = hunterDepositShareUsd(reservation, i);
+                const byLead = hunterPaysNothing(reservation, i);
                 const waiver = waivers[i];
                 const depositDate = shortDate(p.depositPaidAt);
                 const balanceDate = shortDate(p.balancePaidAt);
@@ -320,9 +321,13 @@ function formatPhone(raw: string): string {
                     id: 'deposit',
                     label: 'Deposit',
                     done: p.depositPaid,
-                    title: p.depositPaid
-                      ? `Deposit $${depositEach.toFixed(2)} paid${depositDate ? ` ${depositDate}` : ''}`
-                      : `Deposit $${depositEach.toFixed(2)} unpaid`,
+                    title: byLead
+                      ? p.depositPaid
+                        ? 'Deposit covered by group leader'
+                        : 'Deposit pending from group leader'
+                      : p.depositPaid
+                        ? `Deposit $${depositEach.toFixed(2)} paid${depositDate ? ` ${depositDate}` : ''}`
+                        : `Deposit $${depositEach.toFixed(2)} unpaid`,
                   },
                   {
                     id: 'tags',
@@ -344,9 +349,13 @@ function formatPhone(raw: string): string {
                     id: 'balance',
                     label: 'Balance',
                     done: p.balancePaid,
-                    title: p.balancePaid
-                      ? `Balance $${bal.toFixed(2)} paid${balanceDate ? ` ${balanceDate}` : ''}`
-                      : `Balance due $${bal.toFixed(2)}`,
+                    title: byLead
+                      ? p.balancePaid
+                        ? 'Balance covered by group leader'
+                        : 'Balance pending from group leader'
+                      : p.balancePaid
+                        ? `Balance $${bal.toFixed(2)} paid${balanceDate ? ` ${balanceDate}` : ''}`
+                        : `Balance due $${bal.toFixed(2)}`,
                   },
                 ] as const;
                 const nextStep = hunterSteps.find((s) => !s.done);
@@ -963,12 +972,15 @@ function formatPhone(raw: string): string {
         const today = new Date().toLocaleDateString('en-CA');
         const paidAt = prompt(`Date the ${el.dataset.kind} was received (YYYY-MM-DD):`, today);
         if (paidAt === null) return;
+        const methodRaw = prompt('How was it paid? Type venmo or check:', el.dataset.method || 'venmo');
+        if (methodRaw === null) return;
+        const method = methodRaw.trim().toLowerCase() === 'check' ? 'check' : 'venmo';
         try {
           await postJson('/api/admin/hunt-mark', {
             reservationId: el.dataset.id,
             hunterIndex: Number(el.dataset.idx),
             kind: el.dataset.kind,
-            method: el.dataset.method,
+            method,
             paidAt: paidAt.trim() || undefined,
           });
           window.location.reload();

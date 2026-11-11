@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { getServerEnv } from './server-env';
+import { hunterPaysNothing } from './hunt-hunter-shares';
 import type { HuntHunter, HuntReservation } from './hunt-reservations';
 import { huntPortalAbsoluteUrl } from './hunt-portal-token';
 import { getWeekLabel } from './hunt-weeks';
@@ -36,7 +37,9 @@ export async function sendHuntPortalLinkEmail(opts: {
       '',
       'Use this private link to:',
       '• Sign the liability release',
-      '• Then pay your deposit and remaining balance (due July 1) via Venmo or bank/card',
+      hunterPaysNothing(opts.reservation, opts.hunterIndex)
+        ? `• Payment is handled by your group leader, ${opts.reservation.hunters[0]?.firstName ?? 'your lead hunter'} — nothing is due from you`
+        : '• Then pay your deposit and remaining balance (due July 1) via Venmo, check, bank, or card',
       '• Read Know Before You Go',
       '',
       opts.portalUrl,

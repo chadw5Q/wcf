@@ -66,7 +66,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
     lastName: body.lastName,
     huntYear: body.huntYear,
     hunterCount: body.hunterCount,
-    mealPackage: body.mealPackage,
   });
 
   if (!reservation) {
@@ -74,7 +73,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       JSON.stringify({
         error: 'No matching reservation found',
         details:
-          'We could not find an open balance for this hunt with the details provided. Double-check name, email, year, party size, and meal selection, or call Chad at 712-254-3999.',
+          'We could not find an open balance for this hunt with the details provided. Double-check name, email, year, and party size, or call Chad at 712-254-3999.',
       }),
       { status: 404, headers: { 'Content-Type': 'application/json' } }
     );

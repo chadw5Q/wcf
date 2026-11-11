@@ -2,7 +2,7 @@
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
-import { hunterBalanceShareUsd } from '../../../lib/hunt-hunter-shares';
+import { hunterBalanceShareUsd, hunterDepositShareUsd } from '../../../lib/hunt-hunter-shares';
 import { ensureHunterPayments, listAllReservations } from '../../../lib/hunt-reservations';
 import { getWeekLabel } from '../../../lib/hunt-weeks';
 
@@ -20,7 +20,7 @@ function outstanding(r: (typeof reservations)[0]): number {
   let n = 0;
   for (let i = 0; i < r.hunters.length; i++) {
     const p = payments[i]!;
-    if (!p.depositPaid) n += r.depositPerPerson;
+    if (!p.depositPaid) n += hunterDepositShareUsd(r, i);
     if (!p.balancePaid) n += hunterBalanceShareUsd(r, i);
   }
   return Math.round(n * 100) / 100;

@@ -60,9 +60,9 @@ describe('hunt-landing-content', () => {
     }
   });
 
-  it('has four booking steps and four pricing rows', () => {
+  it('has five booking steps and three pricing rows', () => {
     expect(bookingSteps).toHaveLength(5);
-    expect(pricingRows).toHaveLength(4);
+    expect(pricingRows).toHaveLength(3);
   });
 
   it('uses valid https URLs for podcast and Iowa DNR', () => {

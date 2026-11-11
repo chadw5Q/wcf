@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
-import { checkoutChargeUsd, type HuntStripeRail } from '../../lib/hunt-fees';
-import { computeHuntOrderSummary, HUNT_LODGING_PER_PERSON } from '../../lib/hunt-pricing';
+import { checkoutChargeUsd } from '../../lib/hunt-fees';
+import { huntVenmoPayUrl, parseHuntPayRail, type HuntPayRail } from '../../lib/hunt-payment-info';
+import { computeHuntOrderSummary } from '../../lib/hunt-pricing';
 import { getHuntKvFromLocals } from '../../lib/hunt-kv';
 import { parseHuntReserveRequestBody } from '../../lib/hunt-reserve-body';
 import { createDraftReservation, putReservation } from '../../lib/hunt-reservations';
@@ -17,13 +18,9 @@ function siteOrigin(request: Request): string {
   return 'http://localhost:4321';
 }
 
-type PayRail = 'venmo' | HuntStripeRail;
-
-function parsePayRail(raw: unknown): PayRail {
+function parsePayRail(raw: unknown): HuntPayRail {
   if (typeof raw !== 'object' || raw === null) return 'card';
-  const rail = (raw as Record<string, unknown>).payRail;
-  if (rail === 'venmo' || rail === 'ach' || rail === 'card') return rail;
-  return 'card';
+  return parseHuntPayRail((raw as Record<string, unknown>).payRail);
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -49,7 +46,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const payRail = parsePayRail(raw);
-  if (payRail !== 'venmo' && !getServerEnv('STRIPE_SECRET_KEY')?.trim()) {
+  if ((payRail === 'card' || payRail === 'ach') && !getServerEnv('STRIPE_SECRET_KEY')?.trim()) {
     return new Response(
       JSON.stringify({
         error: 'Stripe is not configured',
@@ -67,15 +64,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  const { hunters, huntYear, preferredWeek, mealPackage, notes } = parsed.value;
-  const summary = computeHuntOrderSummary(hunters.length, mealPackage);
+  const { hunters, huntYear, preferredWeek, notes } = parsed.value;
+  const summary = computeHuntOrderSummary(hunters.length, true, 'group_flat');
 
   const reservation = createDraftReservation({
     huntYear,
     preferredWeek,
-    mealPackage,
+    pricingModel: summary.pricingModel,
+    mealPackage: summary.mealPackage,
     hunters,
-    huntCostPerPerson: HUNT_LODGING_PER_PERSON,
+    huntCostPerPerson: summary.huntLodging / hunters.length,
     mealPackageCost: summary.mealLine,
     totalHuntCost: summary.totalHuntCost,
     depositPerPerson: summary.depositPerPerson,
@@ -87,31 +85,29 @@ export const POST: APIRoute = async ({ request, locals }) => {
   await putReservation(kv, reservation);
 
   const origin = siteOrigin(request);
-  const n = hunters.length;
   const listDeposit = summary.totalDeposit;
   const lead = hunters[0]!;
   const venmoNote = `WCW deposit — ${lead.lastName} — ${huntYear} — ${reservation.id.slice(0, 8)}`;
 
-  if (payRail === 'venmo') {
-    const venmoUrl =
-      `https://venmo.com/cchadww?txn=pay&amount=${listDeposit.toFixed(2)}&note=${encodeURIComponent(venmoNote)}`;
+  if (payRail === 'venmo' || payRail === 'check') {
+    const confirmUrl = `${origin}/hunt/reserve/confirmed?reservation_id=${encodeURIComponent(reservation.id)}&pay=${payRail}`;
     return new Response(
       JSON.stringify({
         reservationId: reservation.id,
-        payRail: 'venmo',
+        payRail,
         listDepositUsd: listDeposit,
-        venmoUrl,
-        confirmUrl: `${origin}/hunt/reserve/confirmed?reservation_id=${encodeURIComponent(reservation.id)}&pay=venmo`,
+        ...(payRail === 'venmo' ? { venmoUrl: huntVenmoPayUrl(listDeposit, venmoNote) } : {}),
+        confirmUrl,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  const chargePerHunter = checkoutChargeUsd(summary.depositPerPerson, payRail);
+  const charge = checkoutChargeUsd(listDeposit, payRail);
   const lineName =
     payRail === 'card'
-      ? `${n} Hunt Deposits (+3% card) — WCW ${huntYear}`
-      : `${n} Hunt Deposits (+ACH fee) — WCW ${huntYear}`;
+      ? `Group Hunt Deposit (+3% card) — WCW ${huntYear}`
+      : `Group Hunt Deposit (+ACH fee) — WCW ${huntYear}`;
 
   const excluded =
     payRail === 'ach'
@@ -124,8 +120,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         {
           id: 'hunt-deposit',
           name: lineName,
-          price: chargePerHunter,
-          quantity: n,
+          price: charge,
+          quantity: 1,
         },
       ],
       {
@@ -152,7 +148,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         reservationId: withSession.id,
         payRail,
         listDepositUsd: listDeposit,
-        chargeUsd: Math.round(chargePerHunter * n * 100) / 100,
+        chargeUsd: charge,
         stripeUrl: session.url,
       }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }

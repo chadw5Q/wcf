@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   computeHuntOrderSummary,
   HUNT_DEPOSIT_PER_PERSON,
+  HUNT_GROUP_DEPOSIT,
+  HUNT_GROUP_PRICE,
   HUNT_LODGING_PER_PERSON,
   mealPackageTotalForParty,
 } from '../../../src/lib/hunt-pricing';
@@ -37,8 +39,8 @@ describe('computeHuntOrderSummary', () => {
   ];
 
   for (const { n, meal, lodging, mealLine, total, deposit, balance } of cases) {
-    it(`computes n=${n} meal=${meal}`, () => {
-      const s = computeHuntOrderSummary(n, meal);
+    it(`computes per_person n=${n} meal=${meal}`, () => {
+      const s = computeHuntOrderSummary(n, meal, 'per_person');
       expect(s.hunterCount).toBe(n);
       expect(s.mealPackage).toBe(meal);
       expect(s.huntLodging).toBe(lodging);
@@ -49,6 +51,19 @@ describe('computeHuntOrderSummary', () => {
       expect(s.balanceDueJuly1).toBe(balance);
       expect(s.huntLodging).toBe(n * HUNT_LODGING_PER_PERSON);
       expect(s.totalDeposit).toBe(n * HUNT_DEPOSIT_PER_PERSON);
+    });
+  }
+
+  for (const n of [1, 2, 3, 4]) {
+    it(`charges a flat group price with meals included for n=${n}`, () => {
+      const s = computeHuntOrderSummary(n, false);
+      expect(s.pricingModel).toBe('group_flat');
+      expect(s.hunterCount).toBe(n);
+      expect(s.mealPackage).toBe(true);
+      expect(s.mealLine).toBe(0);
+      expect(s.totalHuntCost).toBe(HUNT_GROUP_PRICE);
+      expect(s.totalDeposit).toBe(HUNT_GROUP_DEPOSIT);
+      expect(s.balanceDueJuly1).toBe(7000);
     });
   }
 });

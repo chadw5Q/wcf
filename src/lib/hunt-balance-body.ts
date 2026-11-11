@@ -6,7 +6,6 @@ export type HuntBalanceRequestBody = {
   email: string;
   huntYear: number;
   hunterCount: number;
-  mealPackage: boolean;
   /** Whole USD dollars (e.g. 2500.00); must match stored `balanceDue` on the matched reservation. */
   paymentAmount: number;
 };
@@ -50,10 +49,6 @@ export function parseHuntBalanceRequestBody(raw: unknown): ParseHuntBalanceBodyR
     return { ok: false, error: 'hunterCount must be between 1 and 4', status: 400 };
   }
 
-  if (typeof o.mealPackage !== 'boolean') {
-    return { ok: false, error: 'mealPackage must be boolean', status: 400 };
-  }
-
   if (typeof o.paymentAmount !== 'number' || !Number.isFinite(o.paymentAmount)) {
     return { ok: false, error: 'paymentAmount must be a finite number', status: 400 };
   }
@@ -74,7 +69,6 @@ export function parseHuntBalanceRequestBody(raw: unknown): ParseHuntBalanceBodyR
       email,
       huntYear: o.huntYear,
       hunterCount: o.hunterCount,
-      mealPackage: o.mealPackage,
       paymentAmount: o.paymentAmount,
     },
   };

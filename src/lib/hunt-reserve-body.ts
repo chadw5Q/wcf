@@ -75,7 +75,7 @@ export function parseHuntReserveRequestBody(raw: unknown): ParseHuntReserveBodyR
     return { ok: false, error: 'Selected week is not available', status: 400 };
   }
 
-  if (typeof o.mealPackage !== 'boolean') {
+  if (o.mealPackage !== undefined && typeof o.mealPackage !== 'boolean') {
     return { ok: false, error: 'mealPackage must be boolean', status: 400 };
   }
 
@@ -94,7 +94,7 @@ export function parseHuntReserveRequestBody(raw: unknown): ParseHuntReserveBodyR
       hunters,
       huntYear: o.huntYear,
       preferredWeek,
-      mealPackage: o.mealPackage,
+      mealPackage: o.mealPackage ?? true,
       notes,
     },
   };

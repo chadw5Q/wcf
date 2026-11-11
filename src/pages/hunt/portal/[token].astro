@@ -35,7 +35,7 @@ const weekLabel = reservation
   ? (getWeekLabel(reservation.huntYear, reservation.preferredWeek) ?? reservation.preferredWeek)
   : '';
 const huntLabel = reservation
-  ? `${reservation.huntYear} · ${weekLabel}${reservation.mealPackage && payload && isLeadHunter(payload.hunterIndex) ? ' · meal package (lead)' : ''}`
+  ? `${reservation.huntYear} · ${weekLabel}${reservation.pricingModel === 'per_person' && reservation.mealPackage && payload && isLeadHunter(payload.hunterIndex) ? ' · meal package (lead)' : ''}`
   : '';
 const weekCard =
   reservation && weekLabel ? parseHuntWeekCard(weekLabel, reservation.huntYear) : null;

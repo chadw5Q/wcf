@@ -2,7 +2,7 @@
  * Williams Creek Whitetails hunt reservations in Cloudflare KV (`HUNT_KV`).
  */
 
-import { computeHuntOrderSummary } from './hunt-pricing';
+import { computeHuntOrderSummary, type HuntPricingModel } from './hunt-pricing';
 
 /** PRD statuses plus `draft` for records created before deposit clears. */
 export type HuntReservationStatus =
@@ -32,10 +32,11 @@ export type HuntHunter = {
   state: string;
 };
 
-export type HuntPaymentMethod = 'venmo' | 'stripe_ach' | 'stripe_card' | 'other';
+export type HuntPaymentMethod = 'venmo' | 'check' | 'stripe_ach' | 'stripe_card' | 'other';
 
 export const HUNT_PAYMENT_METHODS: readonly HuntPaymentMethod[] = [
   'venmo',
+  'check',
   'stripe_ach',
   'stripe_card',
   'other',
@@ -69,6 +70,8 @@ export type HuntReservation = {
   status: HuntReservationStatus;
   huntYear: number;
   preferredWeek: string;
+  /** Records saved before group pricing have no field and parse as `per_person`. */
+  pricingModel: HuntPricingModel;
   mealPackage: boolean;
   hunters: HuntHunter[];
   hunterCount: number;
@@ -322,6 +325,7 @@ export function validateReservation(input: unknown): ValidateReservationResult {
     status,
     huntYear: input.huntYear,
     preferredWeek: input.preferredWeek.trim(),
+    pricingModel: input.pricingModel === 'group_flat' ? 'group_flat' : 'per_person',
     mealPackage: input.mealPackage,
     hunters,
     hunterCount: input.hunterCount,
@@ -422,11 +426,10 @@ export type FinalPaymentLookupCriteria = {
   lastName: string;
   huntYear: number;
   hunterCount: number;
-  mealPackage: boolean;
 };
 
 /**
- * Finds the reservation for balance checkout: deposit paid (or confirmed), matching party + year + meal flag,
+ * Finds the reservation for balance checkout: deposit paid (or confirmed), matching party size + year,
  * and hunter identity on the matching email.
  */
 export async function findReservationForFinalPayment(
@@ -446,8 +449,6 @@ export async function findReservationForFinalPayment(
     if (r.status !== 'deposit_paid' && r.status !== 'confirmed' && r.status !== 'tag_received') continue;
     if (r.huntYear !== criteria.huntYear) continue;
     if (r.hunterCount !== criteria.hunterCount) continue;
-    if (r.mealPackage !== criteria.mealPackage) continue;
-
     const hunter = r.hunters.find((h) => h.email.trim().toLowerCase() === email);
     if (!hunter) continue;
     if (hunter.firstName.trim().toLowerCase() !== fn || hunter.lastName.trim().toLowerCase() !== ln) continue;
@@ -463,6 +464,7 @@ export async function findReservationForFinalPayment(
 export type NewDraftReservationInput = {
   huntYear: number;
   preferredWeek: string;
+  pricingModel: HuntPricingModel;
   mealPackage: boolean;
   hunters: HuntHunter[];
   huntCostPerPerson: number;
@@ -491,6 +493,7 @@ export function createDraftReservation(input: NewDraftReservationInput): HuntRes
     status: 'draft',
     huntYear: input.huntYear,
     preferredWeek: input.preferredWeek,
+    pricingModel: input.pricingModel,
     mealPackage: input.mealPackage,
     hunters,
     hunterCount: hunters.length,
@@ -512,6 +515,11 @@ export function createDraftReservation(input: NewDraftReservationInput): HuntRes
   return v.value;
 }
 
+/** Under `group_flat` the lead's payment covers every hunter in the party. */
+function leadCoversGroup(r: HuntReservation, hunterIndex: number): boolean {
+  return r.pricingModel === 'group_flat' && hunterIndex === 0;
+}
+
 export function markHunterDepositPaid(
   r: HuntReservation,
   hunterIndex: number,
@@ -522,15 +530,24 @@ export function markHunterDepositPaid(
   const hunterPayments = ensureHunterPayments(r);
   if (hunterIndex < 0 || hunterIndex >= hunterPayments.length) throw new Error('Invalid hunterIndex');
   const now = paidAt ?? new Date().toISOString();
-  hunterPayments[hunterIndex] = {
-    ...hunterPayments[hunterIndex]!,
-    depositPaid: true,
-    depositPaidAt: now,
-    depositMethod: method,
-    depositRef: ref,
-  };
+  const covered = leadCoversGroup(r, hunterIndex);
+  for (const i of covered ? hunterPayments.keys() : [hunterIndex]) {
+    if (i !== hunterIndex && hunterPayments[i]!.depositPaid) continue;
+    hunterPayments[i] = {
+      ...hunterPayments[i]!,
+      depositPaid: true,
+      depositPaidAt: now,
+      depositMethod: method,
+      depositRef: ref,
+    };
+  }
   let next: HuntReservation = { ...r, hunterPayments };
-  next = appendHuntEvent(next, 'deposit_paid', `Deposit marked paid via ${method}`, hunterIndex);
+  next = appendHuntEvent(
+    next,
+    'deposit_paid',
+    `${covered ? 'Group deposit' : 'Deposit'} marked paid via ${method}`,
+    hunterIndex
+  );
   next = { ...next, status: derivePartyStatus(next) };
   return next;
 }
@@ -545,15 +562,24 @@ export function markHunterBalancePaid(
   const hunterPayments = ensureHunterPayments(r);
   if (hunterIndex < 0 || hunterIndex >= hunterPayments.length) throw new Error('Invalid hunterIndex');
   const now = paidAt ?? new Date().toISOString();
-  hunterPayments[hunterIndex] = {
-    ...hunterPayments[hunterIndex]!,
-    balancePaid: true,
-    balancePaidAt: now,
-    balanceMethod: method,
-    balanceRef: ref,
-  };
+  const covered = leadCoversGroup(r, hunterIndex);
+  for (const i of covered ? hunterPayments.keys() : [hunterIndex]) {
+    if (i !== hunterIndex && hunterPayments[i]!.balancePaid) continue;
+    hunterPayments[i] = {
+      ...hunterPayments[i]!,
+      balancePaid: true,
+      balancePaidAt: now,
+      balanceMethod: method,
+      balanceRef: ref,
+    };
+  }
   let next: HuntReservation = { ...r, hunterPayments };
-  next = appendHuntEvent(next, 'balance_paid', `Balance marked paid via ${method}`, hunterIndex);
+  next = appendHuntEvent(
+    next,
+    'balance_paid',
+    `${covered ? 'Group balance' : 'Balance'} marked paid via ${method}`,
+    hunterIndex
+  );
   next = { ...next, status: derivePartyStatus(next) };
   return next;
 }
@@ -603,11 +629,14 @@ export function removeHunterFromReservation(
     throw new Error('Invalid hunterIndex');
   }
   if (r.hunters.length <= 1) return null;
+  if (r.pricingModel === 'group_flat' && hunterIndex === 0) {
+    throw new Error('The group leader pays for the party and cannot be removed');
+  }
 
   const hunters = r.hunters.filter((_, i) => i !== hunterIndex);
   const hunterPayments = ensureHunterPayments(r).filter((_, i) => i !== hunterIndex);
   const removed = r.hunters[hunterIndex]!;
-  const summary = computeHuntOrderSummary(hunters.length, r.mealPackage);
+  const summary = computeHuntOrderSummary(hunters.length, r.mealPackage, r.pricingModel);
 
   let next: HuntReservation = {
     ...r,
@@ -632,10 +661,10 @@ export function removeHunterFromReservation(
 }
 
 function applyPartyTotals(r: HuntReservation, hunterCount: number, mealPackage: boolean): HuntReservation {
-  const summary = computeHuntOrderSummary(hunterCount, mealPackage);
+  const summary = computeHuntOrderSummary(hunterCount, mealPackage, r.pricingModel);
   return {
     ...r,
-    mealPackage,
+    mealPackage: summary.mealPackage,
     hunterCount,
     huntCostPerPerson: hunterCount > 0 ? summary.huntLodging / hunterCount : r.huntCostPerPerson,
     mealPackageCost: summary.mealLine,
@@ -760,7 +789,22 @@ export function addHunterToReservation(r: HuntReservation, hunter: HuntHunter): 
   if (!/^[A-Z]{2}$/.test(nextHunter.state)) throw new Error('State must be a 2-letter code');
 
   const hunters = [...r.hunters, nextHunter];
-  const hunterPayments = [...ensureHunterPayments(r), emptyHunterPayment()];
+  const existingPayments = ensureHunterPayments(r);
+  const lead = existingPayments[0];
+  const newPayment = emptyHunterPayment();
+  if (r.pricingModel === 'group_flat' && lead) {
+    Object.assign(newPayment, {
+      depositPaid: lead.depositPaid,
+      depositPaidAt: lead.depositPaidAt,
+      depositMethod: lead.depositMethod,
+      depositRef: lead.depositRef,
+      balancePaid: lead.balancePaid,
+      balancePaidAt: lead.balancePaidAt,
+      balanceMethod: lead.balanceMethod,
+      balanceRef: lead.balanceRef,
+    });
+  }
+  const hunterPayments = [...existingPayments, newPayment];
   let next: HuntReservation = {
     ...r,
     hunters,

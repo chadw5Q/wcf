@@ -2,9 +2,13 @@
 import HuntLayout from '../../../layouts/HuntLayout.astro';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
 import { reconcileHuntCheckoutFromSessionId } from '../../../lib/hunt-reconcile-checkout';
+import { HUNT_GROUP_DEPOSIT } from '../../../lib/hunt-pricing';
+import HuntCheckInstructions from '../../../components/hunt/HuntCheckInstructions.astro';
 
 const sessionId = Astro.url.searchParams.get('session_id');
 const payVenmo = Astro.url.searchParams.get('pay') === 'venmo';
+const payCheck = Astro.url.searchParams.get('pay') === 'check';
+const depositLabel = `$${HUNT_GROUP_DEPOSIT.toLocaleString('en-US')}`;
 await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.locals));
 ---
 
@@ -26,7 +30,20 @@ await reconcileHuntCheckoutFromSessionId(sessionId, getHuntKvFromLocals(Astro.lo
     </h1>
 
     {
-      payVenmo ? (
+      payCheck ? (
+        <>
+          <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
+            Your reservation is saved. Mail your {depositLabel} deposit check and Chad will confirm your week once it
+            arrives. Text or call anytime:{' '}
+            <a class="text-hunt-gold underline decoration-hunt-gold/40" href="tel:+17122543999">712-254-3999</a>
+          </p>
+          <HuntCheckInstructions
+            amount={depositLabel}
+            memo="Hunt deposit"
+            class="mx-auto mt-6 max-w-md rounded border border-hunt-gold/50 bg-hunt-surface p-5 text-hunt-cream/95"
+          />
+        </>
+      ) : payVenmo ? (
         <p class="mt-6 text-center text-lg leading-relaxed text-hunt-cream/95">
           Your reservation is saved. Complete the Venmo deposit to @cchadww if the app didn’t open.
           Chad will confirm once the payment clears. Text or call anytime:{' '}

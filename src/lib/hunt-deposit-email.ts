@@ -17,7 +17,12 @@ export function buildHuntDepositEmailHtml(r: HuntReservation): string {
   const party = r.hunters
     .map((h) => `${escapeHtml(h.firstName)} ${escapeHtml(h.lastName)} (${escapeHtml(h.email)})`)
     .join('<br/>');
-  const meal = r.mealPackage ? 'Yes — all-inclusive meals' : 'No — self-catered';
+  const meal =
+    r.pricingModel === 'group_flat'
+      ? 'Included'
+      : r.mealPackage
+        ? 'Yes — all-inclusive meals'
+        : 'No — self-catered';
 
   return `<!DOCTYPE html>
 <html>

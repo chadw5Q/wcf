@@ -86,7 +86,7 @@ describe('POST /api/hunt-reserve', () => {
     const json = (await res.json()) as { reservationId: string; stripeUrl: string; chargeUsd: number };
     expect(json.stripeUrl).toBe('https://checkout.stripe.test/pay');
     expect(json.reservationId).toMatch(/^[0-9a-f-]{36}$/i);
-    expect(json.chargeUsd).toBe(515);
+    expect(json.chargeUsd).toBe(2060);
 
     expect(createCheckoutSession).toHaveBeenCalledTimes(1);
     const [items, opts] = createCheckoutSession.mock.calls[0] as [
@@ -97,7 +97,7 @@ describe('POST /api/hunt-reserve', () => {
         metadata: Record<string, string>;
       },
     ];
-    expect(items[0]?.price).toBe(515);
+    expect(items[0]?.price).toBe(2060);
     expect(items[0]?.quantity).toBe(1);
     expect(opts.successUrl).toContain('/hunt/reserve/confirmed?session_id={CHECKOUT_SESSION_ID}');
     expect(opts.cancelUrl).toBe('http://localhost:4321/hunt/reserve');
@@ -124,6 +124,31 @@ describe('POST /api/hunt-reserve', () => {
     expect(json.payRail).toBe('venmo');
     expect(json.venmoUrl).toContain('venmo.com/cchadww');
     expect(json.confirmUrl).toContain('pay=venmo');
+    expect(json.venmoUrl).toContain('amount=2000.00');
     expect(createCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('check path skips Stripe and saves a group-priced draft', async () => {
+    const kv = memoryKv();
+    const res = await POST({
+      request: jsonRequest({
+        hunters: [validHunter, { ...validHunter, email: 'pal@example.com' }],
+        huntYear: 2028,
+        preferredWeek: 'w2',
+        notes: null,
+        payRail: 'check',
+      }),
+      locals: { runtime: { env: { HUNT_KV: kv } } },
+    } as Parameters<typeof POST>[0]);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { reservationId: string; confirmUrl: string; venmoUrl?: string };
+    expect(json.confirmUrl).toContain('pay=check');
+    expect(json.venmoUrl).toBeUndefined();
+    expect(createCheckoutSession).not.toHaveBeenCalled();
+    const saved = JSON.parse((await kv.get(`reservation:${json.reservationId}`)) as string);
+    expect(saved.pricingModel).toBe('group_flat');
+    expect(saved.totalHuntCost).toBe(9000);
+    expect(saved.totalDeposit).toBe(2000);
+    expect(saved.balanceDue).toBe(7000);
   });
 });

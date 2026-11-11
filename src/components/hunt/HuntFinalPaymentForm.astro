@@ -1,9 +1,12 @@
 ---
+import { computeDefaultFinalBalanceUsd } from '../../lib/hunt-final-balance';
+
 interface Props {
   years: number[];
 }
 
 const { years } = Astro.props;
+const defaultBalance = computeDefaultFinalBalanceUsd();
 ---
 
 <div class="mx-auto max-w-[560px] px-4 pb-20 md:px-6">
@@ -54,31 +57,18 @@ const { years } = Astro.props;
     </div>
 
     <div>
-      <p class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Meal package included?</p>
-      <div class="mt-3 flex flex-wrap gap-6">
-        <label class="flex cursor-pointer items-center gap-2">
-          <input type="radio" name="meal" value="no" class="h-4 w-4 border-hunt-border text-hunt-gold" checked />
-          <span class="text-sm text-hunt-cream">No</span>
-        </label>
-        <label class="flex cursor-pointer items-center gap-2">
-          <input type="radio" name="meal" value="yes" class="h-4 w-4 border-hunt-border text-hunt-gold" />
-          <span class="text-sm text-hunt-cream">Yes</span>
-        </label>
-      </div>
-    </div>
-
-    <div>
       <label class="text-xs font-semibold uppercase tracking-wider text-hunt-muted">Payment amount (USD)</label>
       <input
         id="hb-amount"
         type="number"
         min="0.5"
         step="0.01"
+        value={defaultBalance}
         required
         class="mt-1 w-full rounded border border-hunt-border bg-hunt-surface-2 px-3 py-2 text-hunt-cream"
       />
       <p class="mt-2 text-sm text-hunt-muted">
-        Default uses your hunt deposit math from your invoice. Adjust if Chad gave you a different balance.
+        $9,000 group price minus your $2,000 deposit. Adjust if Chad gave you a different balance.
       </p>
     </div>
 
@@ -89,13 +79,6 @@ const { years } = Astro.props;
 </div>
 
 <script>
-  const HUNT_LODGING = 3000;
-  const HUNT_DEPOSIT = 500;
-  /** Matches `computePrdDefaultFinalBalanceUsd` (PRD Phase 6 flat meal add-on). */
-  function defaultBalanceUsd(hunterCount, mealIncluded) {
-    return hunterCount * HUNT_LODGING + (mealIncluded ? 1000 : 0) - hunterCount * HUNT_DEPOSIT;
-  }
-
   const form = document.getElementById('hunt-balance-form');
   const errEl = document.getElementById('hunt-balance-error');
   const submitBtn = document.getElementById('hb-submit');
@@ -104,17 +87,6 @@ const { years } = Astro.props;
   const countBtns = document.querySelectorAll('.hb-count-btn');
 
   let hunterCount = 1;
-
-  function mealYes() {
-    const yes = document.querySelector('input[name="meal"][value="yes"]');
-    return yes instanceof HTMLInputElement && yes.checked;
-  }
-
-  function syncDefaultAmount() {
-    if (!amountEl) return;
-    const def = defaultBalanceUsd(hunterCount, mealYes());
-    amountEl.value = String(def);
-  }
 
   function setCount(n) {
     hunterCount = n;
@@ -126,7 +98,6 @@ const { years } = Astro.props;
       b.classList.toggle('border-hunt-border', bn !== n);
       b.classList.toggle('bg-hunt-surface', bn !== n);
     });
-    syncDefaultAmount();
   }
 
   countBtns.forEach((b) => {
@@ -134,10 +105,6 @@ const { years } = Astro.props;
       const n = Number(/** @type {HTMLElement} */ (b).dataset.count);
       if (n >= 1 && n <= 4) setCount(n);
     });
-  });
-
-  document.querySelectorAll('input[name="meal"]').forEach((el) => {
-    el.addEventListener('change', syncDefaultAmount);
   });
 
   function showError(msg) {
@@ -156,7 +123,6 @@ const { years } = Astro.props;
     const lastName = /** @type {HTMLInputElement} */ (document.getElementById('hb-last')).value.trim();
     const email = /** @type {HTMLInputElement} */ (document.getElementById('hb-email')).value.trim().toLowerCase();
     const huntYear = Number(/** @type {HTMLSelectElement} */ (document.getElementById('hb-year')).value);
-    const mealPackage = mealYes();
     const rawAmt = amountEl?.value ?? '';
     const paymentAmount = Number.parseFloat(rawAmt);
     if (!Number.isFinite(paymentAmount)) {
@@ -175,7 +141,6 @@ const { years } = Astro.props;
           email,
           huntYear,
           hunterCount,
-          mealPackage,
           paymentAmount,
         }),
       });

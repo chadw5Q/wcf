@@ -14,6 +14,7 @@ import {
   huntPullQuote,
   lodgePhotos,
   pricingFootnote,
+  pricingIncludes,
   pricingRows,
   propertyStats,
 } from '../../lib/hunt-landing-content';
@@ -35,7 +36,10 @@ import {
             We are a small operation run by a father and son, Lee and Chad Williams. We&apos;re passionate about hunting
             and love serving people.
           </p>
-          <p>We host no more than 4 non-resident hunters per year.</p>
+          <p>
+            We host no more than 4 non-resident hunters per year. Bring your group of up to four and you get the farm,
+            the lodge, and every meal for one flat price.
+          </p>
           <p>
             We own and manage roughly 725 acres in Zone 4 (Adams and Montgomery County, Iowa). As archery hunters
             ourselves, we know the property well.
@@ -208,29 +212,34 @@ import {
   <section class="scroll-mt-24 border-t border-hunt-border bg-hunt-bg py-16 md:py-24" aria-labelledby="hunt-pricing-heading">
     <div class="mx-auto max-w-[900px] px-4 md:px-6">
       <h2 id="hunt-pricing-heading" class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Pricing</h2>
-      <div class="-mx-4 mt-8 overflow-x-auto rounded-none border-y border-hunt-border bg-hunt-surface sm:mx-0 sm:rounded-md sm:border">
-        <table class="w-full min-w-[520px] border-collapse text-left text-xs sm:text-sm">
-          <thead>
-            <tr class="border-b border-hunt-border bg-hunt-surface-2/80">
-              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4"></th>
-              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4">Self-Catered</th>
-              <th class="px-3 py-3 font-hunt-heading font-semibold text-hunt-gold sm:px-4">All-Inclusive</th>
-            </tr>
-          </thead>
-          <tbody>
+      <div class="mt-8 overflow-hidden rounded-md border border-hunt-gold/50 bg-hunt-surface">
+        <div class="grid gap-6 p-6 sm:p-8 md:grid-cols-[auto_1fr] md:items-center md:gap-10">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-hunt-gold">One group · One price</p>
+            <p class="mt-2 font-hunt-heading text-5xl text-hunt-cream md:text-6xl">$9,000</p>
+            <p class="mt-1 text-sm text-hunt-muted">for your group of up to 4 hunters</p>
+          </div>
+          <ul class="space-y-2 text-hunt-cream/95">
             {
-              pricingRows.map((row) => (
-                <tr class="border-b border-hunt-border last:border-0">
-                  <th scope="row" class="px-3 py-3 align-top font-medium text-hunt-cream sm:px-4">
-                    {row.label}
-                  </th>
-                  <td class="px-3 py-3 align-top text-hunt-muted sm:px-4">{row.self}</td>
-                  <td class="px-3 py-3 align-top text-hunt-muted sm:px-4">{row.inclusive}</td>
-                </tr>
+              pricingIncludes.map((item) => (
+                <li class="flex gap-3">
+                  <span class="text-hunt-gold" aria-hidden="true">✓</span>
+                  <span>{item}</span>
+                </li>
               ))
             }
-          </tbody>
-        </table>
+          </ul>
+        </div>
+        <dl class="divide-y divide-hunt-border border-t border-hunt-border text-sm">
+          {
+            pricingRows.map((row) => (
+              <div class="flex items-baseline justify-between gap-4 px-6 py-3 sm:px-8">
+                <dt class="font-medium text-hunt-cream">{row.label}</dt>
+                <dd class="text-hunt-muted">{row.value}</dd>
+              </div>
+            ))
+          }
+        </dl>
       </div>
       <p class="mt-4 text-sm text-hunt-muted">{pricingFootnote}</p>
     </div>

@@ -32,6 +32,7 @@ function sampleReservation(over: Partial<HuntReservation> = {}): HuntReservation
     status: 'draft',
     huntYear: 2027,
     preferredWeek: 'w2',
+    pricingModel: 'per_person',
     mealPackage: true,
     hunters,
     hunterCount: hunters.length,
@@ -225,6 +226,7 @@ describe('KV helpers', () => {
 describe('createDraftReservation', () => {
   it('creates a draft with new id and ISO createdAt', () => {
     const r = createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2027,
       preferredWeek: 'w2',
       mealPackage: false,
@@ -248,6 +250,7 @@ describe('createDraftReservation', () => {
   it('persists via mock KV without Stripe', async () => {
     const kv = createMemoryKv();
     const r = createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2027,
       preferredWeek: 'w2',
       mealPackage: true,
@@ -270,6 +273,7 @@ describe('createDraftReservation', () => {
 describe('removeHunterFromReservation / deleteReservation', () => {
   it('removes a hunter and recalculates party totals', () => {
     const r = createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2028,
       preferredWeek: 'w1',
       mealPackage: true,
@@ -295,6 +299,7 @@ describe('removeHunterFromReservation / deleteReservation', () => {
 
   it('returns null when removing the last hunter', () => {
     const r = createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2028,
       preferredWeek: 'w1',
       mealPackage: false,
@@ -312,6 +317,7 @@ describe('removeHunterFromReservation / deleteReservation', () => {
   it('deletes a reservation from KV', async () => {
     const kv = createMemoryKv();
     const r = createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2028,
       preferredWeek: 'w1',
       mealPackage: false,
@@ -333,6 +339,7 @@ describe('removeHunterFromReservation / deleteReservation', () => {
 describe('updatePartyDetails / updateHunterDetails / addHunterToReservation', () => {
   function twoHunterParty() {
     return createDraftReservation({
+      pricingModel: 'per_person',
       huntYear: 2028,
       preferredWeek: 'w1',
       mealPackage: true,
@@ -397,5 +404,67 @@ describe('updatePartyDetails / updateHunterDetails / addHunterToReservation', ()
     const { updatePartyDetails } = await import('../../../src/lib/hunt-reservations');
     const r = { ...twoHunterParty(), status: 'fulfilled' as const };
     expect(() => updatePartyDetails(r, { huntYear: 2030 })).toThrow(/fulfilled|cancelled/i);
+  });
+});
+
+describe('group_flat reservations', () => {
+  async function groupParty(n: number) {
+    const { computeHuntOrderSummary } = await import('../../../src/lib/hunt-pricing');
+    const s = computeHuntOrderSummary(n, true, 'group_flat');
+    const hunters = Array.from({ length: n }, (_, i) =>
+      sampleHunter({ firstName: `H${i}`, email: `h${i}@example.com` })
+    );
+    return createDraftReservation({
+      huntYear: 2028,
+      preferredWeek: 'w2',
+      pricingModel: 'group_flat',
+      mealPackage: s.mealPackage,
+      hunters,
+      huntCostPerPerson: s.huntLodging / n,
+      mealPackageCost: s.mealLine,
+      totalHuntCost: s.totalHuntCost,
+      depositPerPerson: s.depositPerPerson,
+      totalDeposit: s.totalDeposit,
+      balanceDue: s.balanceDueJuly1,
+    });
+  }
+
+  it('lead deposit and balance cover every hunter', async () => {
+    const { markHunterDepositPaid, markHunterBalancePaid } = await import('../../../src/lib/hunt-reservations');
+    let r = await groupParty(3);
+    r = markHunterDepositPaid(r, 0, 'check', 'chk 1001');
+    expect(r.status).toBe('deposit_paid');
+    expect(r.hunterPayments.every((p) => p.depositPaid && p.depositMethod === 'check')).toBe(true);
+    r = markHunterBalancePaid(r, 0, 'venmo');
+    expect(r.status).toBe('balance_paid');
+  });
+
+  it('keeps the flat price when hunters are added, and new hunters inherit the lead payment', async () => {
+    const { addHunterToReservation, markHunterDepositPaid } = await import('../../../src/lib/hunt-reservations');
+    const paid = markHunterDepositPaid(await groupParty(2), 0, 'venmo');
+    const next = addHunterToReservation(paid, {
+      firstName: 'Sam',
+      lastName: 'Lee',
+      email: 'sam@example.com',
+      phone: '7125559999',
+      state: 'IA',
+    });
+    expect(next.totalHuntCost).toBe(9000);
+    expect(next.totalDeposit).toBe(2000);
+    expect(next.hunterPayments[2]!.depositPaid).toBe(true);
+    expect(next.status).toBe('deposit_paid');
+  });
+
+  it('refuses to remove the group leader', async () => {
+    const { removeHunterFromReservation } = await import('../../../src/lib/hunt-reservations');
+    const r = await groupParty(2);
+    expect(() => removeHunterFromReservation(r, 0)).toThrow(/leader/i);
+    expect(removeHunterFromReservation(r, 1)!.totalHuntCost).toBe(9000);
+  });
+
+  it('parses records without pricingModel as per_person', () => {
+    const { pricingModel: _omit, ...legacy } = sampleReservation();
+    const back = parseReservationJson(JSON.stringify(legacy));
+    expect(back.ok && back.value.pricingModel).toBe('per_person');
   });
 });

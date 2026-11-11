@@ -97,7 +97,16 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     }
   }
 
-  const listUsd = kind === 'deposit' ? hunterDepositShareUsd() : hunterBalanceShareUsd(reservation, payload.hunterIndex);
+  const listUsd =
+    kind === 'deposit'
+      ? hunterDepositShareUsd(reservation, payload.hunterIndex)
+      : hunterBalanceShareUsd(reservation, payload.hunterIndex);
+  if (listUsd <= 0) {
+    return new Response(JSON.stringify({ error: 'Your group leader handles payment for this hunt' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   const chargeUsd = checkoutChargeUsd(listUsd, rail);
   const origin = url.origin;
   const paymentPath = `${origin}/hunt/portal/${encodeURIComponent(token)}/payment`;

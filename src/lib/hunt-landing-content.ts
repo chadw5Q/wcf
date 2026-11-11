@@ -208,34 +208,24 @@ export const lodgePhotos: readonly HuntPhoto[] = [
   },
 ];
 
+export const pricingIncludes = [
+  'Up to 4 hunters in your group, same price',
+  'Guided archery hunt on 725 private acres',
+  'Lodge for your whole group',
+  'All meals and cooking',
+] as const;
+
 export const pricingRows = [
-  {
-    label: 'Hunt + Lodging',
-    self: '$3,000/person',
-    inclusive: '+$1,000 for 1 hunter. $250 for each additional hunter',
-  },
-  {
-    label: 'Food & Cooking',
-    self: 'You bring your own',
-    inclusive: 'Fully provided',
-  },
-  {
-    label: 'Doe (optional)',
-    self: '+$300',
-    inclusive: '+$300',
-  },
-  {
-    label: 'Deposit to Reserve',
-    self: '$500/person',
-    inclusive: '$500/person',
-  },
+  { label: 'Deposit to reserve', value: '$2,000 per group' },
+  { label: 'Balance due July 1', value: '$7,000' },
+  { label: 'Doe (optional)', value: '+$300' },
 ] as const;
 
 export const pricingFootnote =
   'Iowa deer tag and license not included. Purchased separately through Iowa DNR.';
 
 export const bookingSteps = [
-  'Place $500/person deposit',
+  'Place your $2,000 group deposit',
   'We confirm your week',
   'Let Chad know when you receive your tags for the year',
   'Full balance invoice sent June 1, due July 1',

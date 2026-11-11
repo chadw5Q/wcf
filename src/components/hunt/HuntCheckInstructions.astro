@@ -1,0 +1,23 @@
+---
+import { HUNT_CHECK_MAIL_TO, HUNT_CHECK_PAYEE } from '../../lib/hunt-payment-info';
+
+interface Props {
+  /** e.g. "$2,000.00" */
+  amount?: string;
+  memo?: string;
+  class?: string;
+}
+
+const { amount, memo, class: className } = Astro.props;
+---
+
+<div class:list={['text-sm leading-relaxed', className]}>
+  <p>
+    Make your check{amount ? ` for ${amount}` : ''} payable to <strong>{HUNT_CHECK_PAYEE}</strong>
+    {memo ? <span> (memo: {memo})</span> : null} and mail it to:
+  </p>
+  <address class="mt-2 not-italic">
+    {HUNT_CHECK_MAIL_TO.map((line) => <span class="block">{line}</span>)}
+  </address>
+  <p class="mt-2 opacity-80">Chad will confirm by text or email once it arrives.</p>
+</div>
