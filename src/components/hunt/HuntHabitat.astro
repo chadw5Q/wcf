@@ -1,0 +1,48 @@
+---
+import { habitatPhotos } from '../../lib/hunt-landing-content';
+---
+
+<div class="mx-auto mt-14 max-w-6xl px-4 sm:px-5 md:px-6">
+  <h3 class="font-hunt-heading text-2xl text-hunt-gold-light">Managed for Whitetails</h3>
+  <p class="mt-2 max-w-prose text-sm text-hunt-muted">
+    Every year we burn, plant, dig, and clear to hold more deer and grow them older.
+  </p>
+  <ul class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+    {
+      habitatPhotos.map((photo) => (
+        <li>
+          <figure class="relative overflow-hidden rounded border border-hunt-border bg-hunt-surface">
+            <img
+              src={photo.src}
+              alt={photo.alt}
+              width={photo.width}
+              height={photo.height}
+              loading="lazy"
+              decoding="async"
+              class="aspect-[4/3] h-full w-full object-cover"
+            />
+            {photo.caption && (
+              <figcaption class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-3 pb-2 pt-8 text-xs font-semibold uppercase tracking-wider text-hunt-cream">
+                {photo.caption}
+              </figcaption>
+            )}
+          </figure>
+        </li>
+      ))
+    }
+  </ul>
+  <div class="mt-8 flex flex-col items-start gap-4 rounded border border-hunt-border bg-hunt-surface/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-hunt-cream/90">
+      Want the details? Follow our habitat thread on Habitat Talk to see the work season by season and how we manage
+      the farm.
+    </p>
+    <a
+      href="https://habitat-talk.com/threads/williams-creek-farm-of-sw-iowa.16734/"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="hunt-btn inline-block shrink-0 px-6 py-3 text-sm md:text-xs"
+    >
+      Follow Our Habitat Thread →
+    </a>
+  </div>
+</div>

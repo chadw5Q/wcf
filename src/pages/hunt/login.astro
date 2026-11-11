@@ -8,8 +8,18 @@ const showError = Astro.url.searchParams.get('error') === '1';
 
 <HuntLayout title="Hunt login — Williams Creek Whitetails" minimal>
   <div
-    class="flex min-h-screen flex-1 flex-col items-center justify-center px-6 py-16 hunt-grain"
+    class="relative flex min-h-screen flex-1 flex-col items-center justify-center overflow-hidden px-6 py-16 hunt-grain"
   >
+    <img
+      src="/hunt/images/login.webp"
+      alt=""
+      width="640"
+      height="478"
+      fetchpriority="high"
+      decoding="async"
+      class="absolute inset-0 h-full w-full object-cover object-[55%_30%] opacity-40"
+    />
+    <div class="absolute inset-0 bg-gradient-to-b from-hunt-bg/60 via-hunt-bg/80 to-hunt-bg" aria-hidden="true"></div>
     <div class="relative z-10 w-full max-w-md text-center">
       <p class="font-hunt-heading text-3xl text-hunt-gold md:text-4xl">Williams Creek Whitetails</p>
       <p class="mt-2 text-sm uppercase tracking-[0.2em] text-hunt-muted">Private access</p>

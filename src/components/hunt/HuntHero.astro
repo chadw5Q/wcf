@@ -1,6 +1,7 @@
 ---
 /**
- * Full-bleed hero with PRD gradient + background image.
+ * Hero: the trail-cam buck is framed (above the copy on phones, beside it on lg+) over a blurred
+ * copy of itself — the source is only 960px wide, so it can't go full-bleed sharp.
  * Subtle parallax on md+ viewports when reduced-motion is off (Phase 7).
  */
 interface Props {
@@ -8,43 +9,68 @@ interface Props {
 }
 
 const { reserveHref = '/hunt/reserve' } = Astro.props;
+const heroSrc = '/hunt/images/hero.webp';
+const heroAlt = 'Trail camera photo of a giant non-typical buck at night on Williams Creek Farms';
 ---
 
 <section
   data-hunt-hero
-  class="relative flex min-h-[85vh] flex-col items-center justify-center overflow-hidden"
+  class="relative flex min-h-[85vh] flex-col justify-center overflow-hidden"
   aria-labelledby="hunt-hero-heading"
 >
   <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
     <div
       data-hunt-hero-bg
-      class="absolute inset-0 bg-cover bg-center will-change-transform md:scale-[1.08] motion-reduce:will-change-auto motion-reduce:md:scale-100"
-      style={{ backgroundImage: 'url(/hunt/images/hero.jpg)' }}
+      class="absolute inset-0 will-change-transform md:scale-[1.08] motion-reduce:will-change-auto motion-reduce:md:scale-100"
     >
+      <img
+        src={heroSrc}
+        alt=""
+        width="960"
+        height="536"
+        fetchpriority="high"
+        decoding="async"
+        class="h-full w-full scale-110 object-cover blur-md brightness-50"
+      />
     </div>
   </div>
   <div
-    class="pointer-events-none absolute inset-0 hunt-grain"
-    style={{
-      background: 'linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(26,20,16,0.85) 100%)',
-    }}
+    class="pointer-events-none absolute inset-0 hunt-grain bg-gradient-to-b from-hunt-bg/50 to-hunt-bg/95 lg:bg-gradient-to-r lg:from-hunt-bg/90 lg:via-hunt-bg/60 lg:to-hunt-bg/40"
     aria-hidden="true"
   >
   </div>
 
-  <div class="relative z-10 mx-auto max-w-3xl px-4 py-24 text-center sm:px-5 md:px-6">
-    <p class="text-xs font-semibold uppercase tracking-[0.28em] text-hunt-gold-light md:text-sm">
-      Zone 4 • Adams & Montgomery County, Iowa
-    </p>
-    <h1 id="hunt-hero-heading" class="mt-5 font-hunt-heading text-4xl font-semibold leading-tight text-hunt-cream md:text-5xl lg:text-6xl">
-      Trophy Whitetail. Guided Archery Hunts.
-    </h1>
-    <p class="mx-auto mt-5 max-w-xl text-base text-hunt-cream/95 sm:text-lg md:text-xl">
-      A father and son operation. 725 acres of prime Iowa hunting. No more than 4 out of state hunters per year.
-    </p>
-    <p class="mt-10">
-      <a href={reserveHref} class="hunt-btn inline-block px-8 py-3 text-sm md:text-xs">Reserve Your Hunt →</a>
-    </p>
+  <div
+    class="relative z-10 mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pb-20 pt-10 text-center sm:px-5 md:px-6 lg:grid-cols-[1fr_1.15fr] lg:gap-12 lg:py-24 lg:text-left"
+  >
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-[0.28em] text-hunt-gold-light md:text-sm">
+        Zone 4 • Adams & Montgomery County, Iowa
+      </p>
+      <h1 id="hunt-hero-heading" class="mt-5 font-hunt-heading text-4xl font-semibold leading-tight text-hunt-cream md:text-5xl lg:text-6xl">
+        Trophy Whitetail. Guided Archery Hunts.
+      </h1>
+      <p class="mx-auto mt-5 max-w-xl text-base text-hunt-cream/95 sm:text-lg md:text-xl lg:mx-0">
+        A father and son operation. 725 acres of prime Iowa hunting. No more than 4 out of state hunters per year.
+      </p>
+      <p class="mt-10">
+        <a href={reserveHref} class="hunt-btn inline-block px-8 py-3 text-sm md:text-xs">Reserve Your Hunt →</a>
+      </p>
+    </div>
+    <figure class="order-first lg:order-none">
+      <img
+        src={heroSrc}
+        alt={heroAlt}
+        width="960"
+        height="536"
+        fetchpriority="high"
+        decoding="async"
+        class="w-full rounded border-2 border-hunt-gold/50 shadow-2xl shadow-black/60"
+      />
+      <figcaption class="mt-3 text-center text-xs uppercase tracking-[0.2em] text-hunt-muted lg:text-right">
+        On our trail camera · October 2023
+      </figcaption>
+    </figure>
   </div>
 
   <a

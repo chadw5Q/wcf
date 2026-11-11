@@ -1,10 +1,16 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
   HUNT_PODCAST_URL,
   IOWA_DNR_DEER_URL,
   bookingSteps,
-  galleryImagePaths,
+  buckSeasons,
+  habitatPhotos,
+  featuredHarvestPhotos,
+  harvestPhotos,
   huntDetailCards,
+  lodgePhotos,
   pricingRows,
   propertyStats,
 } from '../../../src/lib/hunt-landing-content';
@@ -33,12 +39,24 @@ describe('hunt-landing-content', () => {
     }
   });
 
-  it('exposes twelve gallery paths under /hunt/images/gallery/', () => {
-    const paths = galleryImagePaths();
-    expect(paths).toHaveLength(12);
-    for (const p of paths) {
-      expect(p.startsWith('/hunt/images/gallery/buck-')).toBe(true);
-      expect(p.endsWith('.jpg')).toBe(true);
+  it('lists buck seasons newest first with trail camera photos', () => {
+    const years = buckSeasons.map((s) => s.year);
+    expect(years).toEqual([...years].sort((a, b) => b - a));
+    for (const season of buckSeasons) {
+      expect(season.photos.length).toBeGreaterThan(0);
+      for (const p of season.photos) {
+        expect(p.src).toMatch(new RegExp(`^/hunt/images/seasons/${season.year}-\\d+\\.webp$`));
+      }
+    }
+  });
+
+  it('every hunt photo exists on disk with dimensions and alt text', () => {
+    const all = [...buckSeasons.flatMap((s) => s.photos), ...featuredHarvestPhotos, ...harvestPhotos, ...habitatPhotos, ...lodgePhotos];
+    for (const p of all) {
+      expect(existsSync(join(process.cwd(), 'public', p.src))).toBe(true);
+      expect(p.width).toBeGreaterThan(0);
+      expect(p.height).toBeGreaterThan(0);
+      expect(p.alt.length).toBeGreaterThan(0);
     }
   });
 
