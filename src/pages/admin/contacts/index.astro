@@ -1,0 +1,259 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import {
+  centralToday,
+  contactActivityAt,
+  contactListQuery,
+  filterContacts,
+  formatFollowUpDay,
+  getAllContacts,
+  interestLabel,
+  linkOrdersMissingContacts,
+  listOpenFollowUps,
+  parseContactListSort,
+  phoneHref,
+  sortContacts,
+  toggledContactSort,
+  type ContactSortDir,
+  type ContactSortKey,
+} from '../../../lib/contacts';
+import { formatCentralDateTime } from '../../../lib/format-order';
+import { getAllOrders } from '../../../lib/orders';
+import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const query = Astro.url.searchParams.get('q')?.trim() ?? '';
+const orders = kv ? await getAllOrders(kv) : [];
+if (kv) {
+  try {
+    await linkOrdersMissingContacts(kv, orders);
+  } catch (err) {
+    console.error('Failed to link orders to contacts', err);
+  }
+}
+const contacts = kv ? await getAllContacts(kv) : [];
+const listSort = parseContactListSort(Astro.url.searchParams.get('sort'), Astro.url.searchParams.get('dir'));
+const visible = sortContacts(filterContacts(contacts, query), listSort.sort, listSort.dir);
+const followUps = listOpenFollowUps(contacts, centralToday());
+
+const SORT_OPTIONS: { key: ContactSortKey; label: string }[] = [
+  { key: 'first', label: 'First name' },
+  { key: 'last', label: 'Last name' },
+  { key: 'date', label: 'Date' },
+];
+
+function sortDirectionLabel(key: ContactSortKey, dir: ContactSortDir): string {
+  if (key === 'date') return dir === 'desc' ? 'Newest' : 'Oldest';
+  return dir === 'asc' ? 'A–Z' : 'Z–A';
+}
+
+function contactsHref(next: { q?: string; sort?: ContactSortKey; dir?: ContactSortDir }): string {
+  return `/admin/contacts${contactListQuery(next)}`;
+}
+const orderCounts = new Map<string, number>();
+for (const order of orders) {
+  if (!order.contactId) continue;
+  orderCounts.set(order.contactId, (orderCounts.get(order.contactId) ?? 0) + 1);
+}
+
+function openFollowUpCount(contactId: string): number {
+  return followUps.filter((item) => item.contactId === contactId).length;
+}
+---
+
+<AdminLayout title="Contacts — Admin">
+  <p class="no-print mb-4 text-sm text-slate-600">
+    <a href="/admin" class="font-medium text-green-700 hover:text-green-900">← Admin home</a>
+  </p>
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>ORDERS_KV is not bound.</strong> Contacts cannot be loaded until KV is available.
+      </div>
+    )
+  }
+
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <h1 class="text-2xl font-bold text-slate-900">Contacts</h1>
+    <a
+      href="/admin/contacts/new"
+      class="inline-flex min-h-12 items-center rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+    >
+      Log interaction
+    </a>
+  </div>
+
+  <search class="mb-8">
+    <form action="/admin/contacts" method="get" class="flex flex-wrap items-end gap-3">
+      <div class="min-w-[16rem] flex-1">
+        <label for="q" class="mb-1 block text-sm font-medium text-slate-700">Search by name, phone, or email.</label>
+        <input
+          id="q"
+          name="q"
+          type="search"
+          value={query}
+          placeholder="Search by name, phone, or email."
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="none"
+          spellcheck="false"
+          enterkeyhint="search"
+          class="min-h-12 w-full rounded border border-slate-300 bg-white px-3 py-3 text-base text-slate-900"
+        />
+      </div>
+      {listSort.sort !== 'date' || listSort.dir !== 'desc' ? (
+        <>
+          <input type="hidden" name="sort" value={listSort.sort} />
+          <input type="hidden" name="dir" value={listSort.dir} />
+        </>
+      ) : null}
+      <button
+        type="submit"
+        class="inline-flex min-h-12 items-center rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+      >
+        Search
+      </button>
+      {
+        query && (
+          <a
+            href={contactsHref({ sort: listSort.sort, dir: listSort.dir })}
+            class="inline-flex min-h-12 items-center text-sm font-medium text-green-800 hover:underline"
+          >
+            Clear
+          </a>
+        )
+      }
+    </form>
+  </search>
+
+  <p id="follow-up-error" class="mb-4 hidden text-sm text-red-700" role="alert"></p>
+
+  {
+    followUps.length > 0 && (
+      <section id="follow-ups" class="mb-10">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900">Follow-ups</h2>
+        <ul class="space-y-3">
+          {followUps.map((item) => {
+            const tel = phoneHref(item.phone);
+            return (
+              <li class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <a href={`/admin/contacts/${item.contactId}`} class="font-semibold text-green-800 hover:underline">
+                      {item.contactName}
+                    </a>
+                    <p class="mt-1 text-sm text-slate-700">
+                      {item.overdue ? 'Overdue' : 'Due'} {formatFollowUpDay(item.interaction.followUpOn!)}
+                      {tel ? (
+                        <>
+                          {' '}
+                          · <a href={tel} class="text-green-800 hover:underline">{item.phone}</a>
+                        </>
+                      ) : item.phone ? (
+                        <> · {item.phone}</>
+                      ) : null}
+                    </p>
+                    <p class="mt-2 whitespace-pre-wrap text-sm text-slate-600">{item.interaction.summary}</p>
+                  </div>
+                  <button
+                    type="button"
+                    class="inline-flex min-h-12 items-center rounded border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+                    data-complete-follow-up
+                    data-contact-id={item.contactId}
+                    data-interaction-id={item.interaction.id}
+                  >
+                    Mark done
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    )
+  }
+
+  <h2 class="mb-3 text-lg font-semibold text-slate-900">
+    {query ? `${visible.length} match${visible.length === 1 ? '' : 'es'}` : `${visible.length} contact${visible.length === 1 ? '' : 's'}`}
+  </h2>
+  <nav aria-label="Sort contacts" class="mb-3">
+    <ul class="grid grid-cols-3 gap-2">
+      {
+        SORT_OPTIONS.map((option) => {
+          const active = listSort.sort === option.key;
+          const next = toggledContactSort(listSort, option.key);
+          return (
+            <li class="flex">
+              <a
+                href={contactsHref({ q: query, sort: next.sort, dir: next.dir })}
+                aria-current={active ? 'true' : undefined}
+                class:list={[
+                  'flex min-h-12 w-full flex-1 flex-col items-center justify-center gap-0.5 rounded border px-2 py-1.5 text-center text-sm font-medium leading-tight focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700',
+                  active
+                    ? 'border-green-700 bg-green-700 text-white hover:bg-green-800'
+                    : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
+                ]}
+              >
+                <span>{option.label}</span>
+                {active && <span class="text-xs font-semibold">{sortDirectionLabel(option.key, listSort.dir)}</span>}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </nav>
+  {
+    visible.length === 0 && !kvMissing && (
+      <p class="rounded-lg border border-slate-200 bg-white px-4 py-8 text-center text-slate-600">
+        {query
+          ? 'No contact matches that search.'
+          : 'No contacts yet. Log an interaction when someone calls, or they will show up here after an order.'}
+      </p>
+    )
+  }
+  <ul class="space-y-3">
+    {
+      visible.map((contact) => {
+        const tel = phoneHref(contact.phone);
+        const ordersForContact = orderCounts.get(contact.id) ?? 0;
+        const waiting = openFollowUpCount(contact.id);
+        const when = contactActivityAt(contact);
+        return (
+          <li>
+            <a
+              href={`/admin/contacts/${contact.id}`}
+              class="block rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-green-300"
+            >
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="font-semibold text-green-800">{contact.name}</p>
+                  <p class="mt-1 text-sm text-slate-700">
+                    {tel ? contact.phone : contact.phone || 'No phone'}
+                    {contact.email ? ` · ${contact.email}` : ''}
+                  </p>
+                  {
+                    (contact.interests.length > 0 || contact.location) && (
+                      <p class="mt-1 text-sm text-slate-600">
+                        {contact.interests.map(interestLabel).join(', ')}
+                        {contact.interests.length > 0 && contact.location ? ' · ' : ''}
+                        {contact.location}
+                      </p>
+                    )
+                  }
+                </div>
+                <p class="text-sm text-slate-600">{formatCentralDateTime(when)}</p>
+              </div>
+              <p class="mt-2 text-sm text-slate-600">
+                {ordersForContact} order{ordersForContact === 1 ? '' : 's'}
+                {waiting > 0 ? ` · ${waiting} follow-up${waiting === 1 ? '' : 's'}` : ''}
+              </p>
+            </a>
+          </li>
+        );
+      })
+    }
+  </ul>
+</AdminLayout>

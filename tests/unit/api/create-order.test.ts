@@ -95,6 +95,7 @@ describe('POST /api/admin/create-order', () => {
     expect(body.order.status).toBe('fulfilled');
     expect(body.order.depositAmount).toBe(10);
     expect(body.order.customer.email).toBe('walkin@example.com');
+    expect(body.order.contactId).toMatch(/^contact_/);
     expect(put).toHaveBeenCalled();
     expect(publishNtfyNotification).toHaveBeenCalledTimes(1);
     const ntfyArg = vi.mocked(publishNtfyNotification).mock.calls[0][0];

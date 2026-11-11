@@ -36,6 +36,7 @@ const { title } = Astro.props;
         <nav class="flex flex-wrap items-center gap-4 text-sm">
           <a href="/" class="text-slate-600 hover:text-green-700">Home</a>
           <a href="/admin" class="text-slate-600 hover:text-green-700">Dashboard</a>
+          <a href="/admin/contacts" class="text-slate-600 hover:text-green-700">Contacts</a>
 
           <div class="admin-nav-dropdown relative" data-admin-dropdown>
             <button
@@ -60,6 +61,12 @@ const { title } = Astro.props;
               class="admin-nav-dropdown-panel absolute left-0 top-full z-50 hidden min-w-[10rem] pt-1"
             >
               <div class="rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                <a
+                  href="/admin/contacts"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Contacts
+                </a>
                 <a
                   href="/admin/all-orders"
                   class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
@@ -89,7 +96,7 @@ const { title } = Astro.props;
           </div>
 
           <a href="/admin/hunt" class="text-slate-600 hover:text-green-700">Hunt</a>
-          <a href="/admin/integrations" class="text-slate-600 hover:text-green-700">Integrations</a>
+          <a href="/admin/integrations" class="text-slate-600 hover:text-green-700">Administration</a>
           <form method="post" action="/api/admin/logout" class="inline">
             <button
               type="submit"
@@ -139,6 +146,79 @@ const { title } = Astro.props;
 
         document.addEventListener('keydown', (e) => {
           if (e.key === 'Escape') setOpen(false);
+        });
+      });
+
+      const followUpError = document.getElementById('follow-up-error');
+      document.querySelectorAll('[data-complete-follow-up]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          if (!(button instanceof HTMLButtonElement)) return;
+          const contactId = button.dataset.contactId ?? '';
+          const interactionId = button.dataset.interactionId ?? '';
+          button.disabled = true;
+          if (followUpError) {
+            followUpError.textContent = '';
+            followUpError.classList.add('hidden');
+          }
+          try {
+            const res = await fetch('/api/admin/complete-follow-up', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contactId, interactionId }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              window.location.reload();
+              return;
+            }
+            if (followUpError) {
+              followUpError.textContent = data.error || 'Could not mark that follow-up done.';
+              followUpError.classList.remove('hidden');
+            }
+            button.disabled = false;
+          } catch {
+            if (followUpError) {
+              followUpError.textContent = 'Could not mark that follow-up done (network error).';
+              followUpError.classList.remove('hidden');
+            }
+            button.disabled = false;
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-reopen-follow-up]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          if (!(button instanceof HTMLButtonElement)) return;
+          const contactId = button.dataset.contactId ?? '';
+          const interactionId = button.dataset.interactionId ?? '';
+          button.disabled = true;
+          if (followUpError) {
+            followUpError.textContent = '';
+            followUpError.classList.add('hidden');
+          }
+          try {
+            const res = await fetch('/api/admin/reopen-follow-up', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ contactId, interactionId }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              window.location.reload();
+              return;
+            }
+            if (followUpError) {
+              followUpError.textContent = data.error || 'Could not undo that follow-up.';
+              followUpError.classList.remove('hidden');
+            }
+            button.disabled = false;
+          } catch {
+            if (followUpError) {
+              followUpError.textContent = 'Could not undo that follow-up (network error).';
+              followUpError.classList.remove('hidden');
+            }
+            button.disabled = false;
+          }
         });
       });
     </script>

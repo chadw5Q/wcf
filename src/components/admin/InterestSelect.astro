@@ -1,0 +1,73 @@
+---
+import {
+  CONTACT_INTERESTS,
+  interestLabel,
+  type ContactInterest,
+} from '../../lib/contacts';
+
+interface Props {
+  selected?: ContactInterest[];
+  id?: string;
+}
+
+const { selected = [], id = 'interests' } = Astro.props;
+const summaryText = selected.length ? selected.map(interestLabel).join(', ') : 'Select';
+---
+
+<div class="interest-select relative">
+  <span id={`${id}-label`} class="mb-1 block text-sm font-medium text-slate-700">Interested in</span>
+  <details class="group">
+    <summary
+      class="flex min-h-12 cursor-pointer list-none items-center justify-between rounded border border-slate-300 bg-white px-3 py-3 text-base [&::-webkit-details-marker]:hidden"
+      aria-labelledby={`${id}-label`}
+    >
+      <span data-interest-summary class={selected.length ? 'text-slate-900' : 'text-slate-500'}>{summaryText}</span>
+      <span aria-hidden="true" class="text-slate-400">▾</span>
+    </summary>
+    <div class="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+      {
+        CONTACT_INTERESTS.map((interest) => (
+          <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded px-2 text-base text-slate-900 hover:bg-slate-50">
+            <input
+              type="checkbox"
+              name="interests"
+              value={interest}
+              checked={selected.includes(interest)}
+              class="size-4 accent-green-700"
+            />
+            {interestLabel(interest)}
+          </label>
+        ))
+      }
+    </div>
+  </details>
+</div>
+
+<script>
+  const labels: Record<string, string> = {
+    'bow-stave': 'Bow stave',
+    'hedge-posts': 'Hedge posts',
+    hunting: 'Hunting',
+    other: 'Other',
+  };
+
+  document.querySelectorAll('.interest-select').forEach((root) => {
+    const summary = root.querySelector('[data-interest-summary]');
+    const boxes = root.querySelectorAll('input[name="interests"]');
+    if (!(summary instanceof HTMLElement)) return;
+
+    const refresh = () => {
+      const picked: string[] = [];
+      boxes.forEach((box) => {
+        if (box instanceof HTMLInputElement && box.checked) {
+          picked.push(labels[box.value] ?? box.value);
+        }
+      });
+      summary.textContent = picked.length ? picked.join(', ') : 'Select';
+      summary.classList.toggle('text-slate-500', picked.length === 0);
+      summary.classList.toggle('text-slate-900', picked.length > 0);
+    };
+
+    boxes.forEach((box) => box.addEventListener('change', refresh));
+  });
+</script>

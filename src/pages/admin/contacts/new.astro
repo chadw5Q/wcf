@@ -1,0 +1,244 @@
+---
+export const prerender = false;
+import InterestSelect from '../../../components/admin/InterestSelect.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { INTERACTION_CHANNELS, channelLabel } from '../../../lib/contacts';
+import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
+
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+---
+
+<AdminLayout title="Log interaction — Admin">
+  <p class="mb-4 text-sm text-slate-600">
+    <a href="/admin/contacts" class="font-medium text-green-700 hover:text-green-900">← Contacts</a>
+  </p>
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>ORDERS_KV is not bound.</strong> Saving is disabled until KV is available.
+      </div>
+    )
+  }
+
+  <h1 id="log-heading" class="mb-2 text-2xl font-bold text-slate-900">Log interaction</h1>
+  <p class="mb-6 max-w-2xl text-sm text-slate-600">
+    Use this when someone calls or stops by. A matching phone or email is added to the person you already have.
+  </p>
+
+  <form id="log-interaction-form" class="max-w-2xl space-y-6" aria-labelledby="log-heading">
+    <fieldset class="space-y-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <legend class="px-1 text-lg font-semibold text-slate-900">Person</legend>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">
+            First name <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="firstName"
+            name="firstName"
+            type="text"
+            required
+            maxlength="80"
+            autocomplete="given-name"
+            enterkeyhint="next"
+            class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+          />
+        </div>
+        <div>
+          <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">
+            Last name <span aria-hidden="true">*</span>
+          </label>
+          <input
+            id="lastName"
+            name="lastName"
+            type="text"
+            required
+            maxlength="80"
+            autocomplete="family-name"
+            enterkeyhint="next"
+            class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+          />
+        </div>
+      </div>
+      <div>
+        <label for="phone" class="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+        <input
+          id="phone"
+          name="phone"
+          type="tel"
+          maxlength="40"
+          autocomplete="tel"
+          inputmode="tel"
+          enterkeyhint="next"
+          aria-describedby="phone-help"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+        <p id="phone-help" class="mt-1 text-sm text-slate-600">
+          Phone or email is required. A 10-digit phone is how the next call finds this person.
+        </p>
+      </div>
+      <div>
+        <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+        <input
+          id="email"
+          name="email"
+          type="email"
+          maxlength="200"
+          autocomplete="email"
+          inputmode="email"
+          autocapitalize="none"
+          spellcheck="false"
+          enterkeyhint="next"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+      </div>
+      <InterestSelect />
+      <div>
+        <label for="location" class="mb-1 block text-sm font-medium text-slate-700">Location</label>
+        <input
+          id="location"
+          name="location"
+          type="text"
+          maxlength="120"
+          autocomplete="off"
+          enterkeyhint="next"
+          aria-describedby="location-help"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        />
+        <p id="location-help" class="mt-1 text-sm text-slate-600">City, state, or whatever fits.</p>
+      </div>
+    </fieldset>
+
+    <fieldset class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <legend class="px-1 text-lg font-semibold text-slate-900">Interaction</legend>
+      <div class="mt-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="How you heard from them">
+        {
+          INTERACTION_CHANNELS.map((channel) => (
+            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50">
+              <input
+                type="radio"
+                name="channel"
+                value={channel}
+                checked={channel === 'phone'}
+                required
+              />
+              {channelLabel(channel)}
+            </label>
+          ))
+        }
+      </div>
+      <div class="mt-4">
+        <label for="summary" class="mb-1 block text-sm font-medium text-slate-700">
+          What they said <span aria-hidden="true">*</span>
+        </label>
+        <textarea
+          id="summary"
+          name="summary"
+          required
+          rows="4"
+          maxlength="4000"
+          class="min-h-28 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+        ></textarea>
+      </div>
+      <div class="mt-4">
+        <label for="followUpOn" class="mb-1 block text-sm font-medium text-slate-700">Follow up on</label>
+        <input
+          id="followUpOn"
+          name="followUpOn"
+          type="date"
+          class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900 sm:max-w-xs"
+        />
+      </div>
+    </fieldset>
+
+    <p id="log-error" class="hidden text-sm text-red-700" role="alert"></p>
+    <button
+      id="save-interaction"
+      type="submit"
+      class="inline-flex min-h-12 items-center rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+      disabled={kvMissing}
+    >
+      Save interaction
+    </button>
+  </form>
+
+  <script>
+    const form = document.getElementById('log-interaction-form');
+    const errorEl = document.getElementById('log-error');
+    const phoneEl = document.getElementById('phone');
+    const emailEl = document.getElementById('email');
+
+    function showError(text: string) {
+      if (!(errorEl instanceof HTMLElement)) return;
+      errorEl.textContent = text;
+      errorEl.classList.remove('hidden');
+    }
+
+    phoneEl?.addEventListener('input', () => {
+      if (phoneEl instanceof HTMLInputElement) phoneEl.setCustomValidity('');
+    });
+    emailEl?.addEventListener('input', () => {
+      if (phoneEl instanceof HTMLInputElement) phoneEl.setCustomValidity('');
+    });
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!(form instanceof HTMLFormElement)) return;
+      if (!(phoneEl instanceof HTMLInputElement) || !(emailEl instanceof HTMLInputElement)) return;
+      const phone = phoneEl.value.trim();
+      const email = emailEl.value.trim();
+      if (!phone && !email) {
+        phoneEl.setCustomValidity('Enter a phone number or an email.');
+        phoneEl.reportValidity();
+        return;
+      }
+      phoneEl.setCustomValidity('');
+      if (!form.reportValidity()) return;
+
+      const saveBtn = document.getElementById('save-interaction');
+      if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = true;
+      if (errorEl instanceof HTMLElement) {
+        errorEl.textContent = '';
+        errorEl.classList.add('hidden');
+      }
+
+      const channelEl = form.querySelector('input[name="channel"]:checked');
+      const summaryEl = form.querySelector('[name="summary"]');
+      const followEl = form.querySelector('[name="followUpOn"]');
+      const locationEl = form.querySelector('[name="location"]');
+      const interests = [...form.querySelectorAll('input[name="interests"]:checked')].flatMap((box) =>
+        box instanceof HTMLInputElement ? [box.value] : []
+      );
+      const payload = {
+        firstName: (form.querySelector('[name="firstName"]') as HTMLInputElement)?.value ?? '',
+        lastName: (form.querySelector('[name="lastName"]') as HTMLInputElement)?.value ?? '',
+        phone,
+        email,
+        channel: channelEl instanceof HTMLInputElement ? channelEl.value : 'phone',
+        summary: summaryEl instanceof HTMLTextAreaElement ? summaryEl.value : '',
+        followUpOn: followEl instanceof HTMLInputElement ? followEl.value : '',
+        interests,
+        location: locationEl instanceof HTMLInputElement ? locationEl.value : '',
+      };
+
+      try {
+        const res = await fetch('/api/admin/log-interaction', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.contactId) {
+          window.location.href = `/admin/contacts/${encodeURIComponent(data.contactId)}`;
+          return;
+        }
+        showError(data.error || 'Could not save the interaction.');
+        if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+      } catch {
+        showError('Could not save the interaction (network error).');
+        if (saveBtn instanceof HTMLButtonElement) saveBtn.disabled = false;
+      }
+    });
+  </script>
+</AdminLayout>

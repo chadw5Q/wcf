@@ -69,6 +69,8 @@ export interface StoredOrder {
   deliverySlot: string | null;
   status: OrderStatus;
   revisionLog?: OrderRevisionEntry[];
+  /** Contact this order belongs to. Set when the order is saved or backfilled. */
+  contactId?: string;
   /** Queued / sent post-purchase review ask (first-party reviews). */
   reviewRequest?: OrderReviewRequest;
 }

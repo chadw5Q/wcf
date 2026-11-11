@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import type { OrderStatus } from '../../../lib/order-types';
 import { ORDER_STATUSES } from '../../../lib/order-types';
+import { attachOrderToContact, getContact } from '../../../lib/contacts';
 import {
   createWalkInStoredOrder,
   parseAdminRebuildPayload,
@@ -76,6 +77,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
         : String(body.deliverySlot).trim() || null;
   }
 
+  const contactIdRaw = body.contactId == null ? '' : String(body.contactId).trim();
+  if (contactIdRaw) {
+    const existingContact = await getContact(kv, contactIdRaw);
+    if (!existingContact) {
+      return new Response(JSON.stringify({ error: 'Contact not found.' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+  }
+
   const productsConfig = await getProductsConfig(kv);
   const skuMap = orderSkusToMap(productsConfig.orderSkus);
   const id = crypto.randomUUID();
@@ -102,6 +114,15 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   await saveOrder(kv, order);
+
+  try {
+    await attachOrderToContact(kv, order, {
+      channel: 'walk-in',
+      contactId: contactIdRaw || null,
+    });
+  } catch (err) {
+    console.error('Failed to attach walk-in order to contact', err);
+  }
 
   const siteBase = (getServerEnv('SITE_URL') || 'https://williamscreekfarms.com').replace(/\/+$/, '');
   const adminOrderUrl = `${siteBase}/admin/orders/${encodeURIComponent(order.id)}`;

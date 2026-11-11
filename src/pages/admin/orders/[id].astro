@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { attachOrderToContact, getContact } from '../../../lib/contacts';
 import { getOrder, normalizeVolumeDiscount, volumeDiscountLabel } from '../../../lib/orders';
 import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 import { formatCentralDateTime, formatUsd } from '../../../lib/format-order';
@@ -12,6 +13,14 @@ const id = Astro.params.id ?? '';
 const kv = getOrdersKvFromLocals(Astro.locals);
 const kvMissing = !kv;
 const order = kv && id ? await getOrder(kv, id) : null;
+if (kv && order && !order.contactId) {
+  try {
+    await attachOrderToContact(kv, order);
+  } catch (err) {
+    console.error('Failed to link order to contact', err);
+  }
+}
+const contact = kv && order?.contactId ? await getContact(kv, order.contactId) : null;
 const productsConfig = await getProductsConfig(kv);
 const skuMap = orderSkusToMap(productsConfig.orderSkus);
 const orderDiscount = order ? normalizeVolumeDiscount(order.volumeDiscount) : null;
@@ -230,6 +239,15 @@ const revisionNewestFirst = order
                         )
                       }
                     </li>
+                    {
+                      contact && (
+                        <li>
+                          <a href={`/admin/contacts/${contact.id}`} class="text-green-700 hover:underline">
+                            Contact record
+                          </a>
+                        </li>
+                      )
+                    }
                   </ul>
                 </div>
                 <div>

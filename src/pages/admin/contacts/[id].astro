@@ -1,0 +1,464 @@
+---
+export const prerender = false;
+import InterestSelect from '../../../components/admin/InterestSelect.astro';
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import {
+  INTERACTION_CHANNELS,
+  channelLabel,
+  filterAndSortInteractions,
+  formatFollowUpDay,
+  getContact,
+  interactionListSearch,
+  interestLabel,
+  linkOrdersMissingContacts,
+  mailtoHref,
+  parseInteractionListQuery,
+  phoneHref,
+  type InteractionChannel,
+} from '../../../lib/contacts';
+import { formatCentralDateTime, formatUsd } from '../../../lib/format-order';
+import { getAllOrders } from '../../../lib/orders';
+import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
+
+const id = Astro.params.id ?? '';
+const kv = getOrdersKvFromLocals(Astro.locals);
+const kvMissing = !kv;
+const orders = kv ? await getAllOrders(kv) : [];
+if (kv) {
+  try {
+    await linkOrdersMissingContacts(kv, orders);
+  } catch (err) {
+    console.error('Failed to link orders to contacts', err);
+  }
+}
+const contact = kv && id ? await getContact(kv, id) : null;
+const contactOrders = contact ? orders.filter((order) => order.contactId === contact.id) : [];
+const tel = contact ? phoneHref(contact.phone) : null;
+const mail = contact ? mailtoHref(contact.email) : null;
+const orderIds = new Set(contactOrders.map((order) => order.id));
+const listQuery = parseInteractionListQuery({
+  sort: Astro.url.searchParams.get('sort'),
+  dir: Astro.url.searchParams.get('dir'),
+  type: Astro.url.searchParams.get('type'),
+});
+const visibleInteractions = contact
+  ? filterAndSortInteractions(contact.interactions, listQuery)
+  : [];
+const typeFilters: { type: 'all' | InteractionChannel; label: string }[] = [
+  { type: 'all', label: 'All' },
+  ...INTERACTION_CHANNELS.map((channel) => ({ type: channel, label: channelLabel(channel) })),
+];
+
+function listHref(patch: { dir?: typeof listQuery.dir; type?: typeof listQuery.type }): string {
+  return `/admin/contacts/${encodeURIComponent(id)}${interactionListSearch({
+    dir: patch.dir ?? listQuery.dir,
+    type: patch.type ?? listQuery.type,
+  })}`;
+}
+
+const dateSortHref = listHref({ dir: listQuery.dir === 'asc' ? 'desc' : 'asc' });
+const dateSortLabel = listQuery.dir === 'asc' ? 'Oldest first' : 'Newest first';
+const emptyTypeLabel =
+  listQuery.type === 'all' ? 'interactions' : `${channelLabel(listQuery.type)} interactions`;
+---
+
+<AdminLayout title={contact ? `${contact.name} — Contact` : 'Contact — Admin'}>
+  <p class="mb-4 text-sm text-slate-600">
+    <a href="/admin/contacts" class="font-medium text-green-700 hover:text-green-900">← Contacts</a>
+  </p>
+  {
+    kvMissing && (
+      <div class="mb-6 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900" role="alert">
+        <strong>ORDERS_KV is not bound.</strong> This contact cannot be loaded.
+      </div>
+    )
+  }
+  {
+    !kvMissing && !contact && (
+      <p class="text-slate-600">
+        Contact not found.{' '}
+        <a href="/admin/contacts" class="text-green-700 hover:underline">Back to contacts</a>
+      </p>
+    )
+  }
+
+  {
+    contact && (
+      <>
+        <div class="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">{contact.name}</h1>
+            <p class="mt-2 text-slate-700">
+              {tel ? (
+                <a href={tel} class="text-green-800 hover:underline">{contact.phone}</a>
+              ) : (
+                contact.phone || 'No phone'
+              )}
+              {contact.email ? (
+                <>
+                  {' '}
+                  ·{' '}
+                  {mail ? (
+                    <a href={mail} class="text-green-800 hover:underline">{contact.email}</a>
+                  ) : (
+                    contact.email
+                  )}
+                </>
+              ) : null}
+            </p>
+            {
+              (contact.interests.length > 0 || contact.location) && (
+                <p class="mt-1 text-sm text-slate-600">
+                  {contact.interests.map(interestLabel).join(', ')}
+                  {contact.interests.length > 0 && contact.location ? ' · ' : ''}
+                  {contact.location}
+                </p>
+              )
+            }
+          </div>
+          <a
+            href={`/admin/create-order?contactId=${encodeURIComponent(contact.id)}`}
+            class="inline-flex min-h-12 items-center rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800"
+          >
+            Create order
+          </a>
+        </div>
+
+        <div class="mb-10 grid grid-cols-1 items-start gap-8 lg:grid-cols-5">
+          <section class="min-w-0 lg:col-span-3" aria-labelledby="interactions-heading">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 id="interactions-heading" class="text-lg font-semibold text-slate-900">Interactions</h2>
+              <a
+                href={dateSortHref}
+                class:list={[
+                  'inline-flex min-h-12 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
+                  listQuery.dir === 'asc'
+                    ? 'border-green-700 bg-green-50 text-green-900'
+                    : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
+                ]}
+              >
+                Date
+                <span class={listQuery.dir === 'asc' ? 'font-normal' : 'font-normal text-slate-600'}>
+                  {dateSortLabel}
+                </span>
+                <span aria-hidden="true">{listQuery.dir === 'asc' ? '↑' : '↓'}</span>
+              </a>
+            </div>
+            <div class="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filter by type">
+              {typeFilters.map((option) => (
+                <a
+                  href={listHref({ type: option.type })}
+                  aria-current={listQuery.type === option.type ? 'true' : undefined}
+                  class:list={[
+                    'inline-flex min-h-12 items-center rounded-lg border px-3 text-sm font-medium',
+                    listQuery.type === option.type
+                      ? 'border-green-700 bg-green-50 text-green-900'
+                      : 'border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
+                  ]}
+                >
+                  {option.label}
+                </a>
+              ))}
+            </div>
+            <p id="follow-up-error" class="mb-4 hidden text-sm text-red-700" role="alert"></p>
+            {contact.interactions.length === 0 ? (
+              <p class="text-slate-600">No interactions yet.</p>
+            ) : visibleInteractions.length === 0 ? (
+              <p class="text-slate-600">No {emptyTypeLabel}.</p>
+            ) : (
+              <ol class="space-y-3">
+                {visibleInteractions.map((interaction) => (
+                  <li class="min-w-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                    <div class="flex flex-wrap items-baseline justify-between gap-2">
+                      <p class="font-medium text-slate-900">{channelLabel(interaction.channel)}</p>
+                      <p class="text-sm text-slate-600">{formatCentralDateTime(interaction.createdAt)}</p>
+                    </div>
+                    <p class="mt-2 whitespace-pre-wrap break-words text-slate-800">{interaction.summary}</p>
+                    {interaction.followUpOn && (
+                      <p class="mt-2 text-sm text-slate-700">
+                        Follow up {formatFollowUpDay(interaction.followUpOn)}
+                        {interaction.followUpDoneAt && (
+                          <>
+                            {' '}
+                            · done {formatCentralDateTime(interaction.followUpDoneAt)}{' '}
+                            <button
+                              type="button"
+                              class="ml-1 inline-flex min-h-12 items-center text-sm font-medium text-slate-700 hover:text-slate-900 disabled:opacity-50"
+                              data-reopen-follow-up
+                              data-contact-id={contact.id}
+                              data-interaction-id={interaction.id}
+                            >
+                              Undo
+                            </button>
+                          </>
+                        )}
+                      </p>
+                    )}
+                    <div class="mt-3 flex flex-wrap gap-3">
+                      {interaction.orderId && orderIds.has(interaction.orderId) && (
+                        <a
+                          href={`/admin/orders/${interaction.orderId}`}
+                          class="inline-flex min-h-12 items-center text-sm font-medium text-green-800 hover:underline"
+                        >
+                          View order
+                        </a>
+                      )}
+                      {interaction.followUpOn && !interaction.followUpDoneAt && (
+                        <button
+                          type="button"
+                          class="inline-flex min-h-12 items-center text-sm font-medium text-slate-700 hover:text-slate-900 disabled:opacity-50"
+                          data-complete-follow-up
+                          data-contact-id={contact.id}
+                          data-interaction-id={interaction.id}
+                        >
+                          Mark follow-up done
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </section>
+
+          <div class="flex min-w-0 flex-col gap-8 lg:sticky lg:top-4 lg:col-span-2 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain">
+            <form
+              id="add-interaction-form"
+              class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+              aria-labelledby="add-interaction-heading"
+            >
+              <h2 id="add-interaction-heading" class="text-lg font-semibold text-slate-900">Log your interaction</h2>
+              <input type="hidden" name="contactId" value={contact.id} />
+              <fieldset class="mt-4">
+                <legend class="text-sm font-medium text-slate-700">How you heard from them</legend>
+                <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                  {INTERACTION_CHANNELS.map((channel) => (
+                    <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50">
+                      <input type="radio" name="channel" value={channel} checked={channel === 'phone'} required />
+                      {channelLabel(channel)}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div class="mt-4">
+                <label for="summary" class="mb-1 block text-sm font-medium text-slate-700">
+                  What they said <span aria-hidden="true">*</span>
+                </label>
+                <textarea
+                  id="summary"
+                  name="summary"
+                  required
+                  rows="4"
+                  maxlength="4000"
+                  class="min-h-28 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+                ></textarea>
+              </div>
+              <div class="mt-4">
+                <label for="followUpOn" class="mb-1 block text-sm font-medium text-slate-700">Follow up on</label>
+                <input
+                  id="followUpOn"
+                  name="followUpOn"
+                  type="date"
+                  class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+                />
+              </div>
+              <p id="log-error" class="mt-4 hidden text-sm text-red-700" role="alert"></p>
+              <button
+                id="save-interaction"
+                type="submit"
+                class="mt-4 inline-flex min-h-12 items-center rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+              >
+                Save interaction
+              </button>
+            </form>
+
+            <section aria-labelledby="orders-heading">
+              <h2 id="orders-heading" class="mb-3 text-lg font-semibold text-slate-900">Orders</h2>
+              {contactOrders.length === 0 ? (
+                <p class="text-slate-600">No orders yet.</p>
+              ) : (
+                <ul class="space-y-3">
+                  {contactOrders.map((order) => (
+                    <li>
+                      <a
+                        href={`/admin/orders/${order.id}`}
+                        class="block min-h-12 rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-green-300"
+                      >
+                        <div class="flex flex-wrap items-baseline justify-between gap-2">
+                          <p class="font-medium text-green-800">{formatUsd(order.discountedSubtotal)}</p>
+                          <p class="text-sm capitalize text-slate-600">{order.status}</p>
+                        </div>
+                        <p class="mt-1 text-sm text-slate-600">{formatCentralDateTime(order.createdAt)}</p>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
+        </div>
+
+        <details class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+          <summary id="edit-contact-heading" class="flex min-h-12 cursor-pointer items-center text-lg font-semibold text-slate-900">
+            Edit name, phone, or email
+          </summary>
+          <form id="edit-contact-form" class="mt-4 space-y-4" aria-labelledby="edit-contact-heading">
+            <input type="hidden" name="contactId" value={contact.id} />
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label for="firstName" class="mb-1 block text-sm font-medium text-slate-700">
+                  First name <span aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  maxlength="80"
+                  autocomplete="given-name"
+                  value={contact.firstName}
+                  class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+                />
+              </div>
+              <div>
+                <label for="lastName" class="mb-1 block text-sm font-medium text-slate-700">
+                  Last name <span aria-hidden="true">*</span>
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  maxlength="80"
+                  autocomplete="family-name"
+                  value={contact.lastName}
+                  class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+                />
+              </div>
+            </div>
+            <div>
+              <label for="phone" class="mb-1 block text-sm font-medium text-slate-700">Phone</label>
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                maxlength="40"
+                autocomplete="tel"
+                inputmode="tel"
+                value={contact.phone}
+                class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+              />
+            </div>
+            <div>
+              <label for="email" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                maxlength="200"
+                autocomplete="email"
+                inputmode="email"
+                autocapitalize="none"
+                spellcheck="false"
+                value={contact.email}
+                class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+              />
+            </div>
+            <InterestSelect id="edit-interests" selected={contact.interests} />
+            <div>
+              <label for="location" class="mb-1 block text-sm font-medium text-slate-700">Location</label>
+              <input
+                id="location"
+                name="location"
+                type="text"
+                maxlength="120"
+                autocomplete="off"
+                value={contact.location}
+                aria-describedby="location-help"
+                class="min-h-12 w-full rounded border border-slate-300 px-3 py-3 text-base text-slate-900"
+              />
+              <p id="location-help" class="mt-1 text-sm text-slate-600">City, state, or whatever fits.</p>
+            </div>
+            <p id="edit-error" class="hidden text-sm text-red-700" role="alert"></p>
+            <button
+              id="save-contact"
+              type="submit"
+              class="inline-flex min-h-12 items-center rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+            >
+              Save contact
+            </button>
+          </form>
+        </details>
+      </>
+    )
+  }
+
+  <script>
+    function showError(id: string, text: string) {
+      const el = document.getElementById(id);
+      if (!(el instanceof HTMLElement)) return;
+      el.textContent = text;
+      el.classList.remove('hidden');
+    }
+
+    function clearError(id: string) {
+      const el = document.getElementById(id);
+      if (!(el instanceof HTMLElement)) return;
+      el.textContent = '';
+      el.classList.add('hidden');
+    }
+
+    async function postForm(form: HTMLFormElement, url: string, errorId: string, buttonId: string) {
+      if (!form.reportValidity()) return;
+      const button = document.getElementById(buttonId);
+      if (button instanceof HTMLButtonElement) button.disabled = true;
+      clearError(errorId);
+      const data = new FormData(form);
+      const payload: Record<string, string | string[]> = {};
+      const tracksInterests = form.querySelector('input[name="interests"]') != null;
+      if (tracksInterests) payload.interests = [];
+      for (const [key, value] of data.entries()) {
+        if (typeof value !== 'string') continue;
+        if (key === 'interests') {
+          const current = payload.interests;
+          payload.interests = Array.isArray(current) ? [...current, value] : [value];
+        } else {
+          payload[key] = value;
+        }
+      }
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          window.location.reload();
+          return;
+        }
+        showError(errorId, body.error || 'Could not save.');
+        if (button instanceof HTMLButtonElement) button.disabled = false;
+      } catch {
+        showError(errorId, 'Could not save (network error).');
+        if (button instanceof HTMLButtonElement) button.disabled = false;
+      }
+    }
+
+    document.getElementById('add-interaction-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      if (form instanceof HTMLFormElement) {
+        void postForm(form, '/api/admin/log-interaction', 'log-error', 'save-interaction');
+      }
+    });
+
+    document.getElementById('edit-contact-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      if (form instanceof HTMLFormElement) {
+        void postForm(form, '/api/admin/update-contact', 'edit-error', 'save-contact');
+      }
+    });
+  </script>
+</AdminLayout>

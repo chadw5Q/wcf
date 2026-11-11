@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { attachOrderToContact } from '../../lib/contacts';
 import { buildStoredOrder, saveOrder, type BuildOrderInput } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
 import { getProductsConfig, orderSkusToMap } from '../../lib/products-config';
@@ -85,6 +86,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   await saveOrder(kv, order);
+
+  try {
+    await attachOrderToContact(kv, order, { channel: 'web' });
+  } catch (err) {
+    console.error('Failed to attach order to contact', err);
+  }
 
   // ntfy is sent from POST /api/send-order-email after admin + customer emails succeed,
   // so one reliable push (same request as Resend) and inquiry + deposit flows behave the same.
