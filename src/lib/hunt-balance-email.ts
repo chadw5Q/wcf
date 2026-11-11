@@ -70,7 +70,7 @@ export async function sendHuntBalanceConfirmationEmails(r: HuntReservation): Pro
     getServerEnv('RESEND_FROM') ||
     (import.meta.env.DEV
       ? 'Williams Creek Whitetails <onboarding@resend.dev>'
-      : 'Williams Creek Whitetails <cchadww@gmail.com>');
+      : 'Williams Creek Whitetails <orders@williamscreekfarms.com>');
   const html = buildHuntBalanceEmailHtml(r);
   const subject = huntBalanceEmailSubject(r);
   const resend = new Resend(apiKey);

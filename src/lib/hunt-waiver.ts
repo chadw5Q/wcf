@@ -186,11 +186,12 @@ export async function sendHuntWaiverNotifyEmail(r: HuntWaiverRecord): Promise<bo
     return false;
   }
   const to = getServerEnv('HUNT_NOTIFY_EMAIL')?.trim() || 'cchadww@gmail.com';
+  // Production must use a Resend-verified domain (gmail.com is rejected as From).
   const fromAddress =
     getServerEnv('RESEND_FROM') ||
     (import.meta.env.DEV
       ? 'Williams Creek Whitetails <onboarding@resend.dev>'
-      : 'Williams Creek Whitetails <cchadww@gmail.com>');
+      : 'Williams Creek Whitetails <orders@williamscreekfarms.com>');
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from: fromAddress,

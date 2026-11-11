@@ -19,7 +19,7 @@ export async function sendHuntPortalLinkEmail(opts: {
     getServerEnv('RESEND_FROM') ||
     (import.meta.env.DEV
       ? 'Williams Creek Whitetails <onboarding@resend.dev>'
-      : 'Williams Creek Whitetails <cchadww@gmail.com>');
+      : 'Williams Creek Whitetails <orders@williamscreekfarms.com>');
   const resend = new Resend(apiKey);
   const name = `${opts.hunter.firstName} ${opts.hunter.lastName}`.trim();
   const weekLabel =

@@ -77,7 +77,7 @@ export async function sendHuntDepositConfirmationEmails(r: HuntReservation): Pro
     getServerEnv('RESEND_FROM') ||
     (import.meta.env.DEV
       ? 'Williams Creek Whitetails <onboarding@resend.dev>'
-      : 'Williams Creek Whitetails <cchadww@gmail.com>');
+      : 'Williams Creek Whitetails <orders@williamscreekfarms.com>');
   const html = buildHuntDepositEmailHtml(r);
   const subject = huntDepositEmailSubject(r);
   const resend = new Resend(apiKey);
@@ -105,7 +105,9 @@ export async function notifyChadNewHuntReservation(r: HuntReservation): Promise<
   }
   const fromAddress =
     getServerEnv('RESEND_FROM') ||
-    (import.meta.env.DEV ? 'Williams Creek Whitetails <onboarding@resend.dev>' : 'Williams Creek Whitetails <cchadww@gmail.com>');
+    (import.meta.env.DEV
+      ? 'Williams Creek Whitetails <onboarding@resend.dev>'
+      : 'Williams Creek Whitetails <orders@williamscreekfarms.com>');
   const resend = new Resend(apiKey);
   const body = `New hunt deposit paid.\nReservation id: ${r.id}\nYear: ${r.huntYear}\nWeek: ${r.preferredWeek}\nHunters: ${r.hunterCount}\nTotal: $${r.totalHuntCost}\nDeposit: $${r.totalDeposit}\nAdmin: review KV key reservation:${r.id}`;
   const { error } = await resend.emails.send({
