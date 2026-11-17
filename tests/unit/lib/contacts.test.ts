@@ -2,16 +2,19 @@ import { describe, expect, it } from 'vitest';
 import {
   attachOrderToContact,
   centralToday,
+  channelLabel,
   completeFollowUp,
   ContactError,
   reopenFollowUp,
   contactListQuery,
   filterAndSortInteractions,
   filterContacts,
+  INTERACTION_CHANNELS,
   interactionListSearch,
   linkOrdersMissingContacts,
   listOpenFollowUps,
   logInteraction,
+  MANUAL_LOG_CHANNELS,
   parseContactListSort,
   parseInteractionListQuery,
   phoneKey,
@@ -423,6 +426,18 @@ function listedInteraction(
     ...partial,
   };
 }
+
+describe('interaction channels', () => {
+  it('labels email and keeps walk-in as a stored, filterable channel', () => {
+    expect(MANUAL_LOG_CHANNELS).toEqual(['phone', 'web', 'email', 'note']);
+    expect(INTERACTION_CHANNELS).toEqual(['phone', 'web', 'email', 'walk-in', 'note']);
+    expect(channelLabel('email')).toBe('Email');
+    expect(channelLabel('walk-in')).toBe('Walk-in');
+    expect(parseInteractionListQuery({ type: 'email' }).type).toBe('email');
+    expect(parseInteractionListQuery({ type: 'walk-in' }).type).toBe('walk-in');
+    expect(interactionListSearch({ dir: 'desc', type: 'email' })).toBe('?sort=date&dir=desc&type=email');
+  });
+});
 
 describe('interaction list view', () => {
   const stored = [

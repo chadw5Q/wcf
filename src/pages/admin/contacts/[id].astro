@@ -4,6 +4,7 @@ import InterestSelect from '../../../components/admin/InterestSelect.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import {
   INTERACTION_CHANNELS,
+  MANUAL_LOG_CHANNELS,
   channelLabel,
   filterAndSortInteractions,
   formatFollowUpDay,
@@ -232,9 +233,19 @@ const emptyTypeLabel =
               <fieldset class="mt-4">
                 <legend class="text-sm font-medium text-slate-700">How you heard from them</legend>
                 <div class="mt-2 grid gap-2 sm:grid-cols-2">
-                  {INTERACTION_CHANNELS.map((channel) => (
-                    <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50">
-                      <input type="radio" name="channel" value={channel} checked={channel === 'phone'} required />
+                  {MANUAL_LOG_CHANNELS.map((channel) => (
+                    <label
+                      for={`log-channel-${channel}`}
+                      class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50"
+                    >
+                      <input
+                        id={`log-channel-${channel}`}
+                        type="radio"
+                        name="channel"
+                        value={channel}
+                        checked={channel === 'phone'}
+                        required
+                      />
                       {channelLabel(channel)}
                     </label>
                   ))}

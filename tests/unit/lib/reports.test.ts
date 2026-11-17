@@ -9,6 +9,7 @@ import {
   isYtdRange,
   niceAxisMax,
   summarizeOrdersForReport,
+  summarizeProductSales,
 } from '../../../src/lib/reports';
 
 function makeOrder(over: Partial<StoredOrder> & Pick<StoredOrder, 'id' | 'createdAt' | 'status'>): StoredOrder {
@@ -315,5 +316,215 @@ describe('reports aggregations', () => {
     expect(niceAxisMax(3)).toBe(5);
     expect(niceAxisMax(12)).toBe(20);
     expect(niceAxisMax(842)).toBe(1000);
+  });
+});
+
+describe('summarizeProductSales', () => {
+  it('groups dollars and volume by catalog label, including bow staves', () => {
+    const orders = [
+      makeOrder({
+        id: 'a',
+        createdAt: '2026-06-01T17:00:00.000Z',
+        status: 'fulfilled',
+        subtotal: 550,
+        discountedSubtotal: 550,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 10,
+            unitPrice: 20,
+            lineTotal: 200,
+          },
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 5,
+            unitPrice: 20,
+            lineTotal: 100,
+          },
+          {
+            product: 'Bow',
+            fieldName: 'bowStave',
+            quantity: 2,
+            unitPrice: 125,
+            lineTotal: 250,
+          },
+          {
+            product: 'Empty',
+            fieldName: 'regularCorner',
+            quantity: 0,
+            unitPrice: 15,
+            lineTotal: 0,
+          },
+        ],
+      }),
+      makeOrder({
+        id: 'b',
+        createdAt: '2026-06-02T17:00:00.000Z',
+        status: 'pending',
+        subtotal: 40,
+        discountedSubtotal: 40,
+        items: [
+          {
+            product: 'R',
+            fieldName: 'regularLine',
+            quantity: 4,
+            unitPrice: 10,
+            lineTotal: 40,
+          },
+        ],
+      }),
+    ];
+
+    const rows = summarizeProductSales(orders);
+    expect(rows.map((r) => r.fieldName)).toEqual(['premiumLine', 'bowStave', 'regularLine']);
+    expect(rows.map((r) => r.label)).toEqual([
+      'Premium Line Posts',
+      'Traditional Bow Stave Logs',
+      'Regular Line Posts',
+    ]);
+
+    const bow = rows.find((r) => r.fieldName === 'bowStave')!;
+    const premium = rows.find((r) => r.fieldName === 'premiumLine')!;
+    const regular = rows.find((r) => r.fieldName === 'regularLine')!;
+    expect(bow).toMatchObject({ dollars: 250, volume: 2 });
+    expect(premium).toMatchObject({ dollars: 300, volume: 15 });
+    expect(regular).toMatchObject({ dollars: 40, volume: 4 });
+    expect(countOrderPosts(orders[0]!)).toBe(15);
+    expect(rows.reduce((sum, r) => sum + r.dollars, 0)).toBe(590);
+    expect(rows.reduce((sum, r) => sum + r.volume, 0)).toBe(21);
+  });
+
+  it('splits discounted income by pre-discount line total and sorts by the selected metric', () => {
+    const orders = [
+      makeOrder({
+        id: 'disc',
+        createdAt: '2026-07-01T17:00:00.000Z',
+        status: 'fulfilled',
+        subtotal: 300,
+        discountedSubtotal: 10,
+        volumeDiscount: { applied: true, amount: 290, mode: 'fixed', rate: 0 },
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 5,
+            unitPrice: 20,
+            lineTotal: 100,
+          },
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 5,
+            unitPrice: 20,
+            lineTotal: 100,
+          },
+          {
+            product: 'R',
+            fieldName: 'regularLine',
+            quantity: 30,
+            unitPrice: 10 / 3,
+            lineTotal: 100,
+          },
+        ],
+      }),
+    ];
+
+    const byDollars = summarizeProductSales(orders);
+    expect(byDollars.map((r) => r.fieldName)).toEqual(['premiumLine', 'regularLine']);
+    expect(byDollars[0]).toMatchObject({ dollars: 6.67, volume: 10 });
+    expect(byDollars[1]).toMatchObject({ dollars: 3.33, volume: 30 });
+    expect(byDollars[0]!.dollars + byDollars[1]!.dollars).toBe(10);
+
+    const byVolume = summarizeProductSales(orders, { metric: 'volume' });
+    expect(byVolume.map((r) => r.fieldName)).toEqual(['regularLine', 'premiumLine']);
+    expect(byVolume[0]!.volume).toBe(30);
+    expect(byVolume[1]!.dollars).toBe(6.67);
+  });
+
+  it('includes canceled orders, matching the Total card', () => {
+    // Total income counts every order in range, including canceled.
+    // Product sales follow that rule (not the Fulfilled card).
+    const orders = [
+      makeOrder({
+        id: 'ok',
+        createdAt: '2026-08-01T17:00:00.000Z',
+        status: 'fulfilled',
+        subtotal: 100,
+        discountedSubtotal: 100,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 10,
+            unitPrice: 10,
+            lineTotal: 100,
+          },
+        ],
+      }),
+      makeOrder({
+        id: 'canceled',
+        createdAt: '2026-08-02T17:00:00.000Z',
+        status: 'canceled',
+        subtotal: 40,
+        discountedSubtotal: 40,
+        items: [
+          {
+            product: 'R',
+            fieldName: 'regularLine',
+            quantity: 4,
+            unitPrice: 10,
+            lineTotal: 40,
+          },
+        ],
+      }),
+    ];
+
+    const summary = summarizeOrdersForReport(orders);
+    const rows = summarizeProductSales(orders);
+    const regular = rows.find((r) => r.fieldName === 'regularLine');
+
+    expect(summary.total.income).toBe(140);
+    expect(summary.total.orderCount).toBe(2);
+    expect(summary.canceled.income).toBe(40);
+    expect(summary.fulfilled.income).toBe(100);
+    expect(regular).toMatchObject({ dollars: 40, volume: 4, label: 'Regular Line Posts' });
+    expect(rows.reduce((sum, r) => sum + r.dollars, 0)).toBe(summary.total.income);
+    expect(rows.reduce((sum, r) => sum + r.volume, 0)).toBe(14);
+  });
+
+  it('uses a caller label override and falls back to the stored product name', () => {
+    const orders = [
+      makeOrder({
+        id: 'labels',
+        createdAt: '2026-09-01T17:00:00.000Z',
+        status: 'pending',
+        subtotal: 30,
+        discountedSubtotal: 30,
+        items: [
+          {
+            product: 'P',
+            fieldName: 'premiumLine',
+            quantity: 1,
+            unitPrice: 20,
+            lineTotal: 20,
+          },
+          {
+            product: 'Odd Lot',
+            fieldName: 'mysterySku' as 'premiumLine',
+            quantity: 1,
+            unitPrice: 10,
+            lineTotal: 10,
+          },
+        ],
+      }),
+    ];
+
+    const rows = summarizeProductSales(orders, {
+      labels: { premiumLine: 'Farm Premium' },
+    });
+    expect(rows.find((r) => r.fieldName === 'premiumLine')!.label).toBe('Farm Premium');
+    expect(rows.find((r) => r.fieldName === 'mysterySku')!.label).toBe('Odd Lot');
   });
 });

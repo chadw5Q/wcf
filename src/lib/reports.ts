@@ -1,4 +1,5 @@
-import type { StoredOrder } from './order-types';
+import type { OrderLineItem, StoredOrder } from './order-types';
+import { getDefaultOrderSkuMap, type OrderCheckoutKey } from './products-config';
 
 /** Calendar date YYYY-MM-DD for `instant` in America/Chicago. */
 export function dateKeyCentral(isoOrMs: string | number): string {
@@ -225,4 +226,196 @@ export function formatAxisMoney(n: number): string {
     return `$${rounded}k`;
   }
   return `$${Math.round(n)}`;
+}
+
+export type ProductSalesMetric = 'dollars' | 'volume';
+
+export interface ProductSalesRow {
+  fieldName: string;
+  /** Catalog label (or the stored line label when the field is unknown). */
+  label: string;
+  /**
+   * This product’s share of order income after volume discount.
+   * Sums to the same income as the Total card for orders that have line items.
+   */
+  dollars: number;
+  /** Units sold. Includes bow staves. */
+  volume: number;
+}
+
+const DEFAULT_PRODUCT_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(getDefaultOrderSkuMap()).map(([key, row]) => [key, row.label])
+);
+
+function catalogLabel(
+  fieldName: string,
+  storedProduct: string | undefined,
+  labels: Partial<Record<string, string>> | undefined
+): string {
+  const override = labels?.[fieldName]?.trim();
+  if (override) return override;
+  const catalog = DEFAULT_PRODUCT_LABELS[fieldName as OrderCheckoutKey];
+  if (catalog) return catalog;
+  const stored = storedProduct?.trim();
+  if (stored) return stored;
+  return fieldName;
+}
+
+/** Pre-discount line amount used only as the weight for splitting income. */
+function lineWeight(item: OrderLineItem): number {
+  const line = Number(item.lineTotal);
+  if (Number.isFinite(line)) return Math.max(0, line);
+  const qty = Math.max(0, Number(item.quantity) || 0);
+  const price = Math.max(0, Number(item.unitPrice) || 0);
+  return qty * price;
+}
+
+/**
+ * Split `totalCents` across `weights` so the parts sum to `totalCents`.
+ * Weights are non-negative. A zero total (or no positive weight and a zero
+ * total) yields zeros. When every weight is 0 and the total is positive,
+ * cents are split evenly so income is not dropped.
+ */
+function allocateCents(totalCents: number, weights: number[]): number[] {
+  const n = weights.length;
+  if (n === 0) return [];
+  if (!Number.isFinite(totalCents) || totalCents <= 0) return Array(n).fill(0);
+
+  const units = weights.map((w) =>
+    Number.isFinite(w) && w > 0 ? Math.max(0, Math.round(w * 100)) : 0
+  );
+  const unitSum = units.reduce((sum, u) => sum + u, 0);
+
+  if (unitSum <= 0) {
+    const base = Math.floor(totalCents / n);
+    let rem = totalCents - base * n;
+    return units.map((_, i) => base + (i < rem ? 1 : 0));
+  }
+
+  const floors: number[] = [];
+  const remainders: { i: number; rem: number }[] = [];
+  let used = 0;
+  for (let i = 0; i < n; i++) {
+    const numer = units[i]! * totalCents;
+    const base = Math.floor(numer / unitSum);
+    floors.push(base);
+    remainders.push({ i, rem: numer % unitSum });
+    used += base;
+  }
+  let leftover = totalCents - used;
+  remainders.sort((a, b) => b.rem - a.rem || a.i - b.i);
+  for (const entry of remainders) {
+    if (leftover <= 0) break;
+    floors[entry.i]! += 1;
+    leftover -= 1;
+  }
+  return floors;
+}
+
+export interface ProductSalesOptions {
+  /** Sort key. Defaults to dollars. Does not change the figures. */
+  metric?: ProductSalesMetric;
+  /** Live catalog labels, keyed by checkout field name. */
+  labels?: Partial<Record<string, string>>;
+}
+
+/**
+ * Product sales for orders already limited to the report range.
+ *
+ * Volume is the sum of line quantities, including bow staves (unlike
+ * `countOrderPosts`, which skips them).
+ *
+ * Dollars are not the raw line totals. Each order’s `discountedSubtotal`
+ * — the same income figure the Total card uses — is split across its
+ * products in proportion to pre-discount `lineTotal` (quantity × unit
+ * price). The order-level volume discount is therefore shared, and the
+ * product dollars for an order sum to that order’s income.
+ *
+ * Every status is included, matching the Total card (canceled orders stay in).
+ * Products with neither units nor dollars are omitted.
+ */
+export function summarizeProductSales(
+  orders: StoredOrder[],
+  options?: ProductSalesOptions
+): ProductSalesRow[] {
+  const totals = new Map<
+    string,
+    { fieldName: string; label: string; cents: number; volume: number }
+  >();
+
+  for (const order of orders) {
+    const groups = new Map<
+      string,
+      { fieldName: string; label: string; weight: number; volume: number }
+    >();
+
+    for (const item of order.items) {
+      const fieldName = String(item.fieldName || '').trim();
+      if (!fieldName) continue;
+      const volume = Math.max(0, Number(item.quantity) || 0);
+      const weight = lineWeight(item);
+      if (volume === 0 && weight <= 0) continue;
+
+      const existing = groups.get(fieldName);
+      if (existing) {
+        existing.volume += volume;
+        existing.weight += weight;
+      } else {
+        groups.set(fieldName, {
+          fieldName,
+          label: catalogLabel(fieldName, item.product, options?.labels),
+          weight,
+          volume,
+        });
+      }
+    }
+
+    const grouped = [...groups.values()];
+    if (grouped.length === 0) continue;
+
+    const targetCents = Math.round((Number(order.discountedSubtotal) || 0) * 100);
+    const sign = targetCents < 0 ? -1 : 1;
+    const shares = allocateCents(
+      Math.abs(targetCents),
+      grouped.map((g) => g.weight)
+    );
+
+    grouped.forEach((group, i) => {
+      const cents = (shares[i] ?? 0) * sign;
+      const acc = totals.get(group.fieldName);
+      if (acc) {
+        acc.cents += cents;
+        acc.volume += group.volume;
+      } else {
+        totals.set(group.fieldName, {
+          fieldName: group.fieldName,
+          label: group.label,
+          cents,
+          volume: group.volume,
+        });
+      }
+    });
+  }
+
+  const metric: ProductSalesMetric = options?.metric === 'volume' ? 'volume' : 'dollars';
+  const rows: ProductSalesRow[] = [];
+  for (const acc of totals.values()) {
+    if (acc.volume === 0 && acc.cents === 0) continue;
+    rows.push({
+      fieldName: acc.fieldName,
+      label: acc.label,
+      dollars: acc.cents / 100,
+      volume: acc.volume,
+    });
+  }
+
+  rows.sort((a, b) => {
+    const diff = metric === 'volume' ? b.volume - a.volume : b.dollars - a.dollars;
+    if (diff !== 0) return diff;
+    const byLabel = a.label.localeCompare(b.label, 'en');
+    if (byLabel !== 0) return byLabel;
+    return a.fieldName.localeCompare(b.fieldName);
+  });
+
+  return rows;
 }

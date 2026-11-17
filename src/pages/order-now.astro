@@ -3,7 +3,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import { getOrdersKvFromLocals } from '../lib/orders-kv';
 import {
-  ORDER_CHECKOUT_KEYS,
+  VISIBLE_ORDER_CHECKOUT_KEYS,
   getOrderSkuImageSrc,
   getProductsConfig,
   orderSkusToMap,
@@ -28,8 +28,11 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
         <h1 class="text-4xl md:text-5xl font-bold mb-6">
           Order Your Hedge Posts
         </h1>
+        <p class="mb-6 inline-block rounded-full bg-white/15 px-5 py-2 text-lg font-semibold text-white ring-1 ring-white/30">
+          Now receiving pre-orders for 2027. Cutting starts mid-January.
+        </p>
         <p class="text-xl text-green-100 max-w-3xl mx-auto">
-          Ready to get started with your fencing project? Place your order today 
+          Ready to get started with your fencing project? Place your pre-order today 
           and secure your fresh cut hedge posts.
         </p>
       </div>
@@ -95,7 +98,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
               <p class="text-sm text-gray-700 mb-4">Don't worry, you can come to our farm and pick out your posts before paying the full amount.  <strong>Payment NOT required now.</strong></p>
               
               {
-                ORDER_CHECKOUT_KEYS.map((key) => {
+                VISIBLE_ORDER_CHECKOUT_KEYS.map((key) => {
                   const sku = skuByField[key];
                   const soldOut = sku.soldOut;
                   return (

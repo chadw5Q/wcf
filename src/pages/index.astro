@@ -49,6 +49,9 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
             </a>.
           </p>
 
+          <p class="mb-8 inline-block rounded-lg bg-green-600/90 px-4 py-2 text-lg font-semibold text-white">
+            Now receiving pre-orders for 2027 &mdash; cutting starts mid-January.
+          </p>
 
           <div class="flex flex-col sm:flex-row gap-4">
             <a href="#pricing-content" class="btn-primary text-center">
@@ -256,6 +259,9 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         <p class="text-xl text-gray-600">
           All posts are 9ft long. Fresh cut for easy nailing and stapling.
         </p>
+        <p class="mt-6 inline-block rounded-full bg-green-100 px-5 py-2 font-semibold text-green-800 ring-1 ring-green-300">
+          Now receiving pre-orders for 2027. Cutting starts mid-January.
+        </p>
       </div>
       
       <!-- Premium / regular / bow / discount pricing: same `orderSkus` as /order-now (KV products_config_v1) -->
@@ -276,10 +282,12 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
       </div>
 
       <div class="mb-16">
-        <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Bow Stave Logs & Discount Bin</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        <h3 class="text-2xl font-bold text-gray-900 text-center mb-8">Bow Stave Logs</h3>
+        <div class="grid grid-cols-1 gap-8 max-w-md mx-auto">
           <HomeOrderSkuCard sku={skuMap.bowStave} variant="bow" />
+          {/* No last year's posts this season:
           <HomeOrderSkuCard sku={skuMap.discountBin} variant="discount" />
+          */}
         </div>
       </div>
       
@@ -433,7 +441,7 @@ const homeProductSchemas = buildHomeProductJsonLd(siteBase, productsConfig.order
         <a href="/order-now" class="text-white hover:text-green-200 underline">How many do you need?</a>
       </h2>
       <p class="text-xl mb-8 text-green-100">
-        We typically sell out of our inventory every year. Order now to secure your hedge posts.
+        We typically sell out of our inventory every year. Pre-order now to secure your 2027 hedge posts.
       </p>
       <div class="flex justify-center">
         <a href="/order-now" class="bg-white text-green-600 hover:bg-gray-100 font-semibold py-3 px-8 rounded-lg transition-colors duration-200">

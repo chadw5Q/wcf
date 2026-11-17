@@ -1,8 +1,12 @@
 import type { StoredOrder } from './order-types';
 import { getAllOrders, summarizeItemsForNtfy } from './orders';
 
-export const INTERACTION_CHANNELS = ['phone', 'web', 'walk-in', 'note'] as const;
+/** Every stored channel. Walk-in stays so older orders and logs still match. */
+export const INTERACTION_CHANNELS = ['phone', 'web', 'email', 'walk-in', 'note'] as const;
 export type InteractionChannel = (typeof INTERACTION_CHANNELS)[number];
+
+/** Choices on the manual log forms. Walk-in orders are recorded by create-order. */
+export const MANUAL_LOG_CHANNELS = ['phone', 'web', 'email', 'note'] as const satisfies readonly InteractionChannel[];
 
 /** What a person asked about. Stored on the contact, not on one interaction. */
 export const CONTACT_INTERESTS = ['bow-stave', 'hedge-posts', 'hunting', 'other'] as const;
@@ -97,6 +101,7 @@ export function emailKey(email: string): string {
 
 export function channelLabel(channel: InteractionChannel): string {
   if (channel === 'walk-in') return 'Walk-in';
+  if (channel === 'email') return 'Email';
   if (channel === 'web') return 'Web';
   if (channel === 'phone') return 'Phone';
   return 'Note';

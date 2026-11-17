@@ -13,6 +13,16 @@ export const ORDER_CHECKOUT_KEYS = [
 
 export type OrderCheckoutKey = (typeof ORDER_CHECKOUT_KEYS)[number];
 
+/**
+ * SKUs kept in config (validation requires every key) but not shown on the home page,
+ * /order-now, or product JSON-LD. Remove a key to show it again.
+ */
+export const HIDDEN_ORDER_SKU_KEYS: readonly OrderCheckoutKey[] = ['discountBin'];
+
+export const VISIBLE_ORDER_CHECKOUT_KEYS: readonly OrderCheckoutKey[] = ORDER_CHECKOUT_KEYS.filter(
+  (k) => !HIDDEN_ORDER_SKU_KEYS.includes(k)
+);
+
 /** Fallback images when `orderSkus[].image` is unset (admin can override per line item). */
 export const ORDER_SKU_MARKETING_IMAGES: Record<OrderCheckoutKey, { src: string }> = {
   premiumLine: { src: '/images/posts/premium-line-1.webp' },
@@ -104,14 +114,14 @@ function defaultOrderSkus(): OrderSkuRow[] {
       fieldName: 'premiumLine',
       label: 'Premium Line Posts',
       shortDescription: '3-6" diameter, relatively straight, 9ft long',
-      unitPrice: 15,
+      unitPrice: 20,
       soldOut: false,
     },
     {
       fieldName: 'premiumCorner',
       label: 'Premium Corner/Second Posts',
       shortDescription: '6-12" diameter, relatively straight, 9ft long',
-      unitPrice: 25,
+      unitPrice: 30,
       soldOut: false,
     },
     {
@@ -142,7 +152,7 @@ function defaultOrderSkus(): OrderSkuRow[] {
       shortDescription:
         'Usually around 6" diameter, at least 6 ft long, no knots, hand-selected, pickup only',
       unitPrice: 125,
-      soldOut: true,
+      soldOut: false,
     },
   ];
 }
@@ -214,7 +224,7 @@ export function buildHomeProductJsonLd(
   const orderUrl = `${site}/order-now`;
   const bowUrl = `${site}/osage-bow-staves`;
 
-  return ORDER_CHECKOUT_KEYS.map((key) => {
+  return VISIBLE_ORDER_CHECKOUT_KEYS.map((key) => {
     const sku = map[key];
     const url = key === 'bowStave' ? bowUrl : orderUrl;
     const inStock = !sku.soldOut;

@@ -4,6 +4,7 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { getAllOrders } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
 import { formatUsd } from '../../lib/format-order';
+import { getProductsConfig } from '../../lib/products-config';
 import {
   buildCumulativeSeries,
   defaultReportRangeYmd,
@@ -12,6 +13,9 @@ import {
   isYtdRange,
   niceAxisMax,
   summarizeOrdersForReport,
+  summarizeProductSales,
+  type ProductSalesMetric,
+  type ProductSalesRow,
 } from '../../lib/reports';
 
 const kv = getOrdersKvFromLocals(Astro.locals);
@@ -22,12 +26,19 @@ const defaults = defaultReportRangeYmd();
 const fromParam = Astro.url.searchParams.get('from')?.trim() || defaults.from;
 const toParam = Astro.url.searchParams.get('to')?.trim() || defaults.to;
 const rangeIsYtd = isYtdRange(fromParam, toParam);
+const metricParam = Astro.url.searchParams.get('metric')?.trim().toLowerCase();
+const metric: ProductSalesMetric = metricParam === 'volume' ? 'volume' : 'dollars';
 
 const inRange = kvMissing
   ? []
   : filterOrdersByCentralDateRange(allOrders, fromParam, toParam);
 
 const summary = summarizeOrdersForReport(inRange);
+const productsConfig = await getProductsConfig(kv);
+const productLabels = Object.fromEntries(
+  productsConfig.orderSkus.map((sku) => [sku.fieldName, sku.label])
+);
+const productSales = summarizeProductSales(inRange, { metric, labels: productLabels });
 const chartPoints = buildCumulativeSeries(inRange, {
   rangeFrom: fromParam,
   rangeTo: toParam,
@@ -102,7 +113,36 @@ const chartLabels = chartPoints
   }))
   .filter((p) => p.show);
 
-const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURIComponent(defaults.to)}`;
+function reportHref(rangeFrom: string, rangeTo: string, nextMetric: ProductSalesMetric): string {
+  const params = new URLSearchParams();
+  params.set('from', rangeFrom);
+  params.set('to', rangeTo);
+  if (nextMetric === 'volume') params.set('metric', 'volume');
+  return `?${params.toString()}`;
+}
+
+const ytdHref = reportHref(defaults.from, defaults.to, metric);
+const dollarsHref = reportHref(fromParam, toParam, 'dollars');
+const volumeHref = reportHref(fromParam, toParam, 'volume');
+
+const productMetricMax = productSales.reduce((max, row) => {
+  const value = metric === 'volume' ? row.volume : row.dollars;
+  return Math.max(max, value);
+}, 0);
+
+function productBarPercent(row: ProductSalesRow): number {
+  if (productMetricMax <= 0) return 0;
+  const value = metric === 'volume' ? row.volume : row.dollars;
+  return (value / productMetricMax) * 100;
+}
+
+function formatProductMetric(row: ProductSalesRow): string {
+  return metric === 'volume' ? row.volume.toLocaleString('en-US') : formatUsd(row.dollars);
+}
+
+function formatVolume(n: number): string {
+  return n.toLocaleString('en-US');
+}
 ---
 
 <AdminLayout title="Reports — Admin">
@@ -125,6 +165,7 @@ const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURICompon
   <!-- Date range -->
   <div class="no-print mb-8 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
     <form method="get" class="flex flex-wrap items-end gap-3">
+      {metric === 'volume' && <input type="hidden" name="metric" value="volume" />}
       <div class="flex flex-wrap gap-2">
         <a
           href={ytdHref}
@@ -401,5 +442,118 @@ const ytdHref = `?from=${encodeURIComponent(defaults.from)}&to=${encodeURICompon
       Dual-axis step chart by order date (Central): black = cumulative posts (excludes bow stave
       logs), green = cumulative income.
     </p>
+  </div>
+
+  <!-- Product sales -->
+  <div class="mt-10 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h2 id="product-sales-heading" class="text-lg font-semibold text-slate-900">Sales by product</h2>
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Sales metric">
+        <a
+          href={dollarsHref}
+          class:list={[
+            'inline-flex items-center rounded border px-3 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-800',
+            metric === 'dollars'
+              ? 'border-green-700 bg-green-700 text-white'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+          ]}
+          aria-current={metric === 'dollars' ? 'true' : undefined}
+        >
+          Dollars
+        </a>
+        <a
+          href={volumeHref}
+          class:list={[
+            'inline-flex items-center rounded border px-3 py-2 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-800',
+            metric === 'volume'
+              ? 'border-green-700 bg-green-700 text-white'
+              : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+          ]}
+          aria-current={metric === 'volume' ? 'true' : undefined}
+        >
+          Volume
+        </a>
+      </div>
+    </div>
+
+    {
+      productSales.length === 0 ? (
+        <p class="py-12 text-center text-sm text-slate-500">No product sales in this date range.</p>
+      ) : (
+        <div class="space-y-4" aria-hidden="true">
+          {productSales.map((row) => (
+            <div>
+              <div class="mb-1 flex items-baseline justify-between gap-3">
+                <span class="min-w-0 text-sm font-medium text-slate-800">{row.label}</span>
+                <span class="shrink-0 text-sm font-semibold tabular-nums text-green-800">
+                  {formatProductMetric(row)}
+                </span>
+              </div>
+              <div class="h-3 overflow-hidden rounded bg-slate-100">
+                <div
+                  class="h-full rounded bg-green-700"
+                  style={`width: ${productBarPercent(row)}%`}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    {
+      productSales.length > 0 && (
+        <table class="mt-6 w-full border-collapse text-sm">
+          <caption
+            id="product-sales-caption"
+            class="caption-bottom mt-3 text-left text-xs font-normal text-slate-500"
+          >
+            Dollars are each product’s share of order income after volume discount, split by
+            pre-discount line total. Volume is units sold and includes bow staves. Every order in
+            the date range is included, including canceled — the same orders as Total.
+          </caption>
+          <thead>
+            <tr class="border-b border-slate-200 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <th scope="col" class="py-2 pr-4 font-semibold">Product</th>
+              <th scope="col" class="py-2 pr-4 text-right font-semibold">Dollars</th>
+              <th scope="col" class="py-2 text-right font-semibold">Volume</th>
+            </tr>
+          </thead>
+          <tbody>
+            {productSales.map((row) => (
+              <tr class="border-b border-slate-100">
+                <th scope="row" class="py-2 pr-4 text-left font-medium text-slate-800">
+                  {row.label}
+                </th>
+                <td
+                  class:list={[
+                    'py-2 pr-4 text-right tabular-nums',
+                    metric === 'dollars' ? 'font-semibold text-green-800' : 'text-slate-700',
+                  ]}
+                >
+                  {formatUsd(row.dollars)}
+                </td>
+                <td
+                  class:list={[
+                    'py-2 text-right tabular-nums',
+                    metric === 'volume' ? 'font-semibold text-green-800' : 'text-slate-700',
+                  ]}
+                >
+                  {formatVolume(row.volume)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+    {
+      productSales.length === 0 && (
+        <p class="mt-2 text-xs text-slate-500">
+          Dollars are each product’s share of order income after volume discount. Volume is units
+          sold, including bow staves. Canceled orders are included, matching Total.
+        </p>
+      )
+    }
   </div>
 </AdminLayout>

@@ -61,6 +61,58 @@ describe('POST /api/admin/log-interaction', () => {
     expect(body.contactId).toBe(contacts[0].id);
     expect(contacts[0].interactions[0].followUpOn).toBe('2026-04-15');
   });
+
+  it('saves an email interaction', async () => {
+    const kv = memoryKv();
+    const res = await logInteraction({
+      request: jsonRequest('http://localhost/api/admin/log-interaction', {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+        channel: 'email',
+        summary: 'Wrote about hedge posts',
+      }),
+      locals: { runtime: { env: { ORDERS_KV: kv } } },
+    } as Parameters<typeof logInteraction>[0]);
+    expect(res.status).toBe(200);
+    const contacts = await getAllContacts(kv);
+    expect(contacts[0].interactions[0].channel).toBe('email');
+  });
+
+  it('still accepts a walk-in channel from existing callers', async () => {
+    const kv = memoryKv();
+    const res = await logInteraction({
+      request: jsonRequest('http://localhost/api/admin/log-interaction', {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '7125550199',
+        channel: 'walk-in',
+        summary: 'Stopped by the yard',
+      }),
+      locals: { runtime: { env: { ORDERS_KV: kv } } },
+    } as Parameters<typeof logInteraction>[0]);
+    expect(res.status).toBe(200);
+    const contacts = await getAllContacts(kv);
+    expect(contacts[0].interactions[0].channel).toBe('walk-in');
+  });
+
+  it('rejects an unknown channel', async () => {
+    const kv = memoryKv();
+    const res = await logInteraction({
+      request: jsonRequest('http://localhost/api/admin/log-interaction', {
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        phone: '7125550199',
+        channel: 'fax',
+        summary: 'Sent a fax',
+      }),
+      locals: { runtime: { env: { ORDERS_KV: kv } } },
+    } as Parameters<typeof logInteraction>[0]);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/how this interaction happened/i);
+    expect(await getAllContacts(kv)).toHaveLength(0);
+  });
 });
 
 describe('POST /api/orders contact link', () => {

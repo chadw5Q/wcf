@@ -2,7 +2,7 @@
 export const prerender = false;
 import InterestSelect from '../../../components/admin/InterestSelect.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
-import { INTERACTION_CHANNELS, channelLabel } from '../../../lib/contacts';
+import { MANUAL_LOG_CHANNELS, channelLabel } from '../../../lib/contacts';
 import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 
 const kv = getOrdersKvFromLocals(Astro.locals);
@@ -112,11 +112,15 @@ const kvMissing = !kv;
 
     <fieldset class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
       <legend class="px-1 text-lg font-semibold text-slate-900">Interaction</legend>
-      <div class="mt-4 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="How you heard from them">
+      <div class="mt-4 grid gap-2 sm:grid-cols-2">
         {
-          INTERACTION_CHANNELS.map((channel) => (
-            <label class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50">
+          MANUAL_LOG_CHANNELS.map((channel) => (
+            <label
+              for={`channel-${channel}`}
+              class="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-slate-300 bg-white px-3 text-base text-slate-900 has-checked:border-green-700 has-checked:bg-green-50"
+            >
               <input
+                id={`channel-${channel}`}
                 type="radio"
                 name="channel"
                 value={channel}
