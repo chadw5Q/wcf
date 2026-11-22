@@ -16,6 +16,8 @@ export default defineConfig({
   adapter: cloudflare({
     // Avoid requiring Cloudflare Images; use Astro’s default image handling.
     imageService: 'passthrough',
+    // Adds the email() handler for crm@williamscreekfarms.com (Cloudflare Email Routing).
+    workerEntryPoint: { path: 'src/worker.ts' },
   }),
   integrations: [
     sitemap({

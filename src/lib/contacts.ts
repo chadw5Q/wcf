@@ -85,7 +85,7 @@ export class ContactError extends Error {
 const CONTACT_INDEX_KEY = 'contact_index';
 const MAX_CONTACT_INDEX = 5000;
 const MAX_INTERACTIONS = 300;
-const MAX_SUMMARY = 4000;
+export const MAX_SUMMARY = 4000;
 const MAX_LOCATION = 120;
 
 export function phoneKey(phone: string): string {

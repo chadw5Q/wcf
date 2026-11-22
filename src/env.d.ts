@@ -27,6 +27,10 @@ interface ImportMetaEnv {
   readonly REVIEW_TOKEN_SECRET?: string;
   /** Shared secret for review cron worker → /api/cron/review-requests. */
   readonly CRON_SHARED_SECRET?: string;
+  /** Comma-separated addresses allowed to forward into crm@ (default cchadww@gmail.com). */
+  readonly INBOUND_EMAIL_ALLOWLIST?: string;
+  /** Set to 1 only to debug a missing Cloudflare DKIM result; leaves crm@ open to spoofed senders. */
+  readonly INBOUND_EMAIL_SKIP_DKIM?: string;
 }
 
 interface ImportMeta {
