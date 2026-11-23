@@ -4,6 +4,7 @@ Forward a customer email from Gmail to `crm@williamscreekfarms.com`. It shows up
 
 - **Forward:** the original sender becomes the contact. Anything you type above the forwarded message is saved as `Note:`.
 - **BCC:** BCC `crm@` on an email you send, and the first recipient who isn't you becomes the contact. It is logged as "Email you sent".
+- **Their earlier message:** when a BCC'd reply (or a forward of your own reply) quotes the contact's previous email under "On … wrote:", that message is logged too, at its own date, unless the contact already has it, for example from an earlier forward or the website form. Only the most recent quoted message is checked, and only if the contact wrote it.
 - An existing contact is matched by email address. A new sender gets a new contact. A one-word name is saved with `—` as the last name, which you can fix on the contact page.
 - The interaction is dated when the original email was sent, not when you forwarded it.
 - Forwarding the same message twice logs it once.

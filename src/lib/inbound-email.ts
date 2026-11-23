@@ -1,5 +1,5 @@
 import PostalMime, { type Address, type Email, type Header, type RawEmail } from 'postal-mime';
-import { logInteraction, MAX_SUMMARY } from './contacts';
+import { findContactByEmail, logInteraction, MAX_SUMMARY } from './contacts';
 import { publishNtfyNotification, type PublishNtfyOptions } from './ntfy';
 
 /** Used when INBOUND_EMAIL_ALLOWLIST is unset. */
@@ -22,6 +22,8 @@ export interface InboundMessage {
   dateRaw: string;
   note: string;
   body: string;
+  /** For `sent`: the contact's earlier message quoted under your reply, if any. */
+  quoted?: { dateIso: string | null; dateRaw: string; body: string };
 }
 
 export type InboundParse = { ok: true; message: InboundMessage } | { ok: false; reason: string };
@@ -29,7 +31,14 @@ export type InboundParse = { ok: true; message: InboundMessage } | { ok: false; 
 export type IngestOutcome =
   | { status: 'rejected'; reason: string }
   | { status: 'duplicate'; contactId: string }
-  | { status: 'logged'; contactId: string; interactionId: string; contactName: string; subject: string }
+  | {
+      status: 'logged';
+      contactId: string;
+      interactionId: string;
+      contactName: string;
+      subject: string;
+      addedQuoted: boolean;
+    }
   | { status: 'unreadable'; reason: string; subject: string };
 
 export interface InboundEnvelope {
@@ -212,9 +221,51 @@ export function stripQuotedHistory(body: string): string {
   return kept.join('\n').trim();
 }
 
+export interface QuotedReply {
+  author: { name: string; email: string };
+  dateRaw: string;
+  body: string;
+}
+
+const QUOTE_HEADER = /^On\s+(.*?\d{1,2}:\d{2}(?::\d{2})?\s*(?:[AP]\.?M\.?)?)\s*,?\s+(.+?)\s+wrote:\s*$/i;
+
+/** The most recent earlier message quoted under a reply (`On <date> <name> <email> wrote:` then `>` lines). */
+export function extractQuotedReply(text: string): QuotedReply | null {
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^On\b/.test(lines[i].trim())) continue;
+    const end = lines.slice(i, i + 3).findIndex((line) => /wrote:\s*$/.test(line));
+    if (end < 0) continue;
+    const header = lines
+      .slice(i, i + end + 1)
+      .map((line) => line.trim())
+      .join(' ');
+    const match = QUOTE_HEADER.exec(header);
+    if (!match) return null;
+    const author = parseMailbox(match[2]);
+    if (!author.email) return null;
+
+    const quoted: string[] = [];
+    for (let j = i + end + 1; j < lines.length; j++) {
+      const line = lines[j].trimStart();
+      if (line.startsWith('>')) quoted.push(line.replace(/^>\s?/, ''));
+      else if (line.trim() && quoted.length) break;
+    }
+    const body = stripQuotedHistory(quoted.join('\n'));
+    return body ? { author, dateRaw: match[1].trim(), body } : null;
+  }
+  return null;
+}
+
 function stripSubjectPrefixes(subject: string): string {
   let text = subject.trim();
   while (/^(fwd?|fw):\s*/i.test(text)) text = text.replace(/^(fwd?|fw):\s*/i, '');
+  return text;
+}
+
+function stripReplyPrefixes(subject: string): string {
+  let text = subject.trim();
+  while (/^(re|aw|fwd?|fw):\s*/i.test(text)) text = text.replace(/^(re|aw|fwd?|fw):\s*/i, '');
   return text;
 }
 
@@ -303,6 +354,7 @@ export function interpretEmail(email: Email, opts: { allowlist: readonly string[
         dateRaw,
         note: block.note,
         body: stripQuotedHistory(block.body),
+        ...(kind === 'sent' ? quotedFrom(block.body, contact.email, now) : {}),
       },
     };
   }
@@ -316,17 +368,28 @@ export function interpretEmail(email: Email, opts: { allowlist: readonly string[
       reason: 'No forwarded message was found. Use Forward in Gmail, or BCC crm@ on a reply.',
     };
   }
+  const contactEmail = recipient.address.toLowerCase();
   return {
     ok: true,
     message: {
       kind: 'sent',
-      contact: { name: cleanName(recipient.name), email: recipient.address.toLowerCase() },
+      contact: { name: cleanName(recipient.name), email: contactEmail },
       subject: (email.subject ?? '').trim(),
       dateIso: outerDateIso(email, now),
       dateRaw: email.date ?? '',
       note: '',
       body: stripQuotedHistory(text.trim()),
+      ...quotedFrom(text, contactEmail, now),
     },
+  };
+}
+
+/** Keep the quoted earlier message only when the contact wrote it. */
+function quotedFrom(text: string, contactEmail: string, now: Date): Pick<InboundMessage, 'quoted'> {
+  const reply = extractQuotedReply(text);
+  if (!reply || reply.author.email !== contactEmail.toLowerCase()) return {};
+  return {
+    quoted: { dateIso: parseForwardedDate(reply.dateRaw, now), dateRaw: reply.dateRaw, body: reply.body },
   };
 }
 
@@ -396,6 +459,28 @@ async function dedupeKey(message: InboundMessage): Promise<string> {
   return `inbound_email_${hex.slice(0, 32)}`;
 }
 
+function comparableText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** True when any interaction on the contact already holds the start of `body`. */
+async function contactHasText(kv: KVNamespace, email: string, body: string): Promise<boolean> {
+  const contact = await findContactByEmail(kv, email);
+  if (!contact) return false;
+  const needle = comparableText(body).slice(0, 200).trim();
+  if (!needle) return true;
+  return contact.interactions.some((item) => comparableText(item.summary).includes(needle));
+}
+
+function secondBefore(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isNaN(ms) ? null : new Date(ms - 1000).toISOString();
+}
+
 function siteUrl(env: Record<string, unknown>): string {
   const raw = typeof env.SITE_URL === 'string' && env.SITE_URL.trim() ? env.SITE_URL.trim() : DEFAULT_SITE_URL;
   return raw.replace(/\/+$/, '');
@@ -456,6 +541,24 @@ export async function ingestInboundEmail(
 
   const { firstName, lastName } = nameParts(message.contact.name, message.contact.email);
   try {
+    let addedQuoted = false;
+    if (message.quoted && !(await contactHasText(kv, message.contact.email, message.quoted.body))) {
+      await logInteraction(kv, {
+        firstName,
+        lastName,
+        email: message.contact.email,
+        channel: 'email',
+        summary: buildSummary({
+          ...message,
+          kind: 'forward',
+          subject: stripReplyPrefixes(message.subject),
+          note: '',
+          body: message.quoted.body,
+        }),
+        at: message.quoted.dateIso ?? secondBefore(message.dateIso) ?? undefined,
+      });
+      addedQuoted = true;
+    }
     const { contact, interaction } = await logInteraction(kv, {
       firstName,
       lastName,
@@ -467,7 +570,7 @@ export async function ingestInboundEmail(
     await kv.put(key, contact.id, { expirationTtl: DEDUPE_TTL_SECONDS });
     await notify({
       title: `Email logged: ${contact.name}`,
-      message: message.subject || '(no subject)',
+      message: `${message.subject || '(no subject)'}${addedQuoted ? '\n(also added their earlier message)' : ''}`,
       click: `${siteUrl(env)}/admin/contacts/${contact.id}`,
       tags: 'email',
       workerEnv: env,
@@ -478,6 +581,7 @@ export async function ingestInboundEmail(
       interactionId: interaction.id,
       contactName: contact.name,
       subject: message.subject,
+      addedQuoted,
     };
   } catch (e) {
     return fail(e instanceof Error ? e.message : String(e));

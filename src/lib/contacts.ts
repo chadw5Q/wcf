@@ -400,6 +400,10 @@ async function findByEmail(kv: KVNamespace, email: string): Promise<Contact | nu
   return getContact(kv, id);
 }
 
+export async function findContactByEmail(kv: KVNamespace, email: string): Promise<Contact | null> {
+  return findByEmail(kv, email);
+}
+
 /**
  * Find a contact by phone, then email. Phone wins when the two keys point at different people.
  * Fills a blank phone or email. Does not overwrite a name or identifier already stored.

@@ -4,6 +4,7 @@ import { getAllContacts, getContact, logInteraction } from '../../../src/lib/con
 import {
   buildSummary,
   cloudflareDkimPassed,
+  extractQuotedReply,
   ingestInboundEmail,
   interpretEmail,
   nameParts,
@@ -404,6 +405,89 @@ describe('ingestInboundEmail', () => {
     const raw = mime({ text: GMAIL_FORWARD, auth: [] });
     expect((await run(raw)).status).toBe('rejected');
     expect((await run(raw, 'cchadww@gmail.com', { INBOUND_EMAIL_SKIP_DKIM: '1' })).status).toBe('logged');
+  });
+
+  describe('BCC reply with their earlier message quoted', () => {
+    const COLIN_REPLY = [
+      'Hi Colin,',
+      'Ah, I understand now! Yes, you would be more than welcome to work on the log at our place.',
+      '',
+      'Thanks,',
+      'Chad',
+      '',
+      'On Sat, Nov 21, 2026 at 11:29 AM Thewoods SMOKY <',
+      'colin2911316@gmail.com> wrote:',
+      '',
+      '> Hi Chad, I live across the river from Detroit and would like to come to',
+      '> the farm for pickup. The price is $125 USD per log, correct?',
+      '>',
+      '> On Fri, Nov 20, 2026 at 8:00 AM Chad Williams <cchadww@gmail.com> wrote:',
+      '>> Thanks for reaching out about logs.',
+    ].join('\n');
+    const colinRaw = (text = COLIN_REPLY) =>
+      mime({ to: 'Thewoods <colin2911316@gmail.com>', subject: 'Re: Log pickup', text });
+
+    it('extracts only the most recent quoted message and its author', () => {
+      expect(extractQuotedReply(COLIN_REPLY)).toEqual({
+        author: { name: 'Thewoods SMOKY', email: 'colin2911316@gmail.com' },
+        dateRaw: 'Sat, Nov 21, 2026 at 11:29 AM',
+        body:
+          'Hi Chad, I live across the river from Detroit and would like to come to\nthe farm for pickup. The price is $125 USD per log, correct?',
+      });
+    });
+
+    it('logs their earlier message and then your reply', async () => {
+      const { kv, notify, run } = setup();
+      const outcome = await run(colinRaw());
+      expect(outcome).toMatchObject({ status: 'logged', addedQuoted: true });
+      if (outcome.status !== 'logged') return;
+      const contact = await getContact(kv, outcome.contactId);
+      expect(contact?.email).toBe('colin2911316@gmail.com');
+      expect(contact?.interactions).toHaveLength(2);
+      const [reply, theirs] = contact!.interactions;
+      expect(reply).toMatchObject({ channel: 'email', createdAt: '2026-11-21T22:40:00.000Z' });
+      expect(reply.summary).toMatch(/^Email you sent: Re: Log pickup/);
+      expect(theirs).toMatchObject({ channel: 'email', createdAt: '2026-11-21T17:29:00.000Z' });
+      expect(theirs.summary).toMatch(/^Subject: Log pickup\n\nHi Chad, I live across the river/);
+      expect(theirs.summary).not.toContain('Thanks for reaching out');
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'Re: Log pickup\n(also added their earlier message)' })
+      );
+    });
+
+    it('skips their message when the contact already has it', async () => {
+      const { kv, run } = setup();
+      await logInteraction(kv, {
+        firstName: 'Colin',
+        lastName: 'Woods',
+        email: 'colin2911316@gmail.com',
+        channel: 'web',
+        at: '2026-11-21T17:30:00.000Z',
+        summary: 'Hi Chad, I live across the river from Detroit and would like to come to the farm for pickup.  The price is $125 USD per log, correct?',
+      });
+      const outcome = await run(colinRaw());
+      expect(outcome).toMatchObject({ status: 'logged', addedQuoted: false });
+      const contact = await getContact(kv, outcome.status === 'logged' ? outcome.contactId : '');
+      expect(contact?.interactions.map((item) => item.channel)).toEqual(['email', 'web']);
+    });
+
+    it('ignores a quote written by someone other than the recipient', async () => {
+      const { kv, run } = setup();
+      const text = COLIN_REPLY.replace('colin2911316@gmail.com> wrote:', 'someone@else.com> wrote:');
+      const outcome = await run(colinRaw(text));
+      expect(outcome).toMatchObject({ status: 'logged', addedQuoted: false });
+      const contact = await getContact(kv, outcome.status === 'logged' ? outcome.contactId : '');
+      expect(contact?.interactions).toHaveLength(1);
+    });
+
+    it('treats the same BCC sent twice as a duplicate', async () => {
+      const { kv, run } = setup();
+      const first = await run(colinRaw());
+      const second = await run(colinRaw());
+      expect(second.status).toBe('duplicate');
+      const contact = await getContact(kv, first.status === 'logged' ? first.contactId : '');
+      expect(contact?.interactions).toHaveLength(2);
+    });
   });
 
   it('pushes a warning and saves nothing when it cannot find a customer', async () => {
