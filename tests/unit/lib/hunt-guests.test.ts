@@ -42,6 +42,21 @@ describe('hunt guests', () => {
     expect(findHuntGuestByPassword(allen.devDefaultPassword)?.slug).toBe('allen-wright');
   });
 
+  it('registers a Stripe reviewer login that lands on /hunt', () => {
+    expect(getHuntGuestBySlug('stripe-review')).toMatchObject({
+      landingPath: '/hunt',
+      passwordEnv: 'HUNT_GUEST_STRIPE_REVIEW_PASSWORD',
+    });
+  });
+
+  it('keeps the Stripe reviewer login separate from Allen and off without its secret', () => {
+    vi.mocked(getServerEnv).mockImplementation((key: string) =>
+      key === 'HUNT_GUEST_STRIPE_REVIEW_PASSWORD' ? 'ReviewerSecret' : undefined
+    );
+    expect(findHuntGuestByPassword('ReviewerSecret')?.slug).toBe('stripe-review');
+    expect(findHuntGuestByPassword('ReviewerSecret')?.slug).not.toBe('allen-wright');
+  });
+
   it('rejects wrong or empty passwords', () => {
     expect(findHuntGuestByPassword('nope')).toBeUndefined();
     expect(findHuntGuestByPassword('')).toBeUndefined();

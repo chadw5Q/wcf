@@ -24,6 +24,15 @@ export const HUNT_GUESTS: readonly HuntGuest[] = [
     devDefaultPassword: 'AllenGun2026',
     landingPath: '/hunt/guest/allen-wright',
   },
+  {
+    // Login for Stripe's account review. Only works while the secret is set:
+    // delete HUNT_GUEST_STRIPE_REVIEW_PASSWORD in Cloudflare to switch it off.
+    slug: 'stripe-review',
+    name: 'Stripe account review',
+    passwordEnv: 'HUNT_GUEST_STRIPE_REVIEW_PASSWORD',
+    devDefaultPassword: 'StripeReviewDev',
+    landingPath: '/hunt',
+  },
 ];
 
 export function getHuntGuestBySlug(slug: string): HuntGuest | undefined {
