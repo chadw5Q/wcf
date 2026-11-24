@@ -3,6 +3,8 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import { pickupScheduleUrl } from '../lib/cal-pickup';
 import { getCheckoutSession } from '../lib/stripe';
+import { handleHedgeCheckoutEvent, isHedgeDepositSession } from '../lib/order-checkout';
+import { getOrdersKvFromLocals } from '../lib/orders-kv';
 
 function formatUsd(value: string | undefined | null): string {
   if (value == null || String(value).trim() === '') return 'N/A';
@@ -19,6 +21,18 @@ if (sessionId) {
   try {
     session = await getCheckoutSession(sessionId);
     isDeposit = session.metadata?.type === 'deposit';
+    // Backup for the Stripe webhook: confirm the deposit and send the order alerts.
+    // Idempotent, so it is safe when the webhook already did this.
+    const ordersKv = getOrdersKvFromLocals(Astro.locals);
+    if (ordersKv && session.status === 'complete' && isHedgeDepositSession(session)) {
+      const result = await handleHedgeCheckoutEvent(
+        'checkout.session.completed',
+        session,
+        ordersKv,
+        Astro.locals?.runtime?.env as Record<string, unknown> | undefined
+      );
+      console.log('[success] hedge reconcile', session.id.slice(0, 24), result);
+    }
   } catch (error) {
     console.error('Error retrieving session:', error);
   }

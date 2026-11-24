@@ -48,6 +48,30 @@ export function parseDepositPayRail(raw: unknown): DepositPayRail | null {
   return raw === 'venmo' || raw === 'ach' || raw === 'card' ? raw : null;
 }
 
+/**
+ * Where a Stripe (card / ACH) deposit stands. Only set on orders that went to Stripe Checkout.
+ * - awaiting_payment: order saved, customer sent to Checkout, nothing paid yet
+ * - processing: ACH authorized at Checkout, waiting for the bank to clear it
+ * - paid: Stripe confirmed the money
+ * - failed: the ACH debit bounced
+ * - abandoned: the Checkout session expired unpaid
+ */
+export type CheckoutState = 'awaiting_payment' | 'processing' | 'paid' | 'failed' | 'abandoned';
+
+export interface OrderCheckout {
+  state: CheckoutState;
+  updatedAt: string;
+  sessionId?: string;
+  sessionUrl?: string;
+  /** ISO time the Checkout session stops accepting payment. */
+  expiresAt?: string;
+  paidAt?: string;
+  /** Dollars Stripe collected, fee included. */
+  amountPaid?: number;
+  /** Set once the "new order" email and push have gone out, so they never repeat. */
+  notifiedAt?: string;
+}
+
 export interface StoredOrder {
   id: string;
   createdAt: string;
@@ -73,6 +97,8 @@ export interface StoredOrder {
   depositAmount: number;
   /** Deposit payment method picked at checkout; absent on older orders and walk-ins. */
   depositPayRail?: DepositPayRail | null;
+  /** Stripe deposit progress; absent for Venmo, no-deposit, walk-in, and older orders. */
+  checkout?: OrderCheckout;
   balanceDue: number;
   notes: string | null;
   deliverySlot: string | null;

@@ -164,4 +164,45 @@ describe('POST /api/send-order-email', () => {
     );
     expect(ntfyCall).toBeDefined();
   });
+
+  it('sends nothing for a card or ACH deposit (alerts wait for Stripe to confirm payment)', async () => {
+    for (const payRail of ['card', 'ach']) {
+      const res = await POST({
+        request: jsonRequest({
+          customerInfo: baseCustomer,
+          quantities: baseQuantities,
+          orderTotal: 25,
+          isDeposit: true,
+          depositAmount: 2.5,
+          payRail,
+          orderId: 'order-1',
+        }),
+      } as Parameters<typeof POST>[0]);
+      expect(res.status).toBe(200);
+      expect((await res.json()).skipped).toBe('awaiting_stripe_payment');
+    }
+    expect(mockSend).not.toHaveBeenCalled();
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it('still alerts right away for a Venmo deposit, labeled unverified', async () => {
+    const res = await POST({
+      request: jsonRequest({
+        customerInfo: baseCustomer,
+        quantities: baseQuantities,
+        orderTotal: 25,
+        isDeposit: true,
+        depositAmount: 2.5,
+        payRail: 'venmo',
+        orderId: 'order-1',
+      }),
+    } as Parameters<typeof POST>[0]);
+    expect(res.status).toBe(200);
+    expect(mockSend).toHaveBeenCalledTimes(2);
+    expect(String(mockSend.mock.calls[0][0].html)).toContain('Deposit coming by Venmo');
+    const ntfyCall = vi.mocked(globalThis.fetch).mock.calls.find((c) =>
+      String(c[0]).includes('ntfy.sh')
+    );
+    expect(JSON.stringify(ntfyCall)).toContain('not verified');
+  });
 });

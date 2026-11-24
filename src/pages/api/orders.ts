@@ -1,5 +1,11 @@
 import type { APIRoute } from 'astro';
 import { attachOrderToContact } from '../../lib/contacts';
+import {
+  findReusablePendingOrder,
+  isStripeRail,
+  pendingCheckoutKey,
+  rememberPendingOrder,
+} from '../../lib/order-checkout';
 import { parseDepositPayRail } from '../../lib/order-types';
 import { buildStoredOrder, saveOrder, type BuildOrderInput } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
@@ -70,11 +76,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  const id = crypto.randomUUID();
-  const createdAt = new Date().toISOString();
-
   const productsConfig = await getProductsConfig(kv);
   const skuMap = orderSkusToMap(productsConfig.orderSkus);
+
+  // Card / ACH deposits: a retry of the same unpaid order (declined card, backed out of
+  // Checkout) reuses that order instead of creating a duplicate.
+  const stripeRail =
+    input.depositSelected && isStripeRail(input.depositPayRail) ? input.depositPayRail : null;
+  const pendingKey = stripeRail
+    ? await pendingCheckoutKey(input.email, quantities, stripeRail)
+    : null;
+  const reusable = pendingKey ? await findReusablePendingOrder(kv, pendingKey) : null;
+
+  const id = reusable?.id ?? crypto.randomUUID();
+  const createdAt = reusable?.createdAt ?? new Date().toISOString();
 
   let order;
   try {
@@ -87,7 +102,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
+  if (reusable) {
+    // Keep the payment state, contact link, and history; take any edited name, phone, or notes.
+    const now = new Date().toISOString();
+    order = {
+      ...order,
+      updatedAt: now,
+      checkout: reusable.checkout,
+      ...(reusable.contactId ? { contactId: reusable.contactId } : {}),
+      revisionLog: [
+        ...(reusable.revisionLog ?? []),
+        { at: now, action: 'meta' as const, summary: 'Customer retried checkout; reused this unpaid order.' },
+      ].slice(-50),
+    };
+    await saveOrder(kv, order);
+    return new Response(JSON.stringify({ success: true, orderId: order.id, reused: true }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  if (stripeRail) {
+    order.checkout = { state: 'awaiting_payment', updatedAt: createdAt };
+  }
+
   await saveOrder(kv, order);
+  if (pendingKey) {
+    await rememberPendingOrder(kv, pendingKey, order.id);
+  }
 
   try {
     await attachOrderToContact(kv, order, { channel: 'web' });
@@ -95,8 +137,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     console.error('Failed to attach order to contact', err);
   }
 
-  // ntfy is sent from POST /api/send-order-email after admin + customer emails succeed,
-  // so one reliable push (same request as Resend) and inquiry + deposit flows behave the same.
+  // Alerts: inquiries and Venmo deposits notify from POST /api/send-order-email right after this.
+  // Card and ACH deposits notify only once Stripe reports the checkout (lib/order-checkout.ts).
 
   return new Response(JSON.stringify({ success: true, orderId: order.id }), {
     status: 200,

@@ -435,6 +435,7 @@ export function rebuildStoredOrder(
     ...(existing.depositPayRail && body.deposit.selected
       ? { depositPayRail: existing.depositPayRail }
       : {}),
+    ...(existing.checkout ? { checkout: existing.checkout } : {}),
     deliverySlot: existing.deliverySlot,
     status: existing.status,
     revisionLog: [...(existing.revisionLog ?? [])],

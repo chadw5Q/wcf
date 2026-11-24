@@ -183,4 +183,55 @@ describe('POST /api/webhooks/stripe-hunt', () => {
     const stored = await getReservation(kv, reservation.id);
     expect(stored?.status).toBe('balance_paid');
   });
+
+  it('routes hedge deposit events to ORDERS_KV without needing HUNT_KV', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response(''))));
+    const { buildStoredOrder, saveOrder, getOrder } = await import('../../../src/lib/orders');
+    const { getDefaultOrderSkuMap } = await import('../../../src/lib/products-config');
+    const ordersKv = memoryKv();
+    const order = buildStoredOrder(
+      {
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@example.com',
+        phone: '',
+        notes: null,
+        depositSelected: true,
+        depositPayRail: 'card',
+        quantities: { bowStave: 2 },
+      },
+      'hedge-order-1',
+      new Date().toISOString(),
+      getDefaultOrderSkuMap()
+    );
+    order.checkout = { state: 'awaiting_payment', updatedAt: order.createdAt, sessionId: 'cs_hedge' };
+    await saveOrder(ordersKv, order);
+
+    constructEvent.mockReturnValue({
+      type: 'checkout.session.expired',
+      data: {
+        object: {
+          id: 'cs_hedge',
+          status: 'expired',
+          payment_status: 'unpaid',
+          metadata: { type: 'deposit', order_id: 'hedge-order-1', pay_rail: 'card' },
+        },
+      },
+    });
+
+    const res = await POST({
+      request: new Request('http://localhost/api/webhooks/stripe-hunt', {
+        method: 'POST',
+        headers: { 'stripe-signature': 't=1,v1=ok' },
+        body: '{}',
+      }),
+      locals: { runtime: { env: { ORDERS_KV: ordersKv } } },
+    } as Parameters<typeof POST>[0]);
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { hedge: { detail: string } };
+    expect(json.hedge.detail).toBe('abandoned');
+    expect((await getOrder(ordersKv, 'hedge-order-1'))?.status).toBe('canceled');
+    vi.unstubAllGlobals();
+  });
 });

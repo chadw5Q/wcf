@@ -36,6 +36,8 @@ export type CreateCheckoutSessionOptions = {
    * payment method configuration, so Checkout still opens if that configuration is empty.
    */
   paymentMethodTypes?: Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
+  /** Unix seconds when the session stops accepting payment (Stripe: 30 min to 24 h out). */
+  expiresAt?: number;
 };
 
 export async function createCheckoutSession(
@@ -73,6 +75,7 @@ export async function createCheckoutSession(
     success_url: successUrl,
     cancel_url: cancelUrl,
     metadata,
+    ...(options?.expiresAt ? { expires_at: options.expiresAt } : {}),
     ...(options?.customerEmail?.trim()
       ? { customer_email: options.customerEmail.trim() }
       : {}),

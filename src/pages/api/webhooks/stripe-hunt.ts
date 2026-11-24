@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import type Stripe from 'stripe';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
 import { handleHuntCheckoutSessionCompleted } from '../../../lib/hunt-stripe-webhook';
+import { handleHedgeCheckoutEvent, isHedgeDepositSession } from '../../../lib/order-checkout';
+import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 import { getServerEnv } from '../../../lib/server-env';
 import { getStripe } from '../../../lib/stripe';
 
@@ -38,6 +40,40 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
+  }
+
+  // Hedge-post deposits share this Stripe endpoint. They need completed, expired, and the
+  // ACH async_payment_* events (subscribe all four on this endpoint in the Stripe Dashboard).
+  const HEDGE_EVENTS = new Set([
+    'checkout.session.completed',
+    'checkout.session.expired',
+    'checkout.session.async_payment_succeeded',
+    'checkout.session.async_payment_failed',
+  ]);
+  if (HEDGE_EVENTS.has(event.type)) {
+    const s = event.data.object as Stripe.Checkout.Session;
+    if (isHedgeDepositSession(s)) {
+      const ordersKv = getOrdersKvFromLocals(locals);
+      if (!ordersKv) {
+        return new Response(JSON.stringify({ error: 'ORDERS_KV is not bound' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const result = await handleHedgeCheckoutEvent(
+        event.type,
+        s,
+        ordersKv,
+        locals?.runtime?.env as Record<string, unknown> | undefined
+      );
+      console.log('[stripe-webhook] hedge', event.type, s.id, result);
+      // A failed notification returns 500 so Stripe retries the event.
+      const failed = result.detail.endsWith('_notify_failed');
+      return new Response(JSON.stringify({ received: true, hedge: result }), {
+        status: failed ? 500 : 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
   }
 
   if (event.type !== 'checkout.session.completed') {

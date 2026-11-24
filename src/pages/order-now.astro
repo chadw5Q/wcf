@@ -707,40 +707,42 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
           }
           const orderId = saved.orderId;
 
-          submitButton.textContent = 'Sending confirmation…';
-          const emailRes = await fetch('/api/send-order-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              customerInfo,
-              orderItems,
-              quantities,
-              orderTotal,
-              isDeposit: true,
-              depositAmount,
-              payRail: depositPayRail,
-              orderId,
-            }),
-          });
-          const emailJson = await emailRes.json().catch(() => ({}));
-          if (!emailRes.ok) {
-            submitButton.textContent = originalText;
-            submitButton.disabled = false;
-            alert(
-              emailJson.error || emailJson.details
-                ? `We could not email your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
-                : 'We could not email your order.\n\nPlease text us at 712-254-3999.'
-            );
-            return;
-          }
-
           if (depositPayRail === 'venmo') {
+            submitButton.textContent = 'Sending confirmation…';
+            const emailRes = await fetch('/api/send-order-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customerInfo,
+                orderItems,
+                quantities,
+                orderTotal,
+                isDeposit: true,
+                depositAmount,
+                payRail: depositPayRail,
+                orderId,
+              }),
+            });
+            const emailJson = await emailRes.json().catch(() => ({}));
+            if (!emailRes.ok) {
+              submitButton.textContent = originalText;
+              submitButton.disabled = false;
+              alert(
+                emailJson.error || emailJson.details
+                  ? `We could not email your order: ${emailJson.details || emailJson.error}.\n\nPlease text us at 712-254-3999.`
+                  : 'We could not email your order.\n\nPlease text us at 712-254-3999.'
+              );
+              return;
+            }
+
             // No processor: the thank-you page shows the Venmo button for this order's deposit.
             const q = new URLSearchParams({ kind: 'deposit-venmo' });
             if (orderId) q.set('orderId', orderId);
             window.location.replace(`/thank-you?${q.toString()}`);
             return;
           }
+
+          // Card / ACH: no alert yet. The order email and push go out once Stripe confirms payment.
 
           submitButton.textContent = 'Processing Payment...';
           const response = await fetch('/api/create-deposit-payment', {

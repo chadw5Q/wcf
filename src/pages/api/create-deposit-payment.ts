@@ -1,12 +1,15 @@
 import type { APIRoute } from 'astro';
 import { checkoutChargeUsd } from '../../lib/hunt-fees';
-import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
+import { CHECKOUT_SESSION_TTL_SECONDS } from '../../lib/order-checkout';
+import { getOrder, saveOrder } from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { createCheckoutSession, getCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
 import { getServerEnv } from '../../lib/server-env';
 
 // Stripe minimum charge for USD card payments (https://stripe.com/docs/currencies#minimum-and-maximum-charge-amounts)
 const MIN_DEPOSIT_CENTS = 50;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   try {
     if (!getServerEnv('STRIPE_SECRET_KEY')) {
       return new Response(
@@ -20,13 +23,53 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     const body = await request.json();
-    const { depositAmount, orderTotal, customerInfo, orderItems, quantities, orderId } = body;
+    const { customerInfo, orderItems, quantities, orderId } = body;
+    let { depositAmount, orderTotal } = body;
     // Venmo deposits never reach this endpoint; anything else that isn't ACH pays by card.
     const payRail: 'ach' | 'card' = body.payRail === 'ach' ? 'ach' : 'card';
     const orderIdMeta =
       orderId !== undefined && orderId !== null && String(orderId).trim() !== ''
         ? String(orderId).trim()
         : '';
+
+    // The saved order is the source of truth for amounts, and may already have a Checkout open.
+    const kv = getOrdersKvFromLocals(locals);
+    const savedOrder = kv && orderIdMeta ? await getOrder(kv, orderIdMeta) : null;
+    const savedState = savedOrder?.checkout?.state;
+    if (savedState && savedState !== 'awaiting_payment') {
+      return new Response(
+        JSON.stringify({
+          error: 'This order is no longer waiting for a deposit',
+          details: `The deposit for this order is ${savedState}. Text us at 712-254-3999 if that looks wrong.`,
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    if (savedOrder) {
+      depositAmount = savedOrder.depositAmount;
+      orderTotal = savedOrder.orderTotal;
+
+      const openId = savedOrder.checkout?.sessionId;
+      if (openId && savedOrder.checkout?.state === 'awaiting_payment') {
+        try {
+          const existing = await getCheckoutSession(openId);
+          if (existing.status === 'open' && existing.url && existing.metadata?.pay_rail === payRail) {
+            return new Response(
+              JSON.stringify({
+                sessionId: existing.id,
+                url: existing.url,
+                payRail,
+                chargeUsd: checkoutChargeUsd(Number(depositAmount), payRail),
+                reused: true,
+              }),
+              { status: 200, headers: { 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (err) {
+          console.error('Could not look up existing checkout session; creating a new one', err);
+        }
+      }
+    }
 
     if (!depositAmount || !orderTotal || !customerInfo) {
       return new Response(JSON.stringify({ error: 'Missing required payment data' }), {
@@ -79,7 +122,26 @@ export const POST: APIRoute = async ({ request }) => {
       customerEmail: customerInfo.email || undefined,
       metadata,
       paymentMethodTypes: payRail === 'ach' ? ['us_bank_account'] : ['card'],
+      expiresAt: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_SECONDS,
     });
+
+    if (kv && savedOrder) {
+      const now = new Date().toISOString();
+      await saveOrder(kv, {
+        ...savedOrder,
+        updatedAt: now,
+        checkout: {
+          ...(savedOrder.checkout ?? {}),
+          state: 'awaiting_payment',
+          sessionId: session.id,
+          ...(session.url ? { sessionUrl: session.url } : {}),
+          ...(session.expires_at
+            ? { expiresAt: new Date(session.expires_at * 1000).toISOString() }
+            : {}),
+          updatedAt: now,
+        },
+      });
+    }
 
     return new Response(
       JSON.stringify({
