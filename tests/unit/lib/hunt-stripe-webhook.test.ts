@@ -9,9 +9,17 @@ vi.mock('../../../src/lib/hunt-balance-email', () => ({
   sendHuntBalanceConfirmationEmails: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../../src/lib/ntfy', () => ({
+  publishNtfyNotification: vi.fn().mockResolvedValue(undefined),
+}));
+
 import { sendHuntBalanceConfirmationEmails } from '../../../src/lib/hunt-balance-email';
 import { sendHuntDepositConfirmationEmails, notifyChadNewHuntReservation } from '../../../src/lib/hunt-deposit-email';
-import { handleHuntCheckoutSessionCompleted } from '../../../src/lib/hunt-stripe-webhook';
+import { publishNtfyNotification } from '../../../src/lib/ntfy';
+import {
+  handleHuntCheckoutEvent,
+  handleHuntCheckoutSessionCompleted,
+} from '../../../src/lib/hunt-stripe-webhook';
 import { createDraftReservation, getReservation, putReservation } from '../../../src/lib/hunt-reservations';
 
 function memoryKv(): KVNamespace {
@@ -143,5 +151,94 @@ describe('handleHuntCheckoutSessionCompleted', () => {
     const second = await handleHuntCheckoutSessionCompleted(s, kv);
     expect(second).toEqual({ handled: true, detail: 'idempotent_already_balance_paid' });
     expect(sendHuntBalanceConfirmationEmails).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('handleHuntCheckoutEvent (bank / ACH payments)', () => {
+  function draft() {
+    return createDraftReservation({
+      huntYear: 2027,
+      preferredWeek: 'w2',
+      mealPackage: false,
+      hunters: [
+        { firstName: 'Ann', lastName: 'Hunter', email: 'ann@example.com', phone: '7125550100', state: 'IA' },
+      ],
+      huntCostPerPerson: 3000,
+      mealPackageCost: 0,
+      totalHuntCost: 3000,
+      depositPerPerson: 500,
+      totalDeposit: 500,
+      balanceDue: 2500,
+      notes: null,
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(sendHuntDepositConfirmationEmails).mockClear();
+    vi.mocked(publishNtfyNotification).mockClear();
+  });
+
+  it('waits while ACH is processing, then confirms the deposit once it clears', async () => {
+    const kv = memoryKv();
+    const res = draft();
+    await putReservation(kv, res);
+    const metadata = { hunt_checkout_kind: 'deposit', reservation_id: res.id, hunt_rail: 'ach' };
+
+    const pending = await handleHuntCheckoutEvent(
+      'checkout.session.completed',
+      sessionStub({ payment_status: 'unpaid', metadata }),
+      kv
+    );
+    expect(pending.handled).toBe(false);
+    expect((await getReservation(kv, res.id))?.status).toBe('draft');
+    expect(sendHuntDepositConfirmationEmails).not.toHaveBeenCalled();
+
+    const cleared = await handleHuntCheckoutEvent(
+      'checkout.session.async_payment_succeeded',
+      sessionStub({ payment_status: 'paid', metadata }),
+      kv
+    );
+    expect(cleared).toEqual({ handled: true, detail: 'deposit_confirmed' });
+    expect((await getReservation(kv, res.id))?.status).toBe('deposit_paid');
+    expect(sendHuntDepositConfirmationEmails).toHaveBeenCalledTimes(1);
+
+    const replay = await handleHuntCheckoutEvent(
+      'checkout.session.async_payment_succeeded',
+      sessionStub({ payment_status: 'paid', metadata }),
+      kv
+    );
+    expect(replay.detail).toBe('idempotent_already_deposit_paid');
+    expect(sendHuntDepositConfirmationEmails).toHaveBeenCalledTimes(1);
+  });
+
+  it('pushes an alert and leaves the reservation unpaid when ACH fails', async () => {
+    const kv = memoryKv();
+    const res = draft();
+    await putReservation(kv, res);
+    const r = await handleHuntCheckoutEvent(
+      'checkout.session.async_payment_failed',
+      sessionStub({
+        payment_status: 'unpaid',
+        amount_total: 50400,
+        metadata: { hunt_checkout_kind: 'deposit', reservation_id: res.id, hunt_rail: 'ach' },
+      }),
+      kv
+    );
+    expect(r).toEqual({ handled: true, detail: 'ach_deposit_failed_notified' });
+    expect((await getReservation(kv, res.id))?.status).toBe('draft');
+    const push = vi.mocked(publishNtfyNotification).mock.calls[0][0];
+    expect(push.title).toBe('Hunt bank payment FAILED: Ann Hunter');
+    expect(push.message).toContain('$504.00');
+  });
+
+  it('ignores failed payments that are not hunt checkouts', async () => {
+    const kv = memoryKv();
+    const r = await handleHuntCheckoutEvent(
+      'checkout.session.async_payment_failed',
+      sessionStub({ metadata: { type: 'deposit', order_id: 'x' } }),
+      kv
+    );
+    expect(r.handled).toBe(false);
+    expect(publishNtfyNotification).not.toHaveBeenCalled();
   });
 });

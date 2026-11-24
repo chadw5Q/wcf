@@ -1,6 +1,7 @@
 import type Stripe from 'stripe';
 import { sendHuntBalanceConfirmationEmails } from './hunt-balance-email';
 import { notifyChadNewHuntReservation, sendHuntDepositConfirmationEmails } from './hunt-deposit-email';
+import { publishNtfyNotification } from './ntfy';
 import {
   getReservation,
   markAllBalancesPaid,
@@ -164,4 +165,61 @@ export async function handleHuntCheckoutSessionCompleted(
     return handleHuntBalanceCheckout(session, kv);
   }
   return { handled: false, detail: 'not_hunt_checkout' };
+}
+
+/** Stripe Checkout events the hunt flow acts on. */
+export const HUNT_CHECKOUT_EVENTS = new Set([
+  'checkout.session.completed',
+  'checkout.session.async_payment_succeeded',
+  'checkout.session.async_payment_failed',
+]);
+
+/**
+ * Card payments arrive paid on `checkout.session.completed`. Bank (ACH) payments arrive unpaid
+ * there and are confirmed days later by `checkout.session.async_payment_succeeded`, whose session
+ * is then `paid`, so both go through the same idempotent confirmation. A bounced ACH debit
+ * (`async_payment_failed`) leaves the reservation as it was and pushes an alert to Chad.
+ */
+export async function handleHuntCheckoutEvent(
+  eventType: string,
+  session: Stripe.Checkout.Session,
+  kv: KVNamespace,
+  workerEnv?: Record<string, unknown>
+): Promise<HuntWebhookHandleResult> {
+  if (
+    eventType === 'checkout.session.completed' ||
+    eventType === 'checkout.session.async_payment_succeeded'
+  ) {
+    return handleHuntCheckoutSessionCompleted(session, kv);
+  }
+
+  if (eventType === 'checkout.session.async_payment_failed') {
+    const kind = session.metadata?.hunt_checkout_kind?.trim();
+    if (!kind) return { handled: false, detail: 'not_hunt_checkout' };
+    const rid = session.metadata?.reservation_id?.trim() || '';
+    const reservation = rid ? await getReservation(kv, rid) : null;
+    const hunter = reservation?.hunters[parseHunterIndex(session) ?? 0];
+    const who = hunter ? `${hunter.firstName} ${hunter.lastName}`.trim() : 'Unknown hunter';
+    const what = kind.includes('balance') ? 'balance' : 'deposit';
+    const amount =
+      typeof session.amount_total === 'number'
+        ? `$${(session.amount_total / 100).toFixed(2)}`
+        : 'unknown amount';
+    await publishNtfyNotification({
+      title: `Hunt bank payment FAILED: ${who}`,
+      message: [
+        `The ${what} payment by bank (ACH) did not go through: ${amount}.`,
+        'Nothing was marked paid. Follow up with the hunter.',
+        rid ? `Reservation: ${rid}` : '',
+        hunter?.email ? `Email: ${hunter.email}` : '',
+        hunter?.phone ? `Phone: ${hunter.phone}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      workerEnv,
+    });
+    return { handled: true, detail: `ach_${what}_failed_notified` };
+  }
+
+  return { handled: false, detail: `ignored_${eventType}` };
 }

@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import type Stripe from 'stripe';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
-import { handleHuntCheckoutSessionCompleted } from '../../../lib/hunt-stripe-webhook';
+import { HUNT_CHECKOUT_EVENTS, handleHuntCheckoutEvent } from '../../../lib/hunt-stripe-webhook';
 import { handleHedgeCheckoutEvent, isHedgeDepositSession } from '../../../lib/order-checkout';
 import { getOrdersKvFromLocals } from '../../../lib/orders-kv';
 import { getServerEnv } from '../../../lib/server-env';
@@ -76,7 +76,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  if (event.type !== 'checkout.session.completed') {
+  if (!HUNT_CHECKOUT_EVENTS.has(event.type)) {
     return new Response(JSON.stringify({ received: true, ignored: event.type }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
@@ -92,8 +92,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   const session = event.data.object as Stripe.Checkout.Session;
-  const result = await handleHuntCheckoutSessionCompleted(session, kv);
-  console.log('[stripe-hunt] checkout.session.completed', session.id, result);
+  const result = await handleHuntCheckoutEvent(
+    event.type,
+    session,
+    kv,
+    locals?.runtime?.env as Record<string, unknown> | undefined
+  );
+  console.log('[stripe-hunt]', event.type, session.id, result);
 
   return new Response(
     JSON.stringify({
