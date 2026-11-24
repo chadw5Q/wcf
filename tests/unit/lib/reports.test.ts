@@ -8,6 +8,9 @@ import {
   filterOrdersByCentralDateRange,
   isYtdRange,
   niceAxisMax,
+  currentSeasonYear,
+  reportSeasons,
+  seasonRangeYmd,
   summarizeOrdersForReport,
   summarizeProductSales,
 } from '../../../src/lib/reports';
@@ -526,5 +529,28 @@ describe('summarizeProductSales', () => {
     });
     expect(rows.find((r) => r.fieldName === 'premiumLine')!.label).toBe('Farm Premium');
     expect(rows.find((r) => r.fieldName === 'mysterySku')!.label).toBe('Odd Lot');
+  });
+});
+
+describe('report seasons', () => {
+  it('2026 Season runs Jan 1 through Oct 31, 2026', () => {
+    expect(seasonRangeYmd(2026)).toEqual({ from: '2026-01-01', to: '2026-10-31' });
+  });
+
+  it('later seasons run Nov 1 of the prior year through Oct 31', () => {
+    expect(seasonRangeYmd(2027)).toEqual({ from: '2026-11-01', to: '2027-10-31' });
+    expect(seasonRangeYmd(2028)).toEqual({ from: '2027-11-01', to: '2028-10-31' });
+  });
+
+  it('November and December belong to next year’s season', () => {
+    expect(currentSeasonYear('2026-10-31')).toBe(2026);
+    expect(currentSeasonYear('2026-11-01')).toBe(2027);
+    expect(currentSeasonYear('2027-01-15')).toBe(2027);
+  });
+
+  it('lists every season from 2026 through the current one', () => {
+    expect(reportSeasons('2026-06-01').map((s) => s.season)).toEqual([2026]);
+    expect(reportSeasons('2026-11-23').map((s) => s.season)).toEqual([2026, 2027]);
+    expect(reportSeasons('2027-11-02').map((s) => s.season)).toEqual([2026, 2027, 2028]);
   });
 });

@@ -30,6 +30,36 @@ export function defaultReportRangeYmd(): { from: string; to: string } {
   return { from, to };
 }
 
+/** First season tracked on the site. It started Jan 1 instead of the usual Nov 1. */
+export const FIRST_REPORT_SEASON = 2026;
+
+/**
+ * A season runs Nov 1 of the prior year through Oct 31 (the "2027 Season" is
+ * 2026-11-01 → 2027-10-31). The first season, 2026, runs 2026-01-01 → 2026-10-31.
+ */
+export function seasonRangeYmd(season: number): { from: string; to: string } {
+  const from = season <= FIRST_REPORT_SEASON ? `${season}-01-01` : `${season - 1}-11-01`;
+  return { from, to: `${season}-10-31` };
+}
+
+/** Season that today (America/Chicago) falls in: Nov and Dec belong to next year's season. */
+export function currentSeasonYear(todayYmd: string = dateKeyCentral(Date.now())): number {
+  const year = Number(todayYmd.slice(0, 4));
+  const month = Number(todayYmd.slice(5, 7));
+  return month >= 11 ? year + 1 : year;
+}
+
+/** Every season from the first through the current one, oldest first. */
+export function reportSeasons(
+  todayYmd: string = dateKeyCentral(Date.now())
+): Array<{ season: number; from: string; to: string }> {
+  const out: Array<{ season: number; from: string; to: string }> = [];
+  for (let s = FIRST_REPORT_SEASON; s <= currentSeasonYear(todayYmd); s++) {
+    out.push({ season: s, ...seasonRangeYmd(s) });
+  }
+  return out;
+}
+
 export function isYtdRange(fromYmd: string, toYmd: string): boolean {
   const ytd = defaultReportRangeYmd();
   return fromYmd === ytd.from && toYmd === ytd.to;

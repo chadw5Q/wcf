@@ -12,6 +12,7 @@ import {
   formatAxisMoney,
   isYtdRange,
   niceAxisMax,
+  reportSeasons,
   summarizeOrdersForReport,
   summarizeProductSales,
   type ProductSalesMetric,
@@ -26,6 +27,9 @@ const defaults = defaultReportRangeYmd();
 const fromParam = Astro.url.searchParams.get('from')?.trim() || defaults.from;
 const toParam = Astro.url.searchParams.get('to')?.trim() || defaults.to;
 const rangeIsYtd = isYtdRange(fromParam, toParam);
+const seasons = reportSeasons();
+const activeSeason = seasons.find((s) => s.from === fromParam && s.to === toParam)?.season ?? null;
+const rangeIsCustom = !rangeIsYtd && activeSeason === null;
 const metricParam = Astro.url.searchParams.get('metric')?.trim().toLowerCase();
 const metric: ProductSalesMetric = metricParam === 'volume' ? 'volume' : 'dollars';
 
@@ -122,6 +126,11 @@ function reportHref(rangeFrom: string, rangeTo: string, nextMetric: ProductSales
 }
 
 const ytdHref = reportHref(defaults.from, defaults.to, metric);
+const seasonLinks = seasons.map((s) => ({
+  ...s,
+  href: reportHref(s.from, s.to, metric),
+  active: s.season === activeSeason,
+}));
 const dollarsHref = reportHref(fromParam, toParam, 'dollars');
 const volumeHref = reportHref(fromParam, toParam, 'volume');
 
@@ -179,10 +188,27 @@ function formatVolume(n: number): string {
         >
           This YTD
         </a>
+        {
+          seasonLinks.map((s) => (
+            <a
+              href={s.href}
+              class:list={[
+                'rounded px-3 py-2 text-sm font-medium',
+                s.active
+                  ? 'bg-green-700 text-white'
+                  : 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
+              ]}
+              aria-current={s.active ? 'page' : undefined}
+              title={`${s.from} to ${s.to}`}
+            >
+              {s.season} Season
+            </a>
+          ))
+        }
         <span
           class:list={[
             'rounded px-3 py-2 text-sm font-medium',
-            !rangeIsYtd
+            rangeIsCustom
               ? 'bg-slate-800 text-white'
               : 'border border-slate-300 bg-white text-slate-500',
           ]}
@@ -222,7 +248,7 @@ function formatVolume(n: number): string {
     <p class="mt-3 text-xs text-slate-500">
       Showing <span class="font-medium text-slate-700">{fromParam}</span> →
       <span class="font-medium text-slate-700">{toParam}</span>
-      {rangeIsYtd ? ' (year to date)' : ''}
+      {rangeIsYtd ? ' (year to date)' : activeSeason !== null ? ` (${activeSeason} Season)` : ''}
       {' · '}
       {inRange.length} order{inRange.length === 1 ? '' : 's'}
     </p>
