@@ -1,0 +1,31 @@
+---
+export const prerender = false;
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import PickupSlip from '../../../../components/admin/PickupSlip.astro';
+import { getOrder } from '../../../../lib/orders';
+import { getOrdersKvFromLocals } from '../../../../lib/orders-kv';
+
+const id = Astro.params.id ?? '';
+const kv = getOrdersKvFromLocals(Astro.locals);
+const order = kv && id ? await getOrder(kv, id) : null;
+if (!order) Astro.response.status = 404;
+---
+
+<AdminLayout title={order ? `Pickup slip — ${order.customer.name}` : 'Pickup slip — not found'}>
+  <div class="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm">
+      <a href={order ? `/admin/orders/${order.id}` : '/admin/deposits'} class="font-medium text-green-700 hover:text-green-900">← Back to order</a>
+      <span class="text-slate-400"> · </span>
+      <a href="/admin/deposits" class="font-medium text-green-700 hover:text-green-900">Deposits</a>
+    </p>
+    {order && (
+      <button type="button" id="print-slip" class="min-h-12 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800">
+        Print slip
+      </button>
+    )}
+  </div>
+  {order ? <PickupSlip order={order} /> : <p class="text-slate-600">Order not found.</p>}
+  <script>
+    document.getElementById('print-slip')?.addEventListener('click', () => window.print());
+  </script>
+</AdminLayout>

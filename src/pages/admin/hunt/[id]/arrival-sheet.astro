@@ -1,0 +1,138 @@
+---
+export const prerender = false;
+/** Printable sheet for a hunt party's arrival: who is coming, what each hunter has paid and still owes. */
+import AdminLayout from '../../../../layouts/AdminLayout.astro';
+import { getHuntKvFromLocals } from '../../../../lib/hunt-kv';
+import { ensureHunterPayments, getReservation, type HuntPaymentMethod } from '../../../../lib/hunt-reservations';
+import { hunterBalanceShareUsd, hunterDepositShareUsd } from '../../../../lib/hunt-hunter-shares';
+import { getWeekLabel } from '../../../../lib/hunt-weeks';
+import { huntPartyOutstanding } from '../../../../lib/deposits';
+import { formatUsd } from '../../../../lib/format-order';
+
+const id = Astro.params.id ?? '';
+const kv = getHuntKvFromLocals(Astro.locals);
+const r = kv && id ? await getReservation(kv, id) : null;
+if (!r) Astro.response.status = 404;
+
+const payments = r ? ensureHunterPayments(r) : [];
+const lead = r?.hunters[0];
+const leadName = lead ? `${lead.firstName} ${lead.lastName}` : '—';
+const weekLabel = r ? `${r.huntYear} · ${getWeekLabel(r.huntYear, r.preferredWeek) ?? r.preferredWeek}` : '';
+const owedTotal = r ? huntPartyOutstanding(r) : 0;
+
+const methodLabels: Record<HuntPaymentMethod, string> = {
+  venmo: 'Venmo',
+  check: 'Check',
+  stripe_ach: 'ACH',
+  stripe_card: 'Card',
+  other: 'Other',
+};
+
+function paidCell(paid: boolean, share: number, method: HuntPaymentMethod | null): string {
+  if (share <= 0) return '—';
+  if (paid) return `${formatUsd(share)} paid${method ? ` (${methodLabels[method]})` : ''}`;
+  return `${formatUsd(share)} owed`;
+}
+
+const today = new Date().toLocaleDateString('en-US', {
+  timeZone: 'America/Chicago',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<AdminLayout title={r ? `Arrival sheet — ${leadName}` : 'Arrival sheet — not found'}>
+  <div class="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm">
+      <a href={r ? `/admin/hunt/${r.id}` : '/admin/hunt'} class="font-medium text-green-700 hover:text-green-900">← Back to reservation</a>
+      <span class="text-slate-400"> · </span>
+      <a href="/admin/deposits?list=hunters" class="font-medium text-green-700 hover:text-green-900">Deposits</a>
+    </p>
+    {r && (
+      <button type="button" id="print-sheet" class="min-h-12 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800">
+        Print sheet
+      </button>
+    )}
+  </div>
+
+  {!r ? (
+    <p class="text-slate-600">Reservation not found (or HUNT_KV unbound).</p>
+  ) : (
+    <article class="mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-6 shadow-sm print:max-w-none print:border-0 print:p-0 print:shadow-none">
+      <header class="flex items-start justify-between gap-4 border-b-2 border-slate-800 pb-3">
+        <div>
+          <p class="text-xl font-bold">Williams Creek Whitetails</p>
+          <p class="text-sm text-slate-600">Hunt arrival sheet · 712-254-3999</p>
+        </div>
+        <div class="text-right text-sm">
+          <p class="font-semibold">{weekLabel}</p>
+          <p>Printed {today}</p>
+          <p class="text-slate-600">Reservation {r.id.slice(0, 8)}</p>
+        </div>
+      </header>
+
+      <section class="mt-4 text-sm">
+        <p class="text-lg font-semibold">{leadName} party</p>
+        <p>
+          {r.hunters.length} hunter{r.hunters.length === 1 ? '' : 's'}
+          {r.mealPackage ? ' · Meal package' : ''}
+          {lead?.phone?.trim() ? ` · ${lead.phone.trim()}` : ''}
+          {lead?.email ? ` · ${lead.email}` : ''}
+        </p>
+      </section>
+
+      <table class="mt-4 w-full text-left text-sm">
+        <thead class="border-b border-slate-400">
+          <tr>
+            <th class="py-2 font-semibold">Hunter</th>
+            <th class="py-2 font-semibold">State</th>
+            <th class="py-2 font-semibold">Deposit</th>
+            <th class="py-2 font-semibold">Balance</th>
+            <th class="py-2 font-semibold">Waiver</th>
+            <th class="py-2 font-semibold">Checked in</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200">
+          {r.hunters.map((h, i) => {
+            const p = payments[i]!;
+            return (
+              <tr class="align-top">
+                <td class="py-2">
+                  <span class="font-medium">{h.firstName} {h.lastName}</span>
+                  {i === 0 && <span class="text-xs text-slate-500"> (lead)</span>}
+                  {h.phone?.trim() && <div class="text-xs tabular-nums text-slate-600">{h.phone.trim()}</div>}
+                </td>
+                <td class="py-2">{h.state || '—'}</td>
+                <td class="py-2">{paidCell(p.depositPaid, hunterDepositShareUsd(r, i), p.depositMethod)}</td>
+                <td class="py-2">{paidCell(p.balancePaid, hunterBalanceShareUsd(r, i), p.balanceMethod)}</td>
+                <td class="py-2">{p.waiverId ? 'Signed' : <strong>Needed</strong>}</td>
+                <td class="py-2">☐</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      <dl class="ml-auto mt-4 w-full max-w-xs space-y-1 text-sm">
+        <div class="flex justify-between"><dt>Total hunt cost</dt><dd class="tabular-nums">{formatUsd(r.totalHuntCost)}</dd></div>
+        <div class="flex items-baseline justify-between border-t-2 border-slate-800 pt-2 text-xl font-bold">
+          <dt>Still owed</dt><dd class="tabular-nums">{formatUsd(owedTotal)}</dd>
+        </div>
+      </dl>
+
+      <section class="mt-8 space-y-6 text-sm">
+        <p>Collected on arrival: &nbsp; ☐ Cash &nbsp; ☐ Check # ________ &nbsp; ☐ Venmo &nbsp; ☐ Card &nbsp;&nbsp; Amount $ __________</p>
+        <div class="grid grid-cols-2 gap-8">
+          <p class="border-t border-slate-500 pt-1">Received by</p>
+          <p class="border-t border-slate-500 pt-1">Date</p>
+        </div>
+      </section>
+
+      {r.notes?.trim() && <p class="mt-6 text-xs text-slate-600"><strong>Notes:</strong> {r.notes.trim()}</p>}
+    </article>
+  )}
+  <script>
+    document.getElementById('print-sheet')?.addEventListener('click', () => window.print());
+  </script>
+</AdminLayout>

@@ -1,0 +1,647 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getAllOrders } from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import { getHuntKvFromLocals } from '../../lib/hunt-kv';
+import { listAllReservations } from '../../lib/hunt-reservations';
+import { getWeekLabel } from '../../lib/hunt-weeks';
+import { formatCentralDateTime, formatUsd } from '../../lib/format-order';
+import {
+  amountStillOwed,
+  depositState,
+  huntDepositSummary,
+  huntPartyOutstanding,
+  huntPortalLastSent,
+  huntWaiversSigned,
+  isOpenDepositOrder,
+  isOpenDepositReservation,
+  postItems,
+  staveItems,
+  type DepositState,
+} from '../../lib/deposits';
+import type { StoredOrder } from '../../lib/order-types';
+
+type ListKey = 'posts' | 'staves' | 'hunters';
+type ShowKey = 'all' | 'received' | 'pending';
+
+const params = Astro.url.searchParams;
+const listParam = params.get('list');
+const list: ListKey = listParam === 'staves' || listParam === 'hunters' ? listParam : 'posts';
+const showParam = params.get('show');
+const show: ShowKey = showParam === 'received' || showParam === 'pending' ? showParam : 'all';
+const notNotified = params.get('notified') === 'no';
+
+const ordersKv = getOrdersKvFromLocals(Astro.locals);
+const huntKv = getHuntKvFromLocals(Astro.locals);
+
+const openOrders = ordersKv ? (await getAllOrders(ordersKv)).filter(isOpenDepositOrder) : [];
+const openParties = huntKv ? (await listAllReservations(huntKv)).filter(isOpenDepositReservation) : [];
+
+// Oldest first: first to put money down, first to hear their order is ready.
+openOrders.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+
+const postOrders = openOrders.filter((o) => postItems(o).length > 0);
+const staveOrders = openOrders.filter((o) => staveItems(o).length > 0);
+
+function passesOrderFilters(o: StoredOrder): boolean {
+  const st = depositState(o);
+  if (show !== 'all' && st !== show) return false;
+  if (notNotified && o.readyNotice) return false;
+  return true;
+}
+
+const shownOrders = (list === 'staves' ? staveOrders : postOrders).filter(passesOrderFilters);
+
+const shownParties = openParties
+  .filter((r) => {
+    const st = huntDepositSummary(r).state;
+    if (show !== 'all' && st !== show) return false;
+    if (notNotified && huntPortalLastSent(r)) return false;
+    return true;
+  })
+  .sort(
+    (a, b) =>
+      a.huntYear - b.huntYear ||
+      a.preferredWeek.localeCompare(b.preferredWeek) ||
+      (a.hunters[0]?.lastName ?? '').localeCompare(b.hunters[0]?.lastName ?? '')
+  );
+
+/** Parties grouped by hunt year + week, in date order. */
+const partyGroups: { label: string; parties: typeof shownParties }[] = [];
+for (const r of shownParties) {
+  const label = `${r.huntYear} · ${getWeekLabel(r.huntYear, r.preferredWeek) ?? r.preferredWeek}`;
+  const last = partyGroups.at(-1);
+  if (last && last.label === label) last.parties.push(r);
+  else partyGroups.push({ label, parties: [r] });
+}
+
+const counts = {
+  posts: postOrders.length,
+  staves: staveOrders.length,
+  hunters: openParties.length,
+};
+
+const listTitles: Record<ListKey, string> = {
+  posts: 'Hedge posts',
+  staves: 'Bow stave logs',
+  hunters: 'Hunters',
+};
+
+function hrefWith(next: Partial<{ list: ListKey; show: ShowKey; notified: boolean }>): string {
+  const u = new URLSearchParams();
+  const l = next.list ?? list;
+  const s = next.show ?? show;
+  const n = next.notified ?? notNotified;
+  if (l !== 'posts') u.set('list', l);
+  if (s !== 'all') u.set('show', s);
+  if (n) u.set('notified', 'no');
+  const q = u.toString();
+  return q ? `/admin/deposits?${q}` : '/admin/deposits';
+}
+
+function telHref(phone: string): string {
+  return `tel:${phone.replace(/[^\d+]/g, '')}`;
+}
+
+function railLabel(o: StoredOrder): string {
+  if (o.depositPayRail === 'venmo') return 'Venmo';
+  if (o.depositPayRail === 'ach') return 'ACH';
+  if (o.depositPayRail === 'card') return 'Card';
+  return 'Manual';
+}
+
+function pendingNote(o: StoredOrder): string {
+  if (o.checkout?.state === 'processing') return 'ACH clearing';
+  if (o.checkout?.state === 'awaiting_payment') return 'Checkout not paid';
+  if (o.checkout?.state === 'failed') return 'ACH failed';
+  if (o.checkout?.state === 'abandoned') return 'Checkout expired';
+  if (o.depositPayRail === 'venmo') return 'Check Venmo';
+  return 'Not confirmed';
+}
+
+function itemsFor(o: StoredOrder) {
+  return list === 'staves' ? staveItems(o) : postItems(o);
+}
+
+function shortDate(iso: string): string {
+  return formatCentralDateTime(iso).replace(/,? \d{1,2}:\d{2}.*$/, '');
+}
+
+const badge: Record<DepositState, string> = {
+  received: 'bg-green-100 text-green-800',
+  pending: 'bg-amber-100 text-amber-900',
+  none: 'bg-slate-100 text-slate-600',
+};
+
+const today = new Date().toLocaleDateString('en-US', {
+  timeZone: 'America/Chicago',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<AdminLayout title="Deposits — Admin">
+  <div class="no-print mb-4 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-slate-900">Deposits</h1>
+      <p class="mt-1 text-sm text-slate-600">
+        Everyone with a deposit on an open order or hunt. Oldest first.
+      </p>
+    </div>
+    <button
+      type="button"
+      id="print-list"
+      class="min-h-12 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+    >
+      Print list
+    </button>
+  </div>
+
+  {
+    (!ordersKv || !huntKv) && (
+      <div class="no-print mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="alert">
+        {!ordersKv && <p><strong>ORDERS_KV is not bound.</strong> Hedge orders cannot be loaded.</p>}
+        {!huntKv && <p><strong>HUNT_KV is not bound.</strong> Hunt reservations cannot be loaded.</p>}
+      </div>
+    )
+  }
+
+  {/* List tabs */}
+  <nav class="no-print mb-4 flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Deposit lists">
+    {
+      (['posts', 'staves', 'hunters'] as ListKey[]).map((key) => (
+        <a
+          href={hrefWith({ list: key })}
+          aria-current={list === key ? 'page' : undefined}
+          class:list={[
+            '-mb-px whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium',
+            list === key
+              ? 'border-green-700 text-green-800'
+              : 'border-transparent text-slate-600 hover:text-green-700',
+          ]}
+        >
+          {listTitles[key]} <span class="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">{counts[key]}</span>
+        </a>
+      ))
+    }
+  </nav>
+
+  {/* Filters */}
+  <div class="no-print mb-4 flex flex-wrap items-center gap-2 text-sm">
+    {
+      (['all', 'received', 'pending'] as ShowKey[]).map((key) => (
+        <a
+          href={hrefWith({ show: key })}
+          class:list={[
+            'rounded-full border px-3 py-1.5',
+            show === key
+              ? 'border-green-700 bg-green-700 text-white'
+              : 'border-slate-300 bg-white text-slate-700 hover:border-green-700',
+          ]}
+        >
+          {key === 'all' ? 'All' : key === 'received' ? 'Deposit received' : 'Deposit pending'}
+        </a>
+      ))
+    }
+    <a
+      href={hrefWith({ notified: !notNotified })}
+      class:list={[
+        'rounded-full border px-3 py-1.5',
+        notNotified
+          ? 'border-green-700 bg-green-700 text-white'
+          : 'border-slate-300 bg-white text-slate-700 hover:border-green-700',
+      ]}
+    >
+      {list === 'hunters' ? 'Portal not sent' : 'Not yet notified'}
+    </a>
+  </div>
+
+  {/* Print header */}
+  <div class="hidden print:block mb-4">
+    <h1 class="text-xl font-bold">{listTitles[list]} — deposits</h1>
+    <p class="text-sm">Printed {today}{show !== 'all' ? ` · ${show} only` : ''}{notNotified ? ' · not yet notified' : ''}</p>
+  </div>
+
+  {/* Bulk actions */}
+  <div class="no-print mb-3 flex flex-wrap items-center gap-3" id="bulk-bar" data-list={list}>
+    <label class="inline-flex min-h-12 items-center gap-2 text-sm text-slate-700">
+      <input type="checkbox" id="select-all" class="h-5 w-5" />
+      Select all
+    </label>
+    {
+      list === 'hunters' ? (
+        <button
+          type="button"
+          id="bulk-send"
+          class="min-h-12 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+          disabled
+        >
+          Send portal links to selected
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            id="bulk-send"
+            class="min-h-12 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800 disabled:opacity-50"
+            disabled
+          >
+            Email "ready" to selected
+          </button>
+          <button
+            type="button"
+            id="bulk-slips"
+            class="min-h-12 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            disabled
+          >
+            Print pickup slips for selected
+          </button>
+        </>
+      )
+    }
+    <span id="bulk-msg" class="text-sm" role="status" aria-live="polite"></span>
+  </div>
+
+  {
+    list !== 'hunters' && (
+      <>
+        {/* Mobile cards */}
+        <ul class="no-print space-y-3 md:hidden">
+          {shownOrders.map((o) => {
+            const st = depositState(o);
+            return (
+              <li class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                  <input type="checkbox" class="js-row-check mt-1 h-5 w-5 shrink-0" value={o.id} aria-label={`Select ${o.customer.name}`} />
+                  <div class="min-w-0 flex-1">
+                    <a href={`/admin/orders/${o.id}`} class="font-semibold text-green-800 hover:underline">{o.customer.name}</a>
+                    {o.customer.phone?.trim() && (
+                      <a href={telHref(o.customer.phone)} class="block text-sm tabular-nums text-slate-700">{o.customer.phone.trim()}</a>
+                    )}
+                    <p class="truncate text-sm text-slate-600">{o.customer.email}</p>
+                    <p class="mt-2 text-sm text-slate-800">
+                      {itemsFor(o).map((i) => `${i.quantity} × ${i.product}`).join(', ')}
+                    </p>
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                      <span class={`rounded px-2 py-0.5 text-xs font-medium ${badge[st]}`}>
+                        {st === 'received' ? 'Received' : pendingNote(o)}
+                      </span>
+                      <span>{formatUsd(o.depositAmount)} · {railLabel(o)}</span>
+                    </div>
+                    <p class="mt-1 text-sm">
+                      Owed at pickup: <strong class="tabular-nums">{formatUsd(amountStillOwed(o))}</strong>
+                    </p>
+                    <p class="mt-1 text-xs text-slate-600">
+                      {o.readyNotice ? `Ready email sent ${shortDate(o.readyNotice.sentAt)}` : 'Not yet notified'}
+                    </p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                      {st === 'pending' && (
+                        <button type="button" class="js-mark-received min-h-11 rounded border border-green-700 px-3 text-sm font-medium text-green-800" data-id={o.id}>
+                          Mark deposit received
+                        </button>
+                      )}
+                      <button type="button" class="js-send-ready min-h-11 rounded bg-green-700 px-3 text-sm font-medium text-white" data-id={o.id} data-name={o.customer.name} data-sent={o.readyNotice ? '1' : ''}>
+                        {o.readyNotice ? 'Resend ready email' : 'Send ready email'}
+                      </button>
+                      <a href={`/admin/orders/${o.id}/pickup-slip`} class="inline-flex min-h-11 items-center rounded border border-slate-300 px-3 text-sm text-slate-700">
+                        Pickup slip
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Desktop + print table */}
+        <div class="hidden overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm md:block print:block print:border-0 print:shadow-none">
+          <table class="min-w-full text-left text-sm">
+            <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
+              <tr>
+                <th class="no-print w-10 px-3 py-3"><span class="sr-only">Select</span></th>
+                <th class="px-3 py-3 font-medium">Customer</th>
+                <th class="px-3 py-3 font-medium">{list === 'staves' ? 'Bow staves' : 'Posts'}</th>
+                <th class="px-3 py-3 font-medium">Deposit</th>
+                <th class="px-3 py-3 font-medium">Owed at pickup</th>
+                <th class="px-3 py-3 font-medium">Ready email</th>
+                <th class="hidden px-3 py-3 font-medium print:table-cell">Called / picked up</th>
+                <th class="no-print px-3 py-3"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              {shownOrders.map((o) => {
+                const st = depositState(o);
+                return (
+                  <tr class="print-break align-top hover:bg-slate-50/80">
+                    <td class="no-print px-3 py-3">
+                      <input type="checkbox" class="js-row-check h-5 w-5" value={o.id} aria-label={`Select ${o.customer.name}`} />
+                    </td>
+                    <td class="px-3 py-3">
+                      <a href={`/admin/orders/${o.id}`} class="font-medium text-green-800 hover:underline">{o.customer.name}</a>
+                      <div class="text-slate-600">
+                        {o.customer.phone?.trim() && (
+                          <a href={telHref(o.customer.phone)} class="block tabular-nums hover:text-green-800">{o.customer.phone.trim()}</a>
+                        )}
+                        <span class="block">{o.customer.email}</span>
+                      </div>
+                      <span class="text-xs text-slate-500">Placed {shortDate(o.createdAt)}</span>
+                    </td>
+                    <td class="px-3 py-3 text-slate-800">
+                      {itemsFor(o).map((i) => (
+                        <div><span class="tabular-nums font-medium">{i.quantity}</span> × {i.product}</div>
+                      ))}
+                    </td>
+                    <td class="px-3 py-3">
+                      <div class="tabular-nums">{formatUsd(o.depositAmount)} <span class="text-slate-500">· {railLabel(o)}</span></div>
+                      <span class={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-medium ${badge[st]}`}>
+                        {st === 'received' ? 'Received' : pendingNote(o)}
+                      </span>
+                      {st === 'pending' && (
+                        <button type="button" class="js-mark-received no-print mt-1 block text-xs font-medium text-green-700 hover:text-green-900" data-id={o.id}>
+                          Mark received
+                        </button>
+                      )}
+                    </td>
+                    <td class="px-3 py-3 font-semibold tabular-nums">{formatUsd(amountStillOwed(o))}</td>
+                    <td class="px-3 py-3 text-slate-700">
+                      {o.readyNotice ? shortDate(o.readyNotice.sentAt) : <span class="text-slate-400">—</span>}
+                    </td>
+                    <td class="hidden px-3 py-3 print:table-cell">☐ ____ &nbsp; ☐ ____</td>
+                    <td class="no-print px-3 py-3">
+                      <div class="flex flex-col items-start gap-1">
+                        <button type="button" class="js-send-ready font-medium text-green-700 hover:text-green-900" data-id={o.id} data-name={o.customer.name} data-sent={o.readyNotice ? '1' : ''}>
+                          {o.readyNotice ? 'Resend ready' : 'Send ready'}
+                        </button>
+                        <a href={`/admin/orders/${o.id}/pickup-slip`} class="text-slate-700 hover:text-green-800">Pickup slip</a>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {shownOrders.length === 0 && (
+          <p class="px-4 py-8 text-center text-slate-500">No deposits on this list{show !== 'all' || notNotified ? ' with these filters' : ' yet'}.</p>
+        )}
+      </>
+    )
+  }
+
+  {
+    list === 'hunters' && (
+      <div class="space-y-6">
+        {partyGroups.map((g) => (
+          <section class="print-break">
+            <h2 class="mb-2 text-base font-semibold text-slate-900">{g.label}</h2>
+            <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm print:border-0 print:shadow-none">
+              <table class="min-w-full text-left text-sm">
+                <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
+                  <tr>
+                    <th class="no-print w-10 px-3 py-3"><span class="sr-only">Select</span></th>
+                    <th class="px-3 py-3 font-medium">Party</th>
+                    <th class="px-3 py-3 font-medium">Hunters</th>
+                    <th class="px-3 py-3 font-medium">Deposit</th>
+                    <th class="px-3 py-3 font-medium">Waivers</th>
+                    <th class="px-3 py-3 font-medium">Still owed</th>
+                    <th class="px-3 py-3 font-medium">Portal sent</th>
+                    <th class="no-print px-3 py-3"><span class="sr-only">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  {g.parties.map((r) => {
+                    const lead = r.hunters[0];
+                    const dep = huntDepositSummary(r);
+                    const portal = huntPortalLastSent(r);
+                    const leadName = lead ? `${lead.firstName} ${lead.lastName}` : '—';
+                    return (
+                      <tr class="print-break align-top hover:bg-slate-50/80">
+                        <td class="no-print px-3 py-3">
+                          <input type="checkbox" class="js-row-check h-5 w-5" value={r.id} aria-label={`Select ${leadName}`} />
+                        </td>
+                        <td class="px-3 py-3">
+                          <a href={`/admin/hunt/${r.id}`} class="font-medium text-green-800 hover:underline">{leadName}</a>
+                          {lead && (
+                            <div class="text-slate-600">
+                              {lead.phone?.trim() && (
+                                <a href={telHref(lead.phone)} class="block tabular-nums hover:text-green-800">{lead.phone.trim()}</a>
+                              )}
+                              <span class="block break-all">{lead.email}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td class="px-3 py-3 text-slate-800">
+                          <span class="tabular-nums font-medium">{r.hunters.length}</span>
+                          {r.mealPackage && <span class="text-slate-500"> · meals</span>}
+                          <details class="no-print mt-1 text-xs text-slate-600">
+                            <summary class="cursor-pointer text-green-700">Names</summary>
+                            {r.hunters.map((h) => (
+                              <div>{h.firstName} {h.lastName}{h.state ? ` (${h.state})` : ''}</div>
+                            ))}
+                          </details>
+                          <div class="mt-1 hidden text-xs print:block">
+                            {r.hunters.map((h) => (
+                              <div>{h.firstName} {h.lastName}{h.state ? ` (${h.state})` : ''}</div>
+                            ))}
+                          </div>
+                        </td>
+                        <td class="px-3 py-3">
+                          <span class={`inline-block rounded px-2 py-0.5 text-xs font-medium ${badge[dep.state]}`}>
+                            {dep.state === 'received' ? 'Received' : 'Pending'}
+                          </span>
+                          <div class="mt-1 text-xs tabular-nums text-slate-600">{dep.paid} of {dep.total} hunters</div>
+                          {dep.state === 'pending' && (
+                            <a href={`/admin/hunt/${r.id}`} class="no-print mt-1 block text-xs font-medium text-green-700 hover:text-green-900">
+                              Mark paid →
+                            </a>
+                          )}
+                        </td>
+                        <td class="px-3 py-3 tabular-nums">{huntWaiversSigned(r)} / {r.hunters.length}</td>
+                        <td class="px-3 py-3 font-semibold tabular-nums">{formatUsd(huntPartyOutstanding(r))}</td>
+                        <td class="px-3 py-3 text-slate-700">{portal ? shortDate(portal) : <span class="text-slate-400">—</span>}</td>
+                        <td class="no-print px-3 py-3">
+                          <div class="flex flex-col items-start gap-1">
+                            <button type="button" class="js-send-portal font-medium text-green-700 hover:text-green-900" data-id={r.id} data-name={leadName} data-sent={portal ? '1' : ''}>
+                              {portal ? 'Resend portal' : 'Send portal'}
+                            </button>
+                            <a href={`/admin/hunt/${r.id}/arrival-sheet`} class="text-slate-700 hover:text-green-800">Arrival sheet</a>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ))}
+        {shownParties.length === 0 && (
+          <p class="px-4 py-8 text-center text-slate-500">No hunt deposits{show !== 'all' || notNotified ? ' with these filters' : ' yet'}.</p>
+        )}
+      </div>
+    )
+  }
+
+  <script>
+    const bar = document.getElementById('bulk-bar');
+    const list = bar?.dataset.list ?? 'posts';
+    const msg = document.getElementById('bulk-msg');
+    const bulkSend = document.getElementById('bulk-send');
+    const bulkSlips = document.getElementById('bulk-slips');
+    const selectAll = document.getElementById('select-all');
+
+    function say(ok: boolean, text: string) {
+      if (!msg) return;
+      msg.textContent = text;
+      msg.className = ok ? 'text-sm text-green-800' : 'text-sm text-red-700';
+    }
+
+    /** Checkboxes in the visible layout (mobile cards or desktop table), deduped by id. */
+    function visibleChecks(): HTMLInputElement[] {
+      return Array.from(document.querySelectorAll<HTMLInputElement>('.js-row-check')).filter(
+        (el) => el.offsetParent !== null
+      );
+    }
+
+    function selectedIds(): string[] {
+      return [...new Set(visibleChecks().filter((el) => el.checked).map((el) => el.value))];
+    }
+
+    function refreshBulk() {
+      const n = selectedIds().length;
+      for (const b of [bulkSend, bulkSlips]) {
+        if (b instanceof HTMLButtonElement) b.disabled = n === 0;
+      }
+    }
+
+    document.addEventListener('change', (e) => {
+      const t = e.target;
+      if (t instanceof HTMLInputElement && t.classList.contains('js-row-check')) refreshBulk();
+    });
+
+    selectAll?.addEventListener('change', () => {
+      if (!(selectAll instanceof HTMLInputElement)) return;
+      for (const el of visibleChecks()) el.checked = selectAll.checked;
+      refreshBulk();
+    });
+
+    document.getElementById('print-list')?.addEventListener('click', () => window.print());
+
+    async function postJson(url: string, body: unknown) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || data.details || `Request failed (${res.status})`);
+      return data;
+    }
+
+    async function sendReady(ids: string[], resend: boolean) {
+      const data = await postJson('/api/admin/send-ready-notice', { ids, resend });
+      const results = (data.results ?? []) as Array<{ ok: boolean; skipped?: boolean; error?: string }>;
+      const sent = results.filter((r) => r.ok).length;
+      const skipped = results.filter((r) => !r.ok && r.skipped).length;
+      const failed = results.filter((r) => !r.ok && !r.skipped);
+      return { sent, skipped, failed };
+    }
+
+    async function sendPortal(id: string) {
+      return postJson('/api/admin/hunt-send-portal', { reservationId: id });
+    }
+
+    document.querySelectorAll<HTMLButtonElement>('.js-send-ready').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id ?? '';
+        const name = btn.dataset.name ?? 'this customer';
+        const again = btn.dataset.sent === '1';
+        if (!confirm(again ? `Send the "ready for pickup" email to ${name} again?` : `Email ${name} that their order is ready for pickup?`)) return;
+        btn.disabled = true;
+        try {
+          const r = await sendReady([id], again);
+          if (r.sent) window.location.reload();
+          else say(false, r.failed[0]?.error || 'Not sent.');
+        } catch (err) {
+          say(false, err instanceof Error ? err.message : 'Could not send.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('.js-send-portal').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const name = btn.dataset.name ?? 'this party';
+        if (!confirm(`Email portal links to every hunter in the ${name} party?`)) return;
+        btn.disabled = true;
+        try {
+          await sendPortal(btn.dataset.id ?? '');
+          window.location.reload();
+        } catch (err) {
+          say(false, err instanceof Error ? err.message : 'Could not send.');
+          btn.disabled = false;
+        }
+      });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>('.js-mark-received').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Mark this deposit as received? Only do this once you see the money (Venmo, cash, or check).')) return;
+        btn.disabled = true;
+        try {
+          await postJson('/api/admin/update-order', { id: btn.dataset.id, depositReceived: true });
+          window.location.reload();
+        } catch (err) {
+          say(false, err instanceof Error ? err.message : 'Could not update.');
+          btn.disabled = false;
+        }
+      });
+    });
+
+    bulkSend?.addEventListener('click', async () => {
+      const ids = selectedIds();
+      if (ids.length === 0 || !(bulkSend instanceof HTMLButtonElement)) return;
+      bulkSend.disabled = true;
+      try {
+        if (list === 'hunters') {
+          if (!confirm(`Email portal links to every hunter in ${ids.length} selected part${ids.length === 1 ? 'y' : 'ies'}?`)) return;
+          let ok = 0;
+          const errors: string[] = [];
+          for (const id of ids) {
+            try {
+              await sendPortal(id);
+              ok++;
+            } catch (err) {
+              errors.push(err instanceof Error ? err.message : String(err));
+            }
+          }
+          if (errors.length) say(false, `Sent ${ok}; ${errors.length} failed: ${errors[0]}`);
+          else window.location.reload();
+        } else {
+          if (!confirm(`Email "your order is ready" to ${ids.length} selected customer${ids.length === 1 ? '' : 's'}? Anyone already notified is skipped.`)) return;
+          const r = await sendReady(ids, false);
+          if (r.failed.length) {
+            say(false, `Sent ${r.sent}, skipped ${r.skipped}, ${r.failed.length} failed: ${r.failed[0]?.error ?? ''}`);
+          } else {
+            say(true, `Sent ${r.sent}${r.skipped ? `, skipped ${r.skipped} already notified` : ''}. Refreshing…`);
+            setTimeout(() => window.location.reload(), 900);
+          }
+        }
+      } catch (err) {
+        say(false, err instanceof Error ? err.message : 'Could not send.');
+      } finally {
+        refreshBulk();
+      }
+    });
+
+    bulkSlips?.addEventListener('click', () => {
+      const ids = selectedIds();
+      if (ids.length === 0) return;
+      window.open(`/admin/pickup-slips?ids=${encodeURIComponent(ids.join(','))}`, '_blank');
+    });
+  </script>
+</AdminLayout>

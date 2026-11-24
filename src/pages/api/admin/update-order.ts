@@ -99,11 +99,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  const wantsMeta = 'status' in body || 'deliverySlot' in body;
+  const wantsMeta = 'status' in body || 'deliverySlot' in body || 'depositReceived' in body;
   let metaChanged = false;
 
   if (wantsMeta) {
-    const patch: { status?: OrderStatus; deliverySlot?: string | null } = {};
+    const patch: { status?: OrderStatus; deliverySlot?: string | null; depositReceived?: boolean } = {};
+    if ('depositReceived' in body) {
+      if (typeof body.depositReceived !== 'boolean') {
+        return new Response(JSON.stringify({ error: 'depositReceived must be true or false' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      patch.depositReceived = body.depositReceived;
+    }
     if ('status' in body && body.status !== undefined && body.status !== null) {
       const s = String(body.status);
       if (!isOrderStatus(s)) {

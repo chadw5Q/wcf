@@ -74,6 +74,12 @@ const { title } = Astro.props;
                   Orders
                 </a>
                 <a
+                  href="/admin/deposits"
+                  class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
+                >
+                  Deposits
+                </a>
+                <a
                   href="/admin/products"
                   class="block px-3 py-2 text-slate-700 hover:bg-slate-50 hover:text-green-700"
                 >
@@ -95,6 +101,7 @@ const { title } = Astro.props;
             </div>
           </div>
 
+          <a href="/admin/deposits" class="text-slate-600 hover:text-green-700">Deposits</a>
           <a href="/admin/hunt" class="text-slate-600 hover:text-green-700">Hunt</a>
           <a href="/admin/integrations" class="text-slate-600 hover:text-green-700">Administration</a>
           <form method="post" action="/api/admin/logout" class="inline">

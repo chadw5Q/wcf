@@ -348,7 +348,7 @@ export function createWalkInStoredOrder(
   return order;
 }
 
-function pushRevision(order: StoredOrder, entry: OrderRevisionEntry): void {
+export function pushRevision(order: StoredOrder, entry: OrderRevisionEntry): void {
   const log = order.revisionLog ?? [];
   log.push(entry);
   order.revisionLog = log.length > MAX_REVISION_LOG ? log.slice(-MAX_REVISION_LOG) : log;
@@ -436,6 +436,10 @@ export function rebuildStoredOrder(
       ? { depositPayRail: existing.depositPayRail }
       : {}),
     ...(existing.checkout ? { checkout: existing.checkout } : {}),
+    ...(existing.depositReceived && body.depositAmount > 0
+      ? { depositReceived: existing.depositReceived }
+      : {}),
+    ...(existing.readyNotice ? { readyNotice: existing.readyNotice } : {}),
     deliverySlot: existing.deliverySlot,
     status: existing.status,
     revisionLog: [...(existing.revisionLog ?? [])],
@@ -532,7 +536,7 @@ export async function getOrdersByDateRange(
 /** Apply status / delivery slot changes and append `revisionLog` when something changed. Returns whether the order mutated. */
 export function applyOrderMetaPatch(
   order: StoredOrder,
-  patch: { status?: OrderStatus; deliverySlot?: string | null },
+  patch: { status?: OrderStatus; deliverySlot?: string | null; depositReceived?: boolean },
   now: Date = new Date()
 ): boolean {
   const nowIso = now.toISOString();
@@ -561,6 +565,20 @@ export function applyOrderMetaPatch(
     }
   }
 
+  if (patch.depositReceived !== undefined) {
+    const was = Boolean(order.depositReceived);
+    if (patch.depositReceived && !was) {
+      if (!(order.depositAmount > 0)) throw new Error('This order has no deposit to mark received.');
+      order.depositReceived = { at: nowIso, via: 'manual' };
+      details.depositReceived = { from: false, to: true };
+      changed = true;
+    } else if (!patch.depositReceived && was) {
+      delete order.depositReceived;
+      details.depositReceived = { from: true, to: false };
+      changed = true;
+    }
+  }
+
   if (becameFulfilled) {
     if (attachReviewRequestOnFulfilled(order, now)) {
       details.reviewRequestQueuedFor = order.reviewRequest?.queuedFor;
@@ -575,6 +593,10 @@ export function applyOrderMetaPatch(
       parts.push(`Status: ${st.from} → ${st.to}`);
     }
     if (details.deliverySlot) parts.push('Delivery / pickup slot updated');
+    if (details.depositReceived) {
+      const dr = details.depositReceived as { to: boolean };
+      parts.push(dr.to ? 'Deposit marked received' : 'Deposit received mark removed');
+    }
     if (details.reviewRequestQueuedFor) parts.push('Review ask queued');
     pushRevision(order, {
       at: nowIso,

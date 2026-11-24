@@ -9,6 +9,7 @@ import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
 import type { StoredOrder } from '../../../lib/order-types';
 import { getProductsConfig, orderSkusToMap } from '../../../lib/products-config';
 import { hedgePayRailLabel } from '../../../lib/hedge-deposit';
+import { amountStillOwed, depositState } from '../../../lib/deposits';
 
 const id = Astro.params.id ?? '';
 const kv = getOrdersKvFromLocals(Astro.locals);
@@ -86,6 +87,7 @@ const revisionNewestFirst = order
           class="order-page"
           data-mode="view"
           data-deposit-selected={order.deposit.selected ? '1' : '0'}
+          data-order-id={order.id}
           data-catalog-prices={JSON.stringify(catalogPrices)}
         >
           {/* Sticky action bar */}
@@ -106,6 +108,12 @@ const revisionNewestFirst = order
                 >
                   Print
                 </button>
+                <a
+                  href={`/admin/orders/${order.id}/pickup-slip`}
+                  class="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Pickup slip
+                </a>
                 <button
                   type="button"
                   id="enter-edit"
@@ -281,12 +289,44 @@ const revisionNewestFirst = order
                             via {hedgePayRailLabel(order.depositPayRail)}
                           </span>
                         )}
+                        {depositState(order) === 'received' && (
+                          <span class="block text-xs font-medium text-green-800">
+                            Received
+                            {order.depositReceived && (
+                              <button
+                                type="button"
+                                class="js-deposit-received no-print ml-1 font-normal text-slate-500 underline hover:text-slate-800"
+                                data-value="false"
+                              >
+                                undo
+                              </button>
+                            )}
+                          </span>
+                        )}
+                        {depositState(order) === 'pending' && (
+                          <span class="block text-xs font-medium text-amber-800">
+                            Not confirmed
+                            <button
+                              type="button"
+                              class="js-deposit-received no-print ml-1 rounded border border-green-700 px-2 py-0.5 font-medium text-green-800 hover:bg-green-50"
+                              data-value="true"
+                            >
+                              Mark received
+                            </button>
+                          </span>
+                        )}
                       </span>
                     </li>
                     <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">
-                      <span>Balance due (estimated)</span>
-                      <span class="tabular-nums">{formatUsd(order.balanceDue)}</span>
+                      <span>Owed at pickup</span>
+                      <span class="tabular-nums">{formatUsd(amountStillOwed(order))}</span>
                     </li>
+                    {order.readyNotice && (
+                      <li class="flex justify-between gap-4 text-xs text-slate-600">
+                        <span>Ready email sent</span>
+                        <span>{formatCentralDateTime(order.readyNotice.sentAt)}</span>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -796,6 +836,34 @@ const revisionNewestFirst = order
           });
 
           document.getElementById('print-order')?.addEventListener('click', () => window.print());
+
+          document.querySelectorAll('.js-deposit-received').forEach((el) => {
+            el.addEventListener('click', async () => {
+              if (!(el instanceof HTMLButtonElement)) return;
+              const value = el.dataset.value === 'true';
+              const prompt = value
+                ? 'Mark this deposit as received? Only do this once you see the money (Venmo, cash, or check).'
+                : 'Remove the "deposit received" mark?';
+              if (!confirm(prompt)) return;
+              el.disabled = true;
+              try {
+                const res = await fetch('/api/admin/update-order', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    id: document.getElementById('order-page')?.dataset.orderId,
+                    depositReceived: value,
+                  }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.error || 'Could not update deposit.');
+                window.location.reload();
+              } catch (err) {
+                el.disabled = false;
+                alert(err instanceof Error ? err.message : 'Could not update deposit.');
+              }
+            });
+          });
 
           document.getElementById('save-status')?.addEventListener('click', async () => {
             const btn = document.getElementById('save-status');

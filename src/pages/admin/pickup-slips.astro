@@ -1,0 +1,52 @@
+---
+export const prerender = false;
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import PickupSlip from '../../components/admin/PickupSlip.astro';
+import { getOrder } from '../../lib/orders';
+import { getOrdersKvFromLocals } from '../../lib/orders-kv';
+import type { StoredOrder } from '../../lib/order-types';
+
+const ids = (Astro.url.searchParams.get('ids') ?? '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .slice(0, 100);
+const kv = getOrdersKvFromLocals(Astro.locals);
+const orders: StoredOrder[] = [];
+if (kv) {
+  for (const id of ids) {
+    const o = await getOrder(kv, id);
+    if (o) orders.push(o);
+  }
+}
+---
+
+<AdminLayout title={`Pickup slips (${orders.length})`}>
+  <div class="no-print mb-4 flex flex-wrap items-center justify-between gap-3">
+    <p class="text-sm">
+      <a href="/admin/deposits" class="font-medium text-green-700 hover:text-green-900">← Deposits</a>
+      <span class="ml-2 text-slate-600">{orders.length} slip{orders.length === 1 ? '' : 's'}, one per printed page</span>
+    </p>
+    {orders.length > 0 && (
+      <button type="button" id="print-slips" class="min-h-12 rounded bg-green-700 px-4 py-2 text-sm font-medium text-white hover:bg-green-800">
+        Print all
+      </button>
+    )}
+  </div>
+  <div class="space-y-8">
+    {orders.map((o) => (
+      <div class="slip-page">
+        <PickupSlip order={o} />
+      </div>
+    ))}
+  </div>
+  {orders.length === 0 && <p class="text-slate-600">No orders selected.</p>}
+  <style is:global>
+    @media print {
+      .slip-page + .slip-page { break-before: page; }
+    }
+  </style>
+  <script>
+    document.getElementById('print-slips')?.addEventListener('click', () => window.print());
+  </script>
+</AdminLayout>

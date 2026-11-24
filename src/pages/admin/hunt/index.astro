@@ -2,8 +2,8 @@
 export const prerender = false;
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { getHuntKvFromLocals } from '../../../lib/hunt-kv';
-import { hunterBalanceShareUsd, hunterDepositShareUsd } from '../../../lib/hunt-hunter-shares';
-import { ensureHunterPayments, listAllReservations } from '../../../lib/hunt-reservations';
+import { huntPartyOutstanding } from '../../../lib/deposits';
+import { listAllReservations } from '../../../lib/hunt-reservations';
 import { getWeekLabel } from '../../../lib/hunt-weeks';
 
 const kv = getHuntKvFromLocals(Astro.locals);
@@ -15,16 +15,7 @@ function leadName(r: (typeof reservations)[0]): string {
   return h ? `${h.firstName} ${h.lastName}` : '—';
 }
 
-function outstanding(r: (typeof reservations)[0]): number {
-  const payments = ensureHunterPayments(r);
-  let n = 0;
-  for (let i = 0; i < r.hunters.length; i++) {
-    const p = payments[i]!;
-    if (!p.depositPaid) n += hunterDepositShareUsd(r, i);
-    if (!p.balancePaid) n += hunterBalanceShareUsd(r, i);
-  }
-  return Math.round(n * 100) / 100;
-}
+const outstanding = huntPartyOutstanding;
 
 function money(n: number): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -39,6 +30,12 @@ function money(n: number): string {
         Pipeline for deposits, tags, portals, waivers, and balances.
       </p>
     </div>
+    <a
+      href="/admin/deposits?list=hunters"
+      class="inline-flex min-h-12 items-center rounded border border-green-700 bg-white px-4 py-2 text-sm font-medium text-green-800 hover:bg-green-50"
+    >
+      Deposits list
+    </a>
   </div>
 
   {

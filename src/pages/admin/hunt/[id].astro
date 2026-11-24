@@ -212,6 +212,12 @@ function formatPhone(raw: string): string {
             </details>
           </div>
           <div class="flex flex-wrap items-center gap-2">
+            <a
+              href={`/admin/hunt/${reservation.id}/arrival-sheet`}
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              Print arrival sheet
+            </a>
             {
               !reservation.tagReceivedAt && (
                 <button

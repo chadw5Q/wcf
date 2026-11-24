@@ -108,6 +108,13 @@ export interface StoredOrder {
   contactId?: string;
   /** Queued / sent post-purchase review ask (first-party reviews). */
   reviewRequest?: OrderReviewRequest;
+  /**
+   * Admin confirmed the deposit arrived (Venmo, cash, check). Stripe-paid deposits count as
+   * received from `checkout.state === 'paid'` without this field.
+   */
+  depositReceived?: { at: string; via: 'manual' };
+  /** When the "your order is ready for pickup" email went out. */
+  readyNotice?: { sentAt: string; to: string };
 }
 
 /** Lifecycle of the automated review email ask (Ask 1). */
