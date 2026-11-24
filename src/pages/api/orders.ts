@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { attachOrderToContact } from '../../lib/contacts';
+import { parseDepositPayRail } from '../../lib/order-types';
 import { buildStoredOrder, saveOrder, type BuildOrderInput } from '../../lib/orders';
 import { getOrdersKvFromLocals } from '../../lib/orders-kv';
 import { getProductsConfig, orderSkusToMap } from '../../lib/products-config';
@@ -58,6 +59,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ? String(customerInfo.message)
           : null,
     depositSelected: Boolean(b.depositSelected ?? b.isDeposit),
+    depositPayRail: parseDepositPayRail(b.depositPayRail),
     quantities,
   };
 

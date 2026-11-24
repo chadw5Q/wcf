@@ -41,6 +41,13 @@ export interface OrderRevisionEntry {
   details?: Record<string, unknown>;
 }
 
+/** How the customer chose to pay the optional 10% deposit at checkout (Venmo preferred, then ACH, then card). */
+export type DepositPayRail = 'venmo' | 'ach' | 'card';
+
+export function parseDepositPayRail(raw: unknown): DepositPayRail | null {
+  return raw === 'venmo' || raw === 'ach' || raw === 'card' ? raw : null;
+}
+
 export interface StoredOrder {
   id: string;
   createdAt: string;
@@ -64,6 +71,8 @@ export interface StoredOrder {
   };
   orderTotal: number;
   depositAmount: number;
+  /** Deposit payment method picked at checkout; absent on older orders and walk-ins. */
+  depositPayRail?: DepositPayRail | null;
   balanceDue: number;
   notes: string | null;
   deliverySlot: string | null;

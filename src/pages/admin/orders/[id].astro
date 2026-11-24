@@ -8,6 +8,7 @@ import { formatCentralDateTime, formatUsd } from '../../../lib/format-order';
 import { ORDER_QUANTITY_KEYS } from '../../../lib/order-form-keys';
 import type { StoredOrder } from '../../../lib/order-types';
 import { getProductsConfig, orderSkusToMap } from '../../../lib/products-config';
+import { hedgePayRailLabel } from '../../../lib/hedge-deposit';
 
 const id = Astro.params.id ?? '';
 const kv = getOrdersKvFromLocals(Astro.locals);
@@ -275,6 +276,11 @@ const revisionNewestFirst = order
                         {order.deposit.selected || order.depositAmount > 0
                           ? formatUsd(order.depositAmount)
                           : 'No'}
+                        {order.depositPayRail && order.depositAmount > 0 && (
+                          <span class="block text-xs font-normal text-slate-500">
+                            via {hedgePayRailLabel(order.depositPayRail)}
+                          </span>
+                        )}
                       </span>
                     </li>
                     <li class="flex justify-between gap-4 border-t border-slate-100 pt-2 font-medium">

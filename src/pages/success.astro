@@ -99,6 +99,12 @@ const pickupCalUrl = pickupScheduleUrl(stripeOrderId || undefined);
                     <p class="text-gray-600 mb-4">
                       <strong>Deposit Paid:</strong> 
                       <span class="text-green-600 font-semibold">${formatUsd(session.metadata?.deposit_amount)}</span>
+                      {session.metadata?.charge_usd && (
+                        <span class="text-gray-500 text-sm">
+                          {' '}(charged ${formatUsd(session.metadata.charge_usd)} including the{' '}
+                          {session.metadata?.pay_rail === 'ach' ? 'bank' : 'card'} processing fee)
+                        </span>
+                      )}
                     </p>
                     <p class="text-gray-600 mb-4">
                       <strong>Remaining Balance:</strong> ${(parseFloat(session.metadata?.order_total || '0') - parseFloat(session.metadata?.deposit_amount || '0')).toFixed(2)}
@@ -110,7 +116,11 @@ const pickupCalUrl = pickupScheduleUrl(stripeOrderId || undefined);
             <p class="text-gray-600 mb-4">
               <strong>Status:</strong> 
               <span class="text-green-600 font-semibold">
-                {isDeposit ? 'Deposit Confirmed - Order Secured' : 'Payment Confirmed'}
+                {isDeposit
+                  ? session?.metadata?.pay_rail === 'ach'
+                    ? 'Bank payment started - clears in a few business days'
+                    : 'Deposit Confirmed - Order Secured'
+                  : 'Payment Confirmed'}
               </span>
             </p>
           </div>

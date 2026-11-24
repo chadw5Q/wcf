@@ -2,6 +2,13 @@ import type { APIRoute } from 'astro';
 import { Resend } from 'resend';
 import { pickupScheduleUrl } from '../../lib/cal-pickup';
 import {
+  HEDGE_VENMO_HANDLE,
+  hedgeDepositChargeUsd,
+  hedgePayRailLabel,
+  hedgeVenmoNote,
+} from '../../lib/hedge-deposit';
+import { parseDepositPayRail, type DepositPayRail } from '../../lib/order-types';
+import {
   buildStoredOrder,
   summarizeItemsForNtfy,
   type BuildOrderInput,
@@ -104,6 +111,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     const body = await request.json();
     const { customerInfo, quantities, orderTotal, isDeposit, depositAmount, orderId } = body;
+    const payRail: DepositPayRail = parseDepositPayRail(body.payRail) ?? 'card';
+    const depositUsd = Number(depositAmount) || 0;
+    const chargeUsd = isDeposit ? hedgeDepositChargeUsd(depositUsd, payRail) : 0;
     const orderIdStr =
       orderId !== undefined && orderId !== null && String(orderId).trim() !== ''
         ? String(orderId).trim()
@@ -186,7 +196,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 </head>
 <body>
   <div class="header">
-    <h1>${isDeposit ? 'Deposit payment started' : 'New order inquiry'}</h1>
+    <h1>${isDeposit ? (payRail === 'venmo' ? 'Deposit coming by Venmo' : 'Deposit payment started') : 'New order inquiry'}</h1>
     <p>Southwest Iowa Hedge — order notification</p>
   </div>
 
@@ -218,7 +228,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       <h2>Payment</h2>
       <p><strong>10% deposit amount:</strong> $${Number(depositAmount).toFixed(2)}</p>
       <p><strong>Estimated remaining at pickup:</strong> $${(finalTotal - Number(depositAmount)).toFixed(2)}</p>
-      <p><em>Customer is proceeding to Stripe checkout for the deposit.</em></p>
+      <p><strong>Payment method:</strong> ${hedgePayRailLabel(payRail)}</p>
+      ${
+        payRail === 'venmo'
+          ? `<p><em>Customer was sent to Venmo to pay $${depositUsd.toFixed(2)} to ${HEDGE_VENMO_HANDLE}${
+              orderIdStr ? ` with the note "${escapeHtmlText(hedgeVenmoNote(orderIdStr))}"` : ''
+            }. Watch Venmo for it; nothing confirms it automatically.</em></p>`
+          : `<p><strong>Charged with fee:</strong> $${chargeUsd.toFixed(2)}</p>
+      <p><em>Customer is proceeding to Stripe checkout (${
+        payRail === 'ach' ? 'bank / ACH, takes a few business days to clear' : 'card'
+      }).</em></p>`
+      }
     </div>
     `
         : `
@@ -245,7 +265,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
       <ol>
         <li>Contact the customer within 24 hours</li>
         <li>Confirm quantities and schedule pickup</li>
-        ${isDeposit ? '<li>Order secured with deposit once Stripe payment completes</li>' : '<li>Discuss deposit if they want to secure a spot</li>'}
+        ${
+          isDeposit
+            ? payRail === 'venmo'
+              ? '<li>Order secured once the Venmo deposit shows up</li>'
+              : '<li>Order secured with deposit once Stripe payment completes</li>'
+            : '<li>Discuss deposit if they want to secure a spot</li>'
+        }
       </ol>
     </div>
   </div>
@@ -334,7 +360,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
           itemsLine ? `Items: ${itemsLine}` : '',
           `Order total: $${finalTotal.toFixed(2)}`,
           isDeposit
-            ? `Deposit (10% at checkout): $${Number(depositAmount).toFixed(2)}`
+            ? `Deposit (10%): $${depositUsd.toFixed(2)} via ${hedgePayRailLabel(payRail)}`
             : 'Deposit: not selected at checkout',
           `Email: ${customerInfo.email}`,
           `Phone: ${customerInfo.phone || '—'}`,
@@ -345,7 +371,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       } catch {
         ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
         ntfyMessage = [
-          isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
+          isDeposit ? `Type: Deposit via ${hedgePayRailLabel(payRail)}` : 'Type: Inquiry (no deposit)',
           `Order ID: ${orderIdStr}`,
           `Order total: $${finalTotal.toFixed(2)}`,
           ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
@@ -359,7 +385,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     } else {
       ntfyTitle = isDeposit ? `Deposit order: ${customerName}` : `New hedge order: ${customerName}`;
       ntfyMessage = [
-        isDeposit ? 'Type: Deposit (customer opened Stripe checkout)' : 'Type: Inquiry (no deposit)',
+        isDeposit ? `Type: Deposit via ${hedgePayRailLabel(payRail)}` : 'Type: Inquiry (no deposit)',
         `Order total: $${finalTotal.toFixed(2)}`,
         ...(isDeposit ? [`Deposit (10%): $${Number(depositAmount).toFixed(2)}`] : []),
         `Email: ${customerInfo.email}`,

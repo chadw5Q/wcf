@@ -214,11 +214,36 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
                       <span class="text-sm font-semibold text-gray-900">10% Deposit Amount:</span>
                       <span id="deposit-amount" class="text-sm font-bold text-blue-600">$0.00</span>
                     </div>
-                    <div class="text-xs text-gray-600">
+                    <fieldset class="mt-4">
+                      <legend class="text-sm font-semibold text-gray-900 mb-2">How would you like to pay the deposit?</legend>
+                      <div class="space-y-2">
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                          <input type="radio" name="depositPayRail" value="venmo" class="mt-1" checked />
+                          <span>
+                            <span class="block text-sm font-semibold text-gray-900">Venmo (preferred) <span class="font-normal text-gray-600">— no fee</span></span>
+                            <span class="block text-xs text-gray-600">After you submit, tap the button to pay <span data-rail-amount="venmo">$0.00</span> on Venmo.</span>
+                          </span>
+                        </label>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                          <input type="radio" name="depositPayRail" value="ach" class="mt-1" />
+                          <span>
+                            <span class="block text-sm font-semibold text-gray-900">Bank transfer (ACH) <span class="font-normal text-gray-600">— +0.8% fee</span></span>
+                            <span class="block text-xs text-gray-600">Pay <span data-rail-amount="ach">$0.00</span> from your bank account through Stripe.</span>
+                          </span>
+                        </label>
+                        <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                          <input type="radio" name="depositPayRail" value="card" class="mt-1" />
+                          <span>
+                            <span class="block text-sm font-semibold text-gray-900">Credit or debit card <span class="font-normal text-gray-600">— +3% fee</span></span>
+                            <span class="block text-xs text-gray-600">Pay <span data-rail-amount="card">$0.00</span> by card through Stripe.</span>
+                          </span>
+                        </label>
+                      </div>
+                    </fieldset>
+                    <div class="text-xs text-gray-600 mt-3">
                       <p>• Deposit secures your place in our queue</p>
                       <p>• Remaining balance due at pickup</p>
-                      <p>• You'll be redirected to secure payment page after submitting</p>
-                      <p>• Credit card processed securely through Stripe</p>
+                      <p>• Venmo has no fee. ACH and card totals include processing so we still receive the full deposit.</p>
                     </div>
                   </div>
                 </div>
@@ -302,7 +327,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
                 <svg class="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                 </svg>
-                <span class="text-sm text-blue-800">You'll be redirected to Stripe's secure payment page to enter your credit card information.</span>
+                <span id="payment-notice-text" class="text-sm text-blue-800">After you submit, you'll get a button to pay your deposit on Venmo.</span>
               </div>
             </div>
             
@@ -487,7 +512,33 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
         const depositAmount = orderTotal * 0.1;
         depositOrderTotalSpan.textContent = `$${orderTotal.toFixed(2)}`;
         depositAmountSpan.textContent = `$${depositAmount.toFixed(2)}`;
+        document.querySelectorAll('[data-rail-amount]').forEach((el) => {
+          el.textContent = `$${depositChargeFor(depositAmount, el.getAttribute('data-rail-amount')).toFixed(2)}`;
+        });
       }
+      if (typeof window.__updateDepositButton === 'function') window.__updateDepositButton();
+    }
+
+    // Keep in sync with src/lib/hunt-fees.ts (server recomputes the real charge).
+    const DEPOSIT_CARD_FEE = 1.03;
+    const DEPOSIT_ACH_FEE = 1.008;
+
+    function depositChargeFor(depositAmount, rail) {
+      if (rail === 'card') return Math.round(depositAmount * DEPOSIT_CARD_FEE * 100) / 100;
+      if (rail === 'ach') return Math.round(depositAmount * DEPOSIT_ACH_FEE * 100) / 100;
+      return Math.round(depositAmount * 100) / 100;
+    }
+
+    function selectedDepositRail() {
+      const el = document.querySelector('input[name="depositPayRail"]:checked');
+      const v = el ? el.value : 'venmo';
+      return v === 'ach' || v === 'card' ? v : 'venmo';
+    }
+
+    function currentDepositAmount() {
+      const span = document.getElementById('deposit-amount');
+      const n = span ? parseFloat(String(span.textContent).replace(/[^0-9.]/g, '')) : 0;
+      return Number.isFinite(n) ? n : 0;
     }
 
     // Add event listeners to all quantity inputs
@@ -507,11 +558,23 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
       const depositDetails = document.getElementById('deposit-details');
       const submitButton = document.getElementById('submit-button');
       const paymentNotice = document.getElementById('payment-notice');
-      
+      const paymentNoticeText = document.getElementById('payment-notice-text');
+
       function updateButtonText() {
         if (depositCheckbox && submitButton && paymentNotice) {
           if (depositCheckbox.checked) {
-            submitButton.textContent = 'Proceed to Payment';
+            const rail = selectedDepositRail();
+            const charge = depositChargeFor(currentDepositAmount(), rail).toFixed(2);
+            if (rail === 'venmo') {
+              submitButton.textContent = `Submit Order — Pay $${charge} on Venmo`;
+              if (paymentNoticeText) paymentNoticeText.textContent = "After you submit, you'll get a button to pay your deposit on Venmo.";
+            } else if (rail === 'ach') {
+              submitButton.textContent = `Submit Order — Pay $${charge} by Bank (ACH)`;
+              if (paymentNoticeText) paymentNoticeText.textContent = "You'll be sent to Stripe's secure page to pay from your bank account.";
+            } else {
+              submitButton.textContent = `Submit Order — Pay $${charge} by Card`;
+              if (paymentNoticeText) paymentNoticeText.textContent = "You'll be sent to Stripe's secure page to enter your card.";
+            }
             paymentNotice.classList.remove('hidden');
           } else {
             submitButton.textContent = 'Submit Order Request';
@@ -531,6 +594,11 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
         });
       }
       
+      document.querySelectorAll('input[name="depositPayRail"]').forEach((el) => {
+        el.addEventListener('change', updateButtonText);
+      });
+      window.__updateDepositButton = updateButtonText;
+
       // Initial button text setup
       updateButtonText();
     });
@@ -576,6 +644,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
       // Check if deposit option is selected
       const depositCheckbox = document.getElementById('deposit-option');
       const isDepositSelected = depositCheckbox && depositCheckbox.checked;
+      const depositPayRail = isDepositSelected ? selectedDepositRail() : null;
 
       const customerInfo = {
         firstName: data.firstName || '',
@@ -600,6 +669,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
             customerInfo,
             quantities,
             depositSelected: Boolean(isDepositSelected),
+            depositPayRail,
           }),
         });
         const orderJson = await orderRes.json().catch(() => ({}));
@@ -648,6 +718,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
               orderTotal,
               isDeposit: true,
               depositAmount,
+              payRail: depositPayRail,
               orderId,
             }),
           });
@@ -663,6 +734,14 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
             return;
           }
 
+          if (depositPayRail === 'venmo') {
+            // No processor: the thank-you page shows the Venmo button for this order's deposit.
+            const q = new URLSearchParams({ kind: 'deposit-venmo' });
+            if (orderId) q.set('orderId', orderId);
+            window.location.replace(`/thank-you?${q.toString()}`);
+            return;
+          }
+
           submitButton.textContent = 'Processing Payment...';
           const response = await fetch('/api/create-deposit-payment', {
             method: 'POST',
@@ -674,6 +753,7 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
               orderItems,
               quantities,
               orderId,
+              payRail: depositPayRail,
             }),
           });
 
@@ -685,7 +765,9 @@ const skuByField = orderSkusToMap(productsConfig.orderSkus);
             submitButton.textContent = originalText;
             submitButton.disabled = false;
             const detail = result.details || result.error || `Server returned ${response.status}.`;
-            alert(`${detail}\n\nPlease text us at 712-254-3999.`);
+            alert(
+              `We couldn't open the ${depositPayRail === 'ach' ? 'bank' : 'card'} payment page.\n\n${detail}\n\nYour order is saved. You can pick Venmo instead, or text us at 712-254-3999.`
+            );
           }
         } catch (error) {
           console.error('Payment error:', error);

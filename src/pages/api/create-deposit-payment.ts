@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { checkoutChargeUsd } from '../../lib/hunt-fees';
 import { createCheckoutSession, stripeErrorMessage } from '../../lib/stripe';
 import { getServerEnv } from '../../lib/server-env';
 
@@ -20,6 +21,8 @@ export const POST: APIRoute = async ({ request }) => {
 
     const body = await request.json();
     const { depositAmount, orderTotal, customerInfo, orderItems, quantities, orderId } = body;
+    // Venmo deposits never reach this endpoint; anything else that isn't ACH pays by card.
+    const payRail: 'ach' | 'card' = body.payRail === 'ach' ? 'ach' : 'card';
     const orderIdMeta =
       orderId !== undefined && orderId !== null && String(orderId).trim() !== ''
         ? String(orderId).trim()
@@ -38,16 +41,19 @@ export const POST: APIRoute = async ({ request }) => {
         JSON.stringify({
           error: 'Deposit too small',
           details:
-            'The card payment minimum is $0.50. Your 10% deposit is below that with the current cart. Add more items, or submit without a deposit and pay at pickup.',
+            'The card payment minimum is $0.50. Your 10% deposit is below that with the current cart. Add more items, pay the deposit by Venmo, or submit without a deposit and pay at pickup.',
         }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
+    // Bake the processor fee into the charge so the farm still nets the full deposit.
+    const chargeUsd = checkoutChargeUsd(Number(depositAmount), payRail);
+    const feeLabel = payRail === 'ach' ? '+0.8% bank fee' : '+3% card fee';
     const depositItem = {
       id: 'deposit',
-      name: `10% Deposit - Hedge Posts Order (${customerInfo.firstName} ${customerInfo.lastName})`,
-      price: Number(depositAmount),
+      name: `10% Deposit (${feeLabel}) - Hedge Posts Order (${customerInfo.firstName} ${customerInfo.lastName})`,
+      price: chargeUsd,
       quantity: 1,
     };
 
@@ -58,6 +64,8 @@ export const POST: APIRoute = async ({ request }) => {
       customer_phone: customerInfo.phone || '',
       order_total: orderTotal.toString(),
       deposit_amount: depositAmount.toString(),
+      charge_usd: chargeUsd.toFixed(2),
+      pay_rail: payRail,
       quantities: JSON.stringify(quantities),
       order_items: JSON.stringify(orderItems),
       notes: customerInfo.notes || '',
@@ -70,12 +78,15 @@ export const POST: APIRoute = async ({ request }) => {
     const session = await createCheckoutSession([depositItem], {
       customerEmail: customerInfo.email || undefined,
       metadata,
+      paymentMethodTypes: payRail === 'ach' ? ['us_bank_account'] : ['card'],
     });
 
     return new Response(
       JSON.stringify({
         sessionId: session.id,
         url: session.url,
+        payRail,
+        chargeUsd,
       }),
       {
         status: 200,

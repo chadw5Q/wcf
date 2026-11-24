@@ -1,4 +1,5 @@
 import type {
+  DepositPayRail,
   DiscountMode,
   OrderFieldName,
   OrderLineItem,
@@ -43,6 +44,8 @@ export interface BuildOrderInput {
   phone: string;
   notes: string | null;
   depositSelected: boolean;
+  /** Venmo / ACH / card choice for the checkout deposit. Ignored when no deposit. */
+  depositPayRail?: DepositPayRail | null;
   quantities: Record<string, unknown>;
 }
 
@@ -267,6 +270,9 @@ export function buildStoredOrder(
     id,
     createdAt,
     ...body,
+    ...(input.depositSelected && input.depositPayRail
+      ? { depositPayRail: input.depositPayRail }
+      : {}),
     deliverySlot: null,
     status: 'pending',
   };
@@ -426,6 +432,9 @@ export function rebuildStoredOrder(
     createdAt: existing.createdAt,
     updatedAt: now,
     ...body,
+    ...(existing.depositPayRail && body.deposit.selected
+      ? { depositPayRail: existing.depositPayRail }
+      : {}),
     deliverySlot: existing.deliverySlot,
     status: existing.status,
     revisionLog: [...(existing.revisionLog ?? [])],

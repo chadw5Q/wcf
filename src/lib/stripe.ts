@@ -31,6 +31,11 @@ export type CreateCheckoutSessionOptions = {
    * Prefer Dashboard configs long-term; this avoids hard-coding an allow-list.
    */
   excludedPaymentMethodTypes?: string[];
+  /**
+   * Explicit allow-list (e.g. ['card'] or ['us_bank_account']). Bypasses the Dashboard's
+   * payment method configuration, so Checkout still opens if that configuration is empty.
+   */
+  paymentMethodTypes?: Stripe.Checkout.SessionCreateParams.PaymentMethodType[];
 };
 
 export async function createCheckoutSession(
@@ -71,7 +76,9 @@ export async function createCheckoutSession(
     ...(options?.customerEmail?.trim()
       ? { customer_email: options.customerEmail.trim() }
       : {}),
-    ...(options?.excludedPaymentMethodTypes?.length
+    ...(options?.paymentMethodTypes?.length
+      ? { payment_method_types: options.paymentMethodTypes }
+      : options?.excludedPaymentMethodTypes?.length
       ? { excluded_payment_method_types: options.excludedPaymentMethodTypes as Stripe.Checkout.SessionCreateParams.ExcludedPaymentMethodType[] }
       : {}),
   });
